@@ -19,6 +19,7 @@ object QuotaCalculator {
     /**
      * @param carryIn önceki aydan devreden küsurat
      * @param capacity kişinin bu ay en fazla kaç nöbete sığabileceği (uygun günler ve en az aralık kuralına göre)
+     * @param fixed elle sabitlenen sayılar; kalan günler diğerlerine aynı kurallarla dağıtılır
      */
     fun compute(
         month: YearMonth,
@@ -28,7 +29,23 @@ object QuotaCalculator {
         capacity: Map<String, Int>,
         maxPerMonth: Int,
         fixedTotal: Int = month.lengthOfMonth(),
+        fixed: Map<String, Int> = emptyMap(),
     ): QuotaResult {
+        if (fixed.isNotEmpty()) {
+            // Önce kimse sabitlenmemiş gibi öneri (gösterim için), sonra kalan günlerin diğerlerine dağıtımı.
+            val full = compute(month, persons, availability, carryIn, capacity, maxPerMonth, fixedTotal)
+            val rest = persons.filter { it.id !in fixed }
+            val remaining = (fixedTotal - fixed.values.sum()).coerceAtLeast(0)
+            val part = compute(month, rest, availability, carryIn, capacity, maxPerMonth, remaining)
+            val entries = persons.map { p ->
+                val v = fixed[p.id]
+                if (v != null) full.entries.first { it.personId == p.id }.copy(final = v, manual = true)
+                else part.entries.first { it.personId == p.id }
+            }
+            val warnings = part.warnings.toMutableList()
+            if (fixed.values.sum() > fixedTotal) warnings += "Elle girilen sayılar (${fixed.values.sum()}) ayın gün sayısını ($fixedTotal) aşıyor"
+            return QuotaResult(entries, full.raw, warnings)
+        }
         val n = month.lengthOfMonth()
         val days = (1..n).map { month.atDay(it) }
         val warnings = ArrayList<String>()

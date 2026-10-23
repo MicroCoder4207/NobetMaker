@@ -92,6 +92,7 @@ object ProblemBuilder {
         month: YearMonth,
         existing: List<Assignment> = emptyList(),
         quotaOverride: Map<String, Int>? = null,
+        quotaFixed: Map<String, Int> = emptyMap(),
     ): MonthProblem {
         val settings = data.settings
         val cal = CalendarService(data.dayOverrides, settings)
@@ -235,11 +236,11 @@ object ProblemBuilder {
         }
         val prevMonth = data.month(month.minusMonths(1))
         val carryIn = prevMonth?.quotas?.associate { it.personId to it.carryOut }.orEmpty()
-        val quotaResult = QuotaCalculator.compute(month, persons, avail, carryIn, capacity, settings.maxPerMonth)
+        val quotaResult = QuotaCalculator.compute(month, persons, avail, carryIn, capacity, settings.maxPerMonth, fixed = quotaFixed)
         val quotaMap: Map<String, Int> = quotaOverride ?: quotaResult.entries.associate { it.personId to it.final }
         val quotas = IntArray(P) { quotaMap[persons[it].id] ?: 0 }
         warnings += quotaResult.warnings
-        if (quotas.sum() != D) warnings += "Kotaların toplamı (${quotas.sum()}) ayın gün sayısına ($D) eşit değil"
+        if (quotas.sum() != D) warnings += "Nöbet sayılarının toplamı (${quotas.sum()}) ayın gün sayısına ($D) eşit değil"
 
         // Defter.
         val personPos = persons.withIndex().associate { (i, p) -> p.id to i }
@@ -270,6 +271,7 @@ object ProblemBuilder {
         )
     }
 
-    fun suggestedQuotas(data: AppData, month: YearMonth): List<QuotaEntry> =
-        build(data, month).quotaResult?.entries.orEmpty()
+    /** Önerilen nöbet sayıları; [fixed] verilirse o kişiler sabit kalır, kalan günler diğerlerine dağılır. */
+    fun suggestedQuotas(data: AppData, month: YearMonth, fixed: Map<String, Int> = emptyMap()): List<QuotaEntry> =
+        build(data, month, quotaFixed = fixed).quotaResult?.entries.orEmpty()
 }

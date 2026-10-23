@@ -5,6 +5,7 @@ import com.nobetmaker.core.calendar.Category
 import com.nobetmaker.core.calendar.trFormat
 import com.nobetmaker.core.model.AppData
 import com.nobetmaker.core.model.DutyRequest
+import com.nobetmaker.core.model.MonthStatus
 import com.nobetmaker.core.model.Period
 import com.nobetmaker.core.model.Person
 import com.nobetmaker.core.model.Priority
@@ -18,6 +19,36 @@ class Availability(data: AppData, private val cal: CalendarService) {
 
     private val periodsByPerson = data.periods.groupBy { it.personId }
     private val requestsByPerson = data.requests.groupBy { it.personId }
+
+    /**
+     * Adalet hesabında kişinin ekipte sayıldığı ilk gün. Nöbete ya da bölüme katılış girilmişse o tarihtir.
+     * Girilmemişse kayıtlardan çıkarılır: kişinin ya da kendisinden çömez birinin ilk kayıtlı nöbeti
+     * (çömez nöbet tutmaya başladığında kıdemli zaten bölümdedir). Hiç kayıt yoksa kayıtların bittiği günün ertesi.
+     */
+    private val presence: Map<String, LocalDate?> = run {
+        val first = HashMap<String, LocalDate>()
+        var recordedEnd: LocalDate? = null
+        for (m in data.months) {
+            if (m.status == MonthStatus.TASLAK) continue
+            for (a in m.current?.assignments.orEmpty()) {
+                first.merge(a.personId, a.date) { x, y -> minOf(x, y) }
+                if (recordedEnd == null || a.date.isAfter(recordedEnd)) recordedEnd = a.date
+            }
+        }
+        for (h in data.historyEvents) {
+            val s = h.start ?: continue
+            for (e in h.entries) if (e.days > 0) first.merge(e.personId, s) { x, y -> minOf(x, y) }
+        }
+        data.persons.associate { p ->
+            p.id to (
+                p.dutyFrom
+                    ?: data.persons.filter { it.seniority >= p.seniority }.mapNotNull { first[it.id] }.minOrNull()
+                    ?: recordedEnd?.plusDays(1)
+                )
+        }
+    }
+
+    fun presenceStart(person: Person): LocalDate? = if (person.id in presence) presence[person.id] else person.dutyFrom
 
     fun ruleBlock(person: Person, date: LocalDate): String? {
         for (rule in person.rules) {
@@ -62,7 +93,8 @@ class Availability(data: AppData, private val cal: CalendarService) {
 
     /** Adalet defterinde o günün payına ortak olup olmadığı (§6). */
     fun eligibleForShare(person: Person, date: LocalDate): Boolean =
-        countsForQuota(person, date) && ruleBlock(person, date) == null
+        countsForQuota(person, date) && ruleBlock(person, date) == null &&
+            presenceStart(person).let { it == null || !date.isBefore(it) }
 
     companion object {
         fun avoids(r: DutyRequest, date: LocalDate): Boolean = when (r.type) {

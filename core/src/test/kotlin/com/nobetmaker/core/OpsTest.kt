@@ -32,11 +32,23 @@ class OpsTest {
         val seed = SeedData.build()
         val old = seed.copy(schemaVersion = 1, dayOverrides = seed.dayOverrides.filter { it.date != oct29 })
         val migrated = AppJson.decode(AppJson.encode(old))
-        assertEquals(2, migrated.schemaVersion)
+        assertEquals(com.nobetmaker.core.model.AppData.SCHEMA_VERSION, migrated.schemaVersion)
         assertEquals(com.nobetmaker.core.model.Visit.VAR, migrated.dayOverrides.single { it.date == oct29 }.actualVisit)
         // 0.1.0 ayarlarında olmayan alanlar varsayılan değerini alır, kaldırılan alanlar sorun çıkarmaz.
         val legacy = AppJson.encode(old).replace("\"rotationMonths\": 3", "\"shortMemoryMonths\": 6")
         assertEquals(3, AppJson.decode(legacy).settings.rotationMonths)
+        // 0.2.x: eski renkler yenilerine, başlangıç verisindeki katılış tarihleri boşa çevrilir.
+        val v2 = old.copy(persons = old.persons.map { p ->
+            when (p.id) {
+                "asli" -> p.copy(color = "#00BCD4", joinDate = LocalDate.of(2026, 8, 1))
+                "kenan" -> p.copy(color = "#2196F3", joinDate = LocalDate.of(2020, 1, 1))
+                else -> p
+            }
+        })
+        val m2 = AppJson.decode(AppJson.encode(v2))
+        assertEquals(com.nobetmaker.core.model.PersonPalette.colors[6], m2.person("asli")!!.color)
+        assertEquals(null, m2.person("asli")!!.joinDate)
+        assertEquals(LocalDate.of(2020, 1, 1), m2.person("kenan")!!.joinDate, "kullanıcının girdiği tarih korunmalı")
     }
 
     @Test
@@ -90,6 +102,28 @@ class OpsTest {
         val someone = data.persons.first { it.id != data.month(ym)!!.current!!.personOn(d5) }.id
         data = DataOps.assign(data, ym, d5, someone)
         assertEquals(2, data.month(ym)!!.versions.size, "yayınlanmış ayda değişiklik yeni sürüm açmalı")
+    }
+
+    @Test
+    fun `elle degisen nobet sayisi digerlerine dagilir`() {
+        val ym = YearMonth.of(2026, 11)
+        var data = DataOps.ensureMonth(SeedData.build(), ym)
+        val before = data.month(ym)!!.quotas.associate { it.personId to it.final }
+        assertEquals(30, before.values.sum())
+        // Yaren bu ay tutmayacak: 0'a indirilince 2 günü diğerlerine dağılmalı.
+        data = DataOps.setQuota(data, ym, "yaren", 0)
+        val after = data.month(ym)!!.quotas.associateBy { it.personId }
+        println("önce: $before, sonra: ${after.mapValues { it.value.final }}")
+        assertEquals(0, after.getValue("yaren").final)
+        assertTrue(after.getValue("yaren").manual)
+        assertEquals(before.getValue("yaren"), after.getValue("yaren").suggested)
+        assertEquals(30, after.values.sumOf { it.final })
+        assertTrue(after.filterKeys { it != "yaren" }.all { (id, q) -> q.final >= before.getValue(id) && !q.manual })
+        // Öneriler yeniden hesaplanınca sabit kalır; bırakılınca eski haline döner.
+        data = DataOps.refreshQuotas(data, ym)
+        assertEquals(0, data.month(ym)!!.quotas.first { it.personId == "yaren" }.final)
+        data = DataOps.releaseQuota(data, ym, "yaren")
+        assertEquals(before, data.month(ym)!!.quotas.associate { it.personId to it.final })
     }
 
     @Test

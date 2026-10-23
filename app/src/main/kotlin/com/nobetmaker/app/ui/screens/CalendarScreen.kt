@@ -1,11 +1,14 @@
 package com.nobetmaker.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -76,10 +79,7 @@ fun CalendarScreen(vm: AppViewModel, nav: Nav) {
     val days = remember(data, month, showActual) { gridFromData(data, month, showActual) }
     val scheme = MaterialTheme.colorScheme
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
+    val main: @Composable ColumnScope.() -> Unit = {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             MonthSwitcher(month, vm::setMonth, Modifier.weight(1f))
             when (status) {
@@ -122,7 +122,8 @@ fun CalendarScreen(vm: AppViewModel, nav: Nav) {
                 }
             },
         )
-
+    }
+    val side: @Composable ColumnScope.() -> Unit = {
         MonthSummary(vm, showActual)
 
         val canEdit = status == null || status == MonthStatus.TASLAK
@@ -162,7 +163,28 @@ fun CalendarScreen(vm: AppViewModel, nav: Nav) {
                 OutlinedButton(onClick = { swapFrom = null; swapPicking = true }) { Text("İki günü değiştir") }
             }
         }
-        Spacer(Modifier.height(24.dp))
+    }
+
+    // Tablet ve yatay ekranda takvim solda, özet ve işlemler sağda; telefonda alt alta.
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        if (maxWidth >= 840.dp) {
+            Row(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                Column(Modifier.weight(1.75f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) { main() }
+                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    side()
+                    Spacer(Modifier.height(24.dp))
+                }
+            }
+        } else {
+            Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                main()
+                side()
+                Spacer(Modifier.height(24.dp))
+            }
+        }
     }
 
     var candidates by remember { mutableStateOf<List<com.nobetmaker.core.solver.CandidateInfo>?>(null) }
@@ -214,7 +236,7 @@ private fun MonthSummary(vm: AppViewModel, showActual: Boolean) {
                 PersonDot(r.person)
                 Spacer(Modifier.width(8.dp))
                 Text(r.person.name, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                val quota = if (!showActual && r.quota != null && r.quota != r.count) " / kota ${r.quota}" else ""
+                val quota = if (!showActual && r.quota != null && r.quota != r.count) " / hedef ${r.quota}" else ""
                 Text("${r.count} nöbet$quota", style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.width(12.dp))
                 Text("${r.hours} sa", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

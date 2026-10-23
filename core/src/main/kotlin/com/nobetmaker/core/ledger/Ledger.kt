@@ -152,7 +152,7 @@ class Ledger(
         fun presentAt(p: Person, e: Event): Boolean {
             if ((e.days[p.id] ?: 0) > 0) return true
             if (e.manual) {
-                val s = e.start ?: return p.joinDate == null
+                val s = e.start ?: return availability.presenceStart(p) == null
                 return availability.eligibleForShare(p, s)
             }
             return e.dates.any { availability.eligibleForShare(p, it) }

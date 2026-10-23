@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -27,7 +28,7 @@ import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -51,6 +52,7 @@ import com.nobetmaker.app.ui.AppViewModel
 import com.nobetmaker.app.ui.ChoiceField
 import com.nobetmaker.app.ui.DateField
 import com.nobetmaker.app.ui.EmptyNote
+import com.nobetmaker.app.ui.MonthDayPicker
 import com.nobetmaker.app.ui.Nav
 import com.nobetmaker.app.ui.PersonDot
 import com.nobetmaker.app.ui.PersonField
@@ -78,7 +80,7 @@ fun PrepareScreen(vm: AppViewModel, nav: Nav, month: YearMonth) {
     val data by rememberData(vm)
     LaunchedEffect(month) { if (data.month(month) == null) vm.update { DataOps.ensureMonth(it, month) } }
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf("Dönemler", "İstekler", "Kota", "Kontrol")
+    val tabs = listOf("Dönemler", "İstekler", "Nöbet sayıları", "Kontrol")
     val editable = data.month(month)?.status.let { it == null || it == MonthStatus.TASLAK }
 
     Scaffold(
@@ -97,8 +99,13 @@ fun PrepareScreen(vm: AppViewModel, nav: Nav, month: YearMonth) {
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            PrimaryTabRow(selectedTabIndex = tab) {
-                tabs.forEachIndexed { i, t -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t) }) }
+            // Sekme adları tek satırda kalsın diye genişlik içeriğe göre; dar telefonda kaydırılabilir.
+            PrimaryScrollableTabRow(selectedTabIndex = tab, edgePadding = 0.dp) {
+                tabs.forEachIndexed { i, t ->
+                    Tab(selected = tab == i, onClick = { tab = i }) {
+                        Text(t, Modifier.padding(horizontal = 12.dp, vertical = 14.dp), maxLines = 1, style = MaterialTheme.typography.titleSmall)
+                    }
+                }
             }
             Column(
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
@@ -126,7 +133,7 @@ private fun PeriodsTab(vm: AppViewModel, month: YearMonth) {
     val to = month.atEndOfMonth().plusDays(7)
     val list = data.periods.filter { !it.end.isBefore(from) && !it.start.isAfter(to) }.sortedBy { it.start }
 
-    Text("İzin, kongre, rapor ve rotasyonlar. Yıllık izin ve kongre kotayı düşürmez.", style = MaterialTheme.typography.bodySmall)
+    Text("İzin, kongre, rapor ve rotasyonlar. Yıllık izin ve kongre nöbet sayısını düşürmez.", style = MaterialTheme.typography.bodySmall)
     OutlinedButton(onClick = { creating = true }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("Dönem ekle") }
     if (list.isEmpty()) EmptyNote("Bu ay için dönem yok")
     list.forEach { p ->
@@ -138,7 +145,7 @@ private fun PeriodsTab(vm: AppViewModel, month: YearMonth) {
                 Availability.periodText(p),
                 if (p.tentative) "Belirsiz (mümkünse istek gibi)" else null,
                 if (p.worksDuty) "Bu dönemde nöbet tutar" else null,
-                if (p.reducesQuota) "Kotayı düşürür" else null,
+                if (p.reducesQuota) "Nöbet sayısını düşürür" else null,
                 p.note,
             ),
             onEdit = { editing = p },
@@ -179,7 +186,7 @@ private fun PeriodDialog(persons: List<Person>, initial: Period?, month: YearMon
                 DateField("Bitiş", end, { d -> d?.let { end = it } })
                 SwitchRow("Tarihi belirsiz", tentative) { tentative = it }
                 SwitchRow("Bu dönemde nöbet tutar", works) { works = it }
-                SwitchRow("Kotayı düşürür", reduces) { reduces = it }
+                SwitchRow("Nöbet sayısını düşürür", reduces) { reduces = it }
                 OutlinedTextField(note, { note = it }, label = { Text("Not") }, modifier = Modifier.fillMaxWidth())
             }
         },
@@ -240,6 +247,7 @@ private fun RequestDialog(persons: List<Person>, initial: DutyRequest?, month: Y
     var start by remember { mutableStateOf(initial?.rangeStart ?: month.atDay(1)) }
     var end by remember { mutableStateOf(initial?.rangeEnd ?: month.atDay(7)) }
     var maxPerWeek by remember { mutableIntStateOf(initial?.maxPerWeek ?: 1) }
+    var pickingEnd by remember { mutableStateOf(false) }
     var text by remember { mutableStateOf(initial?.originalText.orEmpty()) }
     val usesDates = type == RequestType.AVOID_DATES || type == RequestType.WANT_DATES
     val valid = personId != null && (if (usesDates) dates.isNotEmpty() else !end.isBefore(start))
@@ -253,20 +261,35 @@ private fun RequestDialog(persons: List<Person>, initial: DutyRequest?, month: Y
                 ChoiceField("Tür", RequestType.entries, type, { it.label }, { type = it })
                 ChoiceField("Öncelik", Priority.entries, priority, { it.label }, { priority = it })
                 if (usesDates) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        dates.sorted().forEach { d ->
-                            InputChip(selected = true, onClick = { dates = dates - d }, label = { Text(d.short()) }, trailingIcon = { Icon(Icons.Default.Delete, null) })
-                        }
-                    }
-                    DateField("Tarih ekle", null, { d -> d?.let { if (it !in dates) dates = dates + it } })
+                    Text("Günlere dokunarak seçin; tekrar dokununca kalkar.", style = MaterialTheme.typography.bodySmall)
+                    MonthDayPicker(month, selected = { it in dates }, onTap = { d -> dates = if (d in dates) dates - d else dates + d })
+                    Text(
+                        if (dates.isEmpty()) "Gün seçilmedi" else "Seçilen: " + dates.sorted().joinToString(", ") { it.short() },
+                        style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold,
+                    )
                 } else {
-                    DateField("Başlangıç", start, { d -> d?.let { start = it; if (end.isBefore(it)) end = it } })
-                    DateField("Bitiş", end, { d -> d?.let { end = it } })
-                    if (type == RequestType.AVOID_RANGE) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { start = month.atDay(1) }) { Text("Ay başından") }
-                            TextButton(onClick = { end = month.atEndOfMonth() }) { Text("Ay sonuna") }
-                        }
+                    Text(
+                        if (pickingEnd) "Bitiş gününe dokunun" else "Başlangıç gününe, sonra bitiş gününe dokunun",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    MonthDayPicker(
+                        month,
+                        selected = { it == start || it == end },
+                        inRange = { it.isAfter(start) && it.isBefore(end) },
+                        onTap = { d ->
+                            if (!pickingEnd || d.isBefore(start)) {
+                                start = d; end = d; pickingEnd = true
+                            } else {
+                                end = d; pickingEnd = false
+                            }
+                        },
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (start == end) start.short() else "${start.short()} – ${end.short()}",
+                            Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold,
+                        )
+                        TextButton(onClick = { start = month.atDay(1); end = month.atEndOfMonth(); pickingEnd = false }) { Text("Bütün ay") }
                     }
                     if (type == RequestType.WEEKLY_MAX) {
                         Stepper("Haftada en fazla", maxPerWeek.toDouble(), 1.0, 1.0, 3.0, { it.toInt().toString() }) { maxPerWeek = it.toInt() }
@@ -292,7 +315,7 @@ private fun RequestDialog(persons: List<Person>, initial: DutyRequest?, month: Y
     )
 }
 
-// ------------------------------------------------------------------ Kota
+// ------------------------------------------------------------------ Nöbet sayıları
 
 @Composable
 private fun QuotaTab(vm: AppViewModel, month: YearMonth, editable: Boolean) {
@@ -301,7 +324,10 @@ private fun QuotaTab(vm: AppViewModel, month: YearMonth, editable: Boolean) {
     val plan = data.month(month) ?: return
     val total = plan.quotas.sumOf { it.final }
     val days = month.lengthOfMonth()
-    Text("Uygulama kıdem katsayılarına göre önerir; ±1 ile değiştirebilirsiniz.", style = MaterialTheme.typography.bodySmall)
+    Text(
+        "Uygulama kıdem katsayılarına göre önerir. Birinin sayısını değiştirdiğinizde o kişi sabitlenir, kalan günler diğerlerine aynı kurallarla yeniden dağıtılır.",
+        style = MaterialTheme.typography.bodySmall,
+    )
     SectionCard {
         plan.quotas.mapNotNull { q -> data.person(q.personId)?.let { it to q } }.sortedBy { it.first.seniority }.forEach { (p, q) ->
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -310,7 +336,11 @@ private fun QuotaTab(vm: AppViewModel, month: YearMonth, editable: Boolean) {
                 Column(Modifier.weight(1f)) {
                     Text(p.name, fontWeight = FontWeight.SemiBold)
                     val carry = if (q.carryIn != 0.0) " · devreden ${"%.2f".format(q.carryIn)}" else ""
-                    Text("Öneri ${q.suggested}$carry", style = MaterialTheme.typography.bodySmall)
+                    val detail = if (q.manual) "Elle sabit · öneri ${q.suggested}" else "Önerilen sayı$carry"
+                    Text(detail, style = MaterialTheme.typography.bodySmall, color = if (q.manual) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (q.manual && editable) {
+                    IconButton(onClick = { vm.update { DataOps.releaseQuota(it, month, p.id) } }) { Icon(Icons.Default.Lock, "Sabitlemeyi kaldır", tint = MaterialTheme.colorScheme.primary) }
                 }
                 IconButton(enabled = editable && q.final > 0, onClick = { vm.update { DataOps.setQuota(it, month, p.id, q.final - 1) } }) { Text("−", style = MaterialTheme.typography.titleLarge) }
                 Text("${q.final}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

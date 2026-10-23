@@ -75,8 +75,12 @@ Katsayılar asistanlık yılına otomatik olarak bağlanmaz. Elle girilir ve ge�
 
 ### 2.2 Kişi ekleme ve çıkarma
 
-- Her kişinin bir **bölüme katılış** tarihi, varsa bir de **ayrılış** tarihi vardır. Bu tarihler yalnızca kişinin ekipte hangi dönemde bulunduğunu belirler; kıdem sırasını etkilemez. Kişi ayrılış tarihinden sonra listeye girmez ve katsayılar kalanlar arasında kendiliğinden yeniden oranlanır.
-- İsteğe bağlı olarak **asistanlık başlangıç** tarihi de girilebilir (başka hastanede geçen süre dahil). Bu alan yalnızca bilgi içindir, hiçbir hesaba girmez.
+- Her kişi için dört tarih girilebilir; hiçbiri kıdem sırasını etkilemez:
+  - **Asistanlık başlangıcı:** başka hastanede geçen süre dahil. Yalnızca bilgi içindir. Varsayılan olarak bölüme katılışla aynıdır; biri girilince boş olan diğeri de aynı tarihi alır.
+  - **Bölüme katılış.**
+  - **Nöbete katılış:** bölüme gelen hemen nöbete girmiyor. Kişi bu tarihten önce listeye yazılmaz. Boşsa bölüme katılış esas alınır.
+  - **Ayrılış:** kişi bu tarihten sonra listeye girmez ve katsayılar kalanlar arasında kendiliğinden yeniden oranlanır.
+- Tarihler boş bırakılabilir (başlangıç verisinde hepsi boştur). Bu durumda adalet hesabı, kişinin ekipte olduğu dönemi kayıtlardan çıkarır: kişinin ya da kendisinden çömez birinin ilk kayıtlı nöbeti başlangıç sayılır, çünkü çömez nöbete başladığında kıdemli zaten bölümdedir. Hiç kaydı olmayan yeni kişi, kayıtların bittiği günden sonra ekipte sayılır. Başka hastaneden geçişle sonradan gelen kıdemli biri için nöbete katılış tarihi girilmelidir.
 - Bir kişi ekipte kalıp nöbetten çıkabilir (Yaren için bu ihtimal var). Bu durumda kişiye bir **nöbet muafiyeti** dönemi girilir (bkz. 5.3). Kişi listeye girmez, payı kalanlara katsayılarına göre dağılır, borç yazılmaz. Geçmişi ve istatistiği yerinde durur.
 - Ayrılan kişinin geçmişi silinmez. İstatistikte ve geçmiş özel günlerde görünmeye devam eder ama adalet hesabına girmez.
 - Ekipte artık bulunmayan ama geçmiş kayıtlarda adı geçen kişiler "ayrılmış kişi" olarak eklenebilir.
@@ -214,7 +218,7 @@ Y4'teki sapma, ayın sırasında beklenen gün sayısından fark; Y5'teki sapma 
 
 ---
 
-## 5. Kota (kim kaç nöbet tutar)
+## 5. Nöbet sayısı (kota: kim kaç nöbet tutar)
 
 ### 5.1 Hesap
 
@@ -225,7 +229,7 @@ Y4'teki sapma, ayın sırasında beklenen gün sayısından fark; Y5'teki sapma 
 5. **Yuvarlama:** Toplam N olacak şekilde en büyük kalan yöntemiyle yapılır. Eşitlik olursa fazla nöbet çömeze gider.
 6. **Yeni küsurat** = (hak + eski küsurat) − verilen kota. Bu fark sonraki aya devreder. Örneğin Yaren'in hakkı 2.5 ise bir ay 2, bir ay 3 nöbet tutar.
 7. **Sınırlar:** Üst sınır 6'dır (S6). Ayrıca fiziksel sığma kontrol edilir: kişinin uygun günlerine en az 3 gün arayla en fazla kaç nöbet sığabileceğine bakılır. Sınırı aşan kısım o ay diğerlerine dağıtılır. Bunun için **borç yazılmaz** ve küsurat devri yapılmaz.
-8. Uygulama kotayı **önerir**. Liste yapan herhangi bir kişinin kotasını ±1 değiştirebilir, toplam N korunur.
+8. Uygulama sayıları **önerir** (uygulamada "Nöbet sayıları" sekmesi). Liste yapan, bir kişinin sayısını ±1 değiştirdiğinde o kişi **elle sabitlenir** ve kalan günler diğerlerine yukarıdaki adımlarla yeniden dağıtılır; toplam N korunur. Örnek: Kasım 2026'da Yaren 0'a indirilince 2 günü Fatma ve Aslı'ya geçer. Sabitleme kişi bazında kaldırılabilir ya da "Öneriye dön" ile hepsi sıfırlanır. Elle sabitlenen kişiye borç yazılmaz.
 
 Doğrulama:
 
@@ -504,23 +508,25 @@ Veriler telefonda tek bir JSON belgesinde tutulur (bkz. 15). Belgenin temel böl
 
 Dosya adı şu biçimdedir: `Nobet_Listesi_2026_11_Kasim.xlsx`. Dosyada yalnızca resmi liste bulunur; puan ve defter bilgisi yer almaz.
 
+- **Genel görünüm:** Segoe UI yazı tipi (her Windows'ta var), ızgara çizgileri kapalı, lacivert başlık satırları, kişi adları kişinin dolu renginde.
 - **Takvim sayfası:**
-  - Başlık Ayarlar'dan gelir (ör. "Tıbbi Mikrobiyoloji Asistan Nöbet Listesi – Kasım 2026").
-  - Pazartesi–Pazar ızgarası; her hücrede gün numarası ve nöbetçinin adı.
-  - Kişi renkleri; hafta sonu sütunları açık gri.
-  - Tatil günleri işaretli ve adı yazılı.
+  - Başlık Ayarlar'dan gelir (ör. "Tıbbi Mikrobiyoloji Asistan Nöbet Listesi"), altında ay adı ve liste türü.
+  - Pazartesi–Pazar ızgarası; her gün beyaz aralıklarla ayrılmış bir kutu: gün numarası (vizitliyse "VİZİT"), nöbetçinin adı, tatil adı ya da not.
+  - Hafta sonu ve tatil kutuları hafif tonlu, tatil adı kırmızı.
   - Izgaranın altında kişi başı nöbet sayıları ve izin listesi.
   - Baskı ayarı: A4 yatay, tek sayfaya sığacak şekilde.
-- **Liste sayfası:** Tarih | Gün | Nöbetçi | Açıklama (resmi tatil ya da bayram adı).
+- **Liste sayfası:** Tarih | Gün | Nöbetçi | Açıklama (tatil adı, vizit, değişim). Başlık satırı kaydırırken sabit kalır.
 - **Özet sayfası:** Kişi | Toplam nöbet | Hafta içi | Hafta sonu/tatil | Saat (resmi listeye göre).
 
 ### 14.2 Görsel (WhatsApp için) ve PDF
 
-Kağıt listelerin görsel dili korunur:
+Sade, modern bir takvim:
 
-- Pazartesi–Pazar ızgarası, her kişiye sabit bir fosforlu renk, hafta sonu sütunları hafif tonlu.
-- Tatil günleri daire ya da işaretle ve adıyla gösterilir; vizitli günlerde küçük bir ikon bulunur.
-- Altta "Yaren → 2 nöbet …" özeti ve "Yıllık izinler: 7-11 Eylül → Oğuz" listesi yer alır.
+- Inter yazı tipi (açık lisanslı, uygulamanın içinde gelir; uygulama arayüzü de aynı yazı tipini kullanır).
+- Pazartesi–Pazar ızgarası; her gün yuvarlak köşeli ayrı bir kutu. Nöbetçinin adı, kişinin dolu renginde bir hapın içinde yazılır (açık renklerde koyu, koyu renklerde beyaz yazı).
+- Kişi renkleri birbirinden belirgin biçimde ayrılır: kırmızı, mavi, turuncu, yeşil, sarı, mor, camgöbeği; yeni kişiler için pembe, kahverengi, fıstık yeşili, antrasit.
+- Hafta sonu kutuları hafif tonlu, tatil kutuları açık kırmızı ve tatil adı yazılı; vizitli günlerde "VİZİT" rozeti.
+- Altta kişi başı nöbet sayısı ve saat kartları, varsa izinler.
 - Resmi ya da gayriresmi görünüm seçilebilir. Gayriresmi görünümde "Oğuz (Betül)" gösterimi kullanılır.
 - Biçimler: PNG (WhatsApp'a tek dokunuşla) ve PDF (A4 yatay).
 
@@ -611,6 +617,11 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 | K26 | Vizit, Cuma, Pazar ve Perşembe sırayla döner; son 3 ay hatırlanır (6.1). Sıra her ay sağlanamayabilir, sağlanabildiği aylarda sağlanır. |
 | K27 | Liste mümkün olduğunca karışık dizilir: aynı ikili ard arda tekrar etmez (Y10), aynı kişi Pzt–Per'de aynı güne ayda 2. kez yazılmaz (Y7). |
 | K28 | Salı dersi yüzünden Pazartesi de sırayla döner; bu en kolay esneyen kuraldır (Y4a). |
+| K29 | "Kota" uygulamada "Nöbet sayıları" adını alır. Bir kişinin sayısı elle değişince o kişi sabitlenir, kalan günler diğerlerine algoritmayla dağılır (5.1-8). |
+| K30 | Kişi tarihleri: asistanlık başlangıcı, bölüme katılış, nöbete katılış, ayrılış. Asistanlık başlangıcı varsayılan olarak bölüme katılışla aynıdır. Başlangıç verisinde tarihler boştur; adalet hesabı boş tarihleri kayıtlardan çıkarır (2.2). |
+| K31 | İsteklerde takvim yalnızca hazırlanan ayı gösterir; günler takvimden seçilir. |
+| K32 | Kişi renkleri belirgin biçimde farklıdır ve dolu renk olarak kullanılır. Görsel, PDF ve Excel modern tasarımdadır (14.1, 14.2). |
+| K33 | Uygulama telefon ve tablete uyumludur: geniş ekranda sekmeler solda, takvim solda ve özet sağda; takvim ekran genişliğiyle büyür. |
 
 ---
 

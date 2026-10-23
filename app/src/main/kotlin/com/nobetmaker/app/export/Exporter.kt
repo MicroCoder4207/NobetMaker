@@ -9,6 +9,8 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import androidx.core.content.FileProvider
+import androidx.core.content.res.ResourcesCompat
+import com.nobetmaker.app.R
 import com.nobetmaker.core.export.Align
 import com.nobetmaker.core.export.DrawOp
 import com.nobetmaker.core.export.MonthViewBuilder
@@ -21,9 +23,21 @@ import java.io.File
 import java.time.LocalDate
 import java.time.YearMonth
 
+/** Inter yazı tipinin kalınlıkları; bulunamazsa sistem yazı tipi. */
+class ExportFonts(context: Context) {
+    private val byWeight: Map<Int, Typeface> = mapOf(
+        400 to R.font.inter_regular, 500 to R.font.inter_medium, 600 to R.font.inter_semibold,
+        700 to R.font.inter_bold, 800 to R.font.inter_extrabold,
+    ).mapNotNull { (w, id) -> runCatching { ResourcesCompat.getFont(context, id) }.getOrNull()?.let { w to it } }.toMap()
+
+    fun get(weight: Int): Typeface =
+        byWeight.entries.minByOrNull { kotlin.math.abs(it.key - weight) }?.value
+            ?: if (weight >= 600) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+}
+
 /** Ortak çizim düzenini Android tuvaline çizer (PNG ve PDF aynı kodu kullanır). */
 object AndroidRenderer {
-    fun draw(layout: SheetLayout, canvas: Canvas) {
+    fun draw(layout: SheetLayout, canvas: Canvas, fonts: ExportFonts) {
         val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
         val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
         val text = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -45,7 +59,8 @@ object AndroidRenderer {
                 }
                 is DrawOp.Text -> {
                     text.color = op.color
-                    text.typeface = if (op.bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+                    text.typeface = fonts.get(op.weight)
+                    text.letterSpacing = op.tracking
                     var size = op.size
                     text.textSize = size
                     while (text.measureText(op.text) > op.w && size > 8f) {
@@ -96,16 +111,16 @@ object Exporter {
         share(context, file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", view.monthTitle)
     }
 
-    private fun bitmap(data: AppData, month: YearMonth, actual: Boolean): Bitmap {
+    private fun bitmap(context: Context, data: AppData, month: YearMonth, actual: Boolean): Bitmap {
         val layout = RosterSheet.layout(MonthViewBuilder.build(data, month, actual), LocalDate.now())
         val bmp = Bitmap.createBitmap(layout.width, layout.height, Bitmap.Config.ARGB_8888)
-        AndroidRenderer.draw(layout, Canvas(bmp))
+        AndroidRenderer.draw(layout, Canvas(bmp), ExportFonts(context))
         return bmp
     }
 
     fun shareImage(context: Context, data: AppData, month: YearMonth, actual: Boolean) {
         val file = File(exportDir(context), baseName(data, month, actual) + ".png")
-        val bmp = bitmap(data, month, actual)
+        val bmp = bitmap(context, data, month, actual)
         file.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bmp.recycle()
         share(context, file, "image/png", "Nöbet listesi")
@@ -118,7 +133,7 @@ object Exporter {
         val page = doc.startPage(PdfDocument.PageInfo.Builder(842, 595, 1).create())
         val scale = minOf(842f / layout.width, 595f / layout.height)
         page.canvas.scale(scale, scale)
-        AndroidRenderer.draw(layout, page.canvas)
+        AndroidRenderer.draw(layout, page.canvas, ExportFonts(context))
         doc.finishPage(page)
         val file = File(exportDir(context), baseName(data, month, actual) + ".pdf")
         file.outputStream().use { doc.writeTo(it) }

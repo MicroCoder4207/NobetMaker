@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +22,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -119,29 +119,34 @@ fun CalendarGrid(
     onDayClick: ((GridDay) -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
-    Column(modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, scheme.outlineVariant, RoundedCornerShape(12.dp))) {
-        Row(Modifier.fillMaxWidth().background(scheme.primary)) {
-            DayOfWeek.entries.forEach { dow ->
-                Text(
-                    dow.trShort(),
-                    modifier = Modifier.weight(1f).padding(vertical = 6.dp),
-                    textAlign = TextAlign.Center,
-                    color = scheme.onPrimary,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
-        days.chunked(7).forEach { week ->
-            Row(Modifier.fillMaxWidth()) {
-                week.forEach { day ->
-                    DayCell(
-                        day = day,
-                        modifier = Modifier.weight(1f).height(cellHeight.dp),
-                        selected = day.date == selected,
-                        marked = day.date == marked,
-                        onClick = if (onDayClick != null && day.inMonth) ({ onDayClick(day) }) else null,
+    // Telefon genişliği (≈360dp) esas; tablette hücre ve yazılar orantılı büyür.
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val scale = (maxWidth.value / 360f).coerceIn(1f, 1.9f)
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, scheme.outlineVariant, RoundedCornerShape(12.dp))) {
+            Row(Modifier.fillMaxWidth().background(scheme.primary)) {
+                DayOfWeek.entries.forEach { dow ->
+                    Text(
+                        dow.trShort(),
+                        modifier = Modifier.weight(1f).padding(vertical = (6 * scale).dp),
+                        textAlign = TextAlign.Center,
+                        color = scheme.onPrimary,
+                        fontSize = (12 * scale).sp,
+                        fontWeight = FontWeight.SemiBold,
                     )
+                }
+            }
+            days.chunked(7).forEach { week ->
+                Row(Modifier.fillMaxWidth()) {
+                    week.forEach { day ->
+                        DayCell(
+                            day = day,
+                            scale = scale,
+                            modifier = Modifier.weight(1f).height((cellHeight * minOf(scale, 1.6f)).dp),
+                            selected = day.date == selected,
+                            marked = day.date == marked,
+                            onClick = if (onDayClick != null && day.inMonth) ({ onDayClick(day) }) else null,
+                        )
+                    }
                 }
             }
         }
@@ -149,7 +154,7 @@ fun CalendarGrid(
 }
 
 @Composable
-private fun DayCell(day: GridDay, modifier: Modifier, selected: Boolean, marked: Boolean, onClick: (() -> Unit)?) {
+private fun DayCell(day: GridDay, scale: Float, modifier: Modifier, selected: Boolean, marked: Boolean, onClick: (() -> Unit)?) {
     val scheme = MaterialTheme.colorScheme
     val bg = when {
         !day.inMonth -> scheme.surface
@@ -171,24 +176,26 @@ private fun DayCell(day: GridDay, modifier: Modifier, selected: Boolean, marked:
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (day.inMonth && day.visit) {
+                // Hücrenin kendi işareti olduğu belli olsun diye küçük dolu rozet.
                 Text(
                     if (day.visitUncertain) "V?" else "V",
-                    fontSize = 9.sp,
+                    modifier = Modifier.clip(RoundedCornerShape(50)).background(scheme.primaryContainer).padding(horizontal = (4 * scale).dp),
+                    fontSize = (9 * scale).sp,
                     fontWeight = FontWeight.Bold,
-                    color = scheme.secondary,
+                    color = scheme.onPrimaryContainer,
                 )
             }
-            if (day.locked) Icon(Icons.Default.Lock, contentDescription = "Kilitli", modifier = Modifier.size(10.dp), tint = scheme.onSurfaceVariant)
+            if (day.locked) Icon(Icons.Default.Lock, contentDescription = "Kilitli", modifier = Modifier.size((10 * scale).dp), tint = scheme.onSurfaceVariant)
             Text(
                 day.date.dayOfMonth.toString(),
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.End,
-                fontSize = 11.sp,
+                fontSize = (11 * scale).sp,
                 fontWeight = if (day.inMonth) FontWeight.Bold else FontWeight.Normal,
                 color = if (day.inMonth) scheme.onSurface else scheme.outline,
             )
         }
-        Column(Modifier.align(Alignment.Center).padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.align(Alignment.Center).padding(top = (6 * scale).dp), horizontalAlignment = Alignment.CenterHorizontally) {
             val p = day.main
             if (p != null) {
                 if (day.inMonth) {
@@ -196,30 +203,30 @@ private fun DayCell(day: GridDay, modifier: Modifier, selected: Boolean, marked:
                         p.name,
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(personTint(p.color))
-                            .padding(horizontal = 3.dp, vertical = 2.dp),
-                        fontSize = 10.5.sp,
+                            .background(personColor(p.color))
+                            .padding(horizontal = (3 * scale).dp, vertical = (2 * scale).dp),
+                        fontSize = (10.5 * scale).sp,
                         letterSpacing = 0.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Clip,
-                        color = Color(0xFF1F2433),
+                        color = onPersonColor(p.color),
                     )
                 } else {
-                    Text(p.name, fontSize = 10.sp, color = scheme.outline, maxLines = 1)
+                    Text(p.name, fontSize = (10 * scale).sp, color = scheme.outline, maxLines = 1)
                 }
             }
             val o = day.other
             if (day.inMonth && o != null && o.id != p?.id) {
-                Text("(${o.name})", fontSize = 9.sp, color = personColor(o.color), maxLines = 1, fontWeight = FontWeight.SemiBold)
+                Text("(${o.name})", fontSize = (9 * scale).sp, color = personColor(o.color), maxLines = 1, fontWeight = FontWeight.SemiBold)
             }
         }
         if (day.inMonth && day.holidayName != null) {
             Text(
                 day.holidayName,
                 modifier = Modifier.align(Alignment.BottomCenter),
-                fontSize = 7.sp,
-                lineHeight = 8.sp,
+                fontSize = (7 * scale).sp,
+                lineHeight = (8 * scale).sp,
                 color = scheme.secondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

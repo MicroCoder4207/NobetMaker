@@ -13,6 +13,7 @@ import com.nobetmaker.core.model.MonthPlan
 import com.nobetmaker.core.model.MonthStatus
 import com.nobetmaker.core.model.Period
 import com.nobetmaker.core.model.Person
+import com.nobetmaker.core.model.PersonPalette
 import com.nobetmaker.core.model.QuotaEntry
 import com.nobetmaker.core.model.RosterVersion
 import com.nobetmaker.core.model.Settings
@@ -46,6 +47,23 @@ object AppJson {
                 d = d.copy(dayOverrides = d.dayOverrides + DayInfo(oct29, DayKind.RESMI_TATIL, "Cumhuriyet Bayramı", eventId = "2026-10-29", actualVisit = Visit.VAR))
             }
         }
+        if (d.schemaVersion < 3) {
+            // 0.3.0: belirgin renkler; başlangıç verisindeki tahmini katılış tarihleri boşaltılır (kullanıcı girecek);
+            // önerisinden farklı girilmiş nöbet sayıları "elle sabit" sayılır.
+            val seedJoin = mapOf(
+                "betul" to LocalDate.of(2024, 11, 1), "sule" to LocalDate.of(2024, 11, 1),
+                "oguz" to LocalDate.of(2025, 4, 1), "asli" to LocalDate.of(2026, 8, 1),
+            )
+            d = d.copy(
+                persons = d.persons.map { p ->
+                    p.copy(
+                        color = PersonPalette.legacy[p.color.uppercase()] ?: p.color,
+                        joinDate = if (p.joinDate != null && seedJoin[p.id] == p.joinDate) null else p.joinDate,
+                    )
+                },
+                months = d.months.map { m -> m.copy(quotas = m.quotas.map { q -> if (q.final != q.suggested) q.copy(manual = true) else q }) },
+            )
+        }
         return if (d.schemaVersion == AppData.SCHEMA_VERSION) d else d.copy(schemaVersion = AppData.SCHEMA_VERSION)
     }
 }
@@ -72,15 +90,14 @@ object DataOps {
     }
 
     /** Önerilen kotaları yeniden hesaplar; kullanıcının değiştirmediği kotalar öneriyi izler. */
+    private fun manualQuotas(plan: MonthPlan) = plan.quotas.filter { it.manual }.associate { it.personId to it.final }
+
+    /** Önerileri yeniden hesaplar; elle sabitlenenler kalır, kalan günler diğerlerine dağılır. */
     fun refreshQuotas(data: AppData, ym: YearMonth): AppData {
         val plan = data.month(ym) ?: return ensureMonth(data, ym)
         if (plan.status == MonthStatus.KAPANDI) return data
-        val fresh = ProblemBuilder.suggestedQuotas(data, ym)
-        val merged = fresh.map { f ->
-            val old = plan.quotas.firstOrNull { it.personId == f.personId }
-            if (old != null && old.final != old.suggested) f.copy(final = old.final) else f
-        }
-        return replaceMonth(data, plan.copy(quotas = merged))
+        val fresh = ProblemBuilder.suggestedQuotas(data, ym, manualQuotas(plan))
+        return if (fresh == plan.quotas) data else replaceMonth(data, plan.copy(quotas = fresh))
     }
 
     fun resetQuotas(data: AppData, ym: YearMonth): AppData {
@@ -88,12 +105,17 @@ object DataOps {
         return replaceMonth(data, plan.copy(quotas = ProblemBuilder.suggestedQuotas(data, ym)))
     }
 
+    /** Kişinin sayısını elle sabitler; diğerlerinin önerisi kalan günlere göre yeniden dağılır. */
     fun setQuota(data: AppData, ym: YearMonth, personId: String, value: Int): AppData {
         val plan = data.month(ym) ?: return data
-        val exists = plan.quotas.any { it.personId == personId }
-        val quotas = if (exists) plan.quotas.map { if (it.personId == personId) it.copy(final = value.coerceAtLeast(0)) else it }
-        else plan.quotas + QuotaEntry(personId, 0, value.coerceAtLeast(0))
-        return replaceMonth(data, plan.copy(quotas = quotas))
+        val fixed = manualQuotas(plan) + (personId to value.coerceAtLeast(0))
+        return replaceMonth(data, plan.copy(quotas = ProblemBuilder.suggestedQuotas(data, ym, fixed)))
+    }
+
+    /** Elle sabitlemeyi kaldırır; kişi yeniden öneriye göre dağıtıma katılır. */
+    fun releaseQuota(data: AppData, ym: YearMonth, personId: String): AppData {
+        val plan = data.month(ym) ?: return data
+        return replaceMonth(data, plan.copy(quotas = ProblemBuilder.suggestedQuotas(data, ym, manualQuotas(plan) - personId)))
     }
 
     fun quotaMap(plan: MonthPlan?): Map<String, Int>? = plan?.quotas?.takeIf { it.isNotEmpty() }?.associate { it.personId to it.final }

@@ -96,7 +96,7 @@ class ScreensTest {
         shot("04-hazirla-donemler")
         clickNoScroll("İstekler")
         shot("05-hazirla-istekler")
-        clickNoScroll("Kota")
+        clickNoScroll("Nöbet sayıları")
         waitForText("Toplam")
         shot("06-hazirla-kota")
         clickNoScroll("Kontrol")
@@ -147,6 +147,20 @@ class ScreensTest {
         shot("12-istatistik")
         clickNoScroll("Ayarlar")
         shot("13-ayarlar")
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-land-hdpi")
+    fun tablet() {
+        waitForText("Ekim 2026")
+        shot("t1-tablet-takvim")
+        rule.onNodeWithContentDescription("Sonraki ay").performClick()
+        waitForText("Kasım 2026")
+        click("Ayı hazırla")
+        waitForText("Kasım 2026 hazırlığı")
+        clickNoScroll("Nöbet sayıları")
+        waitForText("Toplam")
+        shot("t2-tablet-nobet-sayilari")
     }
 
     @Test

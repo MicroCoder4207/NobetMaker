@@ -339,9 +339,9 @@ class Solver(private val pr: MonthProblem) {
                 if (pr.locked[i] == p) { count++; last = x; continue }
                 if (pr.available[p][i] && pr.locked[i] == -1 && x - last >= pr.minGap) { count++; last = x }
             }
-            if (pr.quotas[p] > count) problems += "${pr.persons[p].name}: kota ${pr.quotas[p]} ama en fazla $count nöbete sığıyor"
+            if (pr.quotas[p] > count) problems += "${pr.persons[p].name}: ${pr.quotas[p]} nöbet yazılmalı ama en fazla $count nöbete sığıyor"
         }
-        if (pr.quotas.sum() != D) problems += "Kotaların toplamı ${pr.quotas.sum()}, ayın gün sayısı $D"
+        if (pr.quotas.sum() != D) problems += "Nöbet sayılarının toplamı ${pr.quotas.sum()}, ayın gün sayısı $D"
         problems += crowdedWindows()
 
         val quick = Random(7)
@@ -352,7 +352,7 @@ class Solver(private val pr: MonthProblem) {
                 qs[p]--; qs[q]++
                 if (qs[q] > pr.maxPerMonth) continue
                 if (construct(quick, 4_000, qs) != null) {
-                    suggestions += "${pr.persons[p].name} kotasını 1 azaltıp ${pr.persons[q].name} kotasını 1 artırmak çözüyor"
+                    suggestions += "${pr.persons[p].name} nöbet sayısını 1 azaltıp ${pr.persons[q].name} nöbet sayısını 1 artırmak çözüyor"
                     if (suggestions.size >= 5) break@outer
                 }
             }

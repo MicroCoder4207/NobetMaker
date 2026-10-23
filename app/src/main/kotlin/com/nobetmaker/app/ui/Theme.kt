@@ -2,11 +2,15 @@ package com.nobetmaker.app.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import com.nobetmaker.app.R
 import com.nobetmaker.core.export.Colors
 
 private val Light = lightColorScheme(
@@ -46,17 +50,34 @@ private val Dark = darkColorScheme(
     outlineVariant = Color(0xFF353B45),
 )
 
-@Composable
-fun NobetTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) Dark else Light, content = content)
+/** Uygulama ve çıktılar aynı yazı tipini (Inter) kullanır. */
+private val Inter = FontFamily(
+    Font(R.font.inter_regular, FontWeight.Normal),
+    Font(R.font.inter_medium, FontWeight.Medium),
+    Font(R.font.inter_semibold, FontWeight.SemiBold),
+    Font(R.font.inter_bold, FontWeight.Bold),
+    Font(R.font.inter_extrabold, FontWeight.ExtraBold),
+)
+
+private val AppTypography = Typography().run {
+    copy(
+        displayLarge = displayLarge.copy(fontFamily = Inter), displayMedium = displayMedium.copy(fontFamily = Inter),
+        displaySmall = displaySmall.copy(fontFamily = Inter), headlineLarge = headlineLarge.copy(fontFamily = Inter),
+        headlineMedium = headlineMedium.copy(fontFamily = Inter), headlineSmall = headlineSmall.copy(fontFamily = Inter),
+        titleLarge = titleLarge.copy(fontFamily = Inter), titleMedium = titleMedium.copy(fontFamily = Inter),
+        titleSmall = titleSmall.copy(fontFamily = Inter), bodyLarge = bodyLarge.copy(fontFamily = Inter),
+        bodyMedium = bodyMedium.copy(fontFamily = Inter), bodySmall = bodySmall.copy(fontFamily = Inter),
+        labelLarge = labelLarge.copy(fontFamily = Inter), labelMedium = labelMedium.copy(fontFamily = Inter),
+        labelSmall = labelSmall.copy(fontFamily = Inter),
+    )
 }
 
-/** Kişi rengi; açık temada beyazla, koyu temada yüzeyle karıştırılmış "fosforlu kalem" tonu. */
 @Composable
-fun personTint(hex: String): Color {
-    val base = Color(Colors.parse(hex))
-    val surface = MaterialTheme.colorScheme.surface
-    return if (isSystemInDarkTheme()) lerp(surface, base, 0.45f) else lerp(Color.White, base, 0.42f)
+fun NobetTheme(content: @Composable () -> Unit) {
+    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) Dark else Light, typography = AppTypography, content = content)
 }
 
 fun personColor(hex: String): Color = Color(Colors.parse(hex))
+
+/** Dolu kişi renginin üstündeki yazı rengi. */
+fun onPersonColor(hex: String): Color = Color(Colors.onColor(Colors.parse(hex)))

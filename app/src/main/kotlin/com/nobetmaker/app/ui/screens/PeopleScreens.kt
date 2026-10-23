@@ -56,6 +56,7 @@ import com.nobetmaker.app.ui.rememberData
 import com.nobetmaker.core.calendar.trFormat
 import com.nobetmaker.core.model.CoefficientPeriod
 import com.nobetmaker.core.model.Person
+import com.nobetmaker.core.model.PersonPalette
 import com.nobetmaker.core.model.PersonRule
 import com.nobetmaker.core.model.RuleType
 import com.nobetmaker.core.ops.DataOps
@@ -116,7 +117,8 @@ private fun PersonCard(p: Person, onClick: () -> Unit, onUp: (() -> Unit)?, onDo
                     style = MaterialTheme.typography.bodySmall,
                 )
                 val extra = listOfNotNull(
-                    p.joinDate?.let { "Katılış ${it.trFormat()}" },
+                    p.joinDate?.let { "Bölüme katılış ${it.trFormat()}" },
+                    p.dutyStart?.let { "Nöbete katılış ${it.trFormat()}" },
                     p.leaveDate?.let { "Ayrılış ${it.trFormat()}" },
                     p.rules.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.type.label },
                 )
@@ -132,10 +134,7 @@ private fun PersonCard(p: Person, onClick: () -> Unit, onUp: (() -> Unit)?, onDo
 
 private fun fmt(v: Double) = String.format(Locale.ROOT, "%.2f", v)
 
-private val palette = listOf(
-    "#E91E63", "#2196F3", "#FF9800", "#4CAF50", "#FFC107", "#9C27B0",
-    "#00BCD4", "#F44336", "#3F51B5", "#8BC34A", "#795548", "#607D8B",
-)
+private val palette = PersonPalette.colors
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -143,10 +142,11 @@ fun PersonEditScreen(vm: AppViewModel, nav: Nav, id: String?) {
     val data by rememberData(vm)
     val existing = id?.let { data.person(it) }
     var name by remember { mutableStateOf(existing?.name.orEmpty()) }
-    var color by remember { mutableStateOf(existing?.color ?: palette.first { c -> data.persons.none { it.color == c } }) }
+    var color by remember { mutableStateOf(existing?.color ?: (palette.firstOrNull { c -> data.persons.none { it.color == c } } ?: palette.first())) }
     var joinDate by remember { mutableStateOf(existing?.joinDate) }
     var leaveDate by remember { mutableStateOf(existing?.leaveDate) }
     var residency by remember { mutableStateOf(existing?.residencyStart) }
+    var dutyStart by remember { mutableStateOf(existing?.dutyStart) }
     var coefficients by remember { mutableStateOf(existing?.coefficients ?: listOf(CoefficientPeriod(from = LocalDate.now().withDayOfMonth(1), duty = 0.6, hardDay = 0.6))) }
     var rules by remember { mutableStateOf(existing?.rules.orEmpty()) }
 
@@ -181,10 +181,22 @@ fun PersonEditScreen(vm: AppViewModel, nav: Nav, id: String?) {
                 }
             }
             SectionCard("Tarihler") {
-                DateField("Bölüme katılış", joinDate, { joinDate = it }, Modifier.fillMaxWidth(), allowClear = true)
+                // Asistanlık başlangıcı ile bölüme katılış varsayılan olarak aynıdır; biri girilince boş ya da eşit olan diğeri de değişir.
+                DateField("Asistanlık başlangıcı", residency, { d ->
+                    if (joinDate == null || joinDate == residency) joinDate = d
+                    residency = d
+                }, Modifier.fillMaxWidth(), allowClear = true)
+                DateField("Bölüme katılış", joinDate, { d ->
+                    if (residency == null || residency == joinDate) residency = d
+                    joinDate = d
+                }, Modifier.fillMaxWidth(), allowClear = true)
+                DateField("Nöbete katılış", dutyStart, { dutyStart = it }, Modifier.fillMaxWidth(), allowClear = true)
                 DateField("Ayrılış", leaveDate, { leaveDate = it }, Modifier.fillMaxWidth(), allowClear = true)
-                DateField("Asistanlık başlangıcı (bilgi)", residency, { residency = it }, Modifier.fillMaxWidth(), allowClear = true)
-                Text("Kıdem sırası tarihlerden hesaplanmaz; Kişiler ekranından değiştirilir.", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "Nöbete katılış boşsa bölüme katılış esas alınır. Tarihler boşsa adalet hesabı kişinin (ya da kendisinden çömez birinin) ilk kayıtlı nöbetini başlangıç sayar. " +
+                        "Kıdem sırası tarihlerden hesaplanmaz; Kişiler ekranından değiştirilir.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
             SectionCard("Katsayılar") {
                 Text("Nöbet katsayısı kaç nöbet tutacağını, zor gün katsayısı Cumartesi/Cuma/Pazar/bayram payını belirler.", style = MaterialTheme.typography.bodySmall)
@@ -231,6 +243,7 @@ fun PersonEditScreen(vm: AppViewModel, nav: Nav, id: String?) {
                         joinDate = joinDate,
                         leaveDate = leaveDate,
                         residencyStart = residency,
+                        dutyStart = dutyStart,
                         coefficients = coefficients,
                         rules = rules,
                     )

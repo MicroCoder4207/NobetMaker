@@ -8,13 +8,25 @@ import java.util.zip.ZipOutputStream
 data class CellStyle(
     val bold: Boolean = false,
     val size: Double = 11.0,
-    val color: String = "1F2433",
+    val color: String = "141824",
     val fill: String? = null,
     val border: Boolean = false,
     val hAlign: String = "left",
     val vAlign: String = "center",
     val wrap: Boolean = false,
-)
+    val font: String = DEFAULT_FONT,
+    /** Kenarlık rengi ve kalınlığı ("thin", "medium", "thick"); [border] açıkken kullanılır. */
+    val borderColor: String = "E3E6EB",
+    val borderStyle: String = "thin",
+    /** Kenarlığı olan kenarlar: l(sol) r(sağ) t(üst) b(alt). */
+    val borderSides: String = "lrtb",
+    val indent: Int = 0,
+) {
+    companion object {
+        /** Windows'ta her makinede bulunan modern yazı tipi. */
+        const val DEFAULT_FONT = "Segoe UI"
+    }
+}
 
 /**
  * Dış kütüphane gerektirmeyen küçük bir .xlsx yazıcısı: satır içi metin, sayı, biçim,
@@ -76,31 +88,45 @@ class XlsxWorkbook {
         append("</Relationships>")
     }
 
+    private data class FontKey(val bold: Boolean, val size: Double, val color: String, val name: String)
+    private data class BorderKey(val color: String, val style: String, val sides: String)
+
+    private fun fontKey(s: CellStyle) = FontKey(s.bold, s.size, s.color, s.font)
+    private fun borderKey(s: CellStyle) = if (s.border) BorderKey(s.borderColor, s.borderStyle, s.borderSides) else null
+
     private fun stylesXml(): String {
-        val fonts = styles.map { Triple(it.bold, it.size, it.color) }.distinct()
+        val fonts = (listOf(fontKey(CellStyle())) + styles.map { fontKey(it) }).distinct()
         val fills = styles.mapNotNull { it.fill }.distinct()
+        val borders = styles.mapNotNull { borderKey(it) }.distinct()
         return XML + buildString {
             append("""<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">""")
             append("""<fonts count="${fonts.size}">""")
-            fonts.forEach { (bold, size, color) ->
+            fonts.forEach { f ->
                 append("<font>")
-                if (bold) append("<b/>")
-                append("""<sz val="$size"/><color rgb="FF$color"/><name val="Calibri"/><family val="2"/></font>""")
+                if (f.bold) append("<b/>")
+                append("""<sz val="${f.size}"/><color rgb="FF${f.color}"/><name val="${esc(f.name)}"/><family val="2"/></font>""")
             }
             append("</fonts>")
             append("""<fills count="${fills.size + 2}"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>""")
             fills.forEach { append("""<fill><patternFill patternType="solid"><fgColor rgb="FF$it"/><bgColor indexed="64"/></patternFill></fill>""") }
             append("</fills>")
-            append("""<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>""")
-            append("""<border><left style="thin"><color rgb="FFC8CDD5"/></left><right style="thin"><color rgb="FFC8CDD5"/></right><top style="thin"><color rgb="FFC8CDD5"/></top><bottom style="thin"><color rgb="FFC8CDD5"/></bottom><diagonal/></border></borders>""")
+            append("""<borders count="${borders.size + 1}"><border><left/><right/><top/><bottom/><diagonal/></border>""")
+            borders.forEach { b ->
+                append("<border>")
+                for ((c, tag) in listOf('l' to "left", 'r' to "right", 't' to "top", 'b' to "bottom")) {
+                    if (c in b.sides) append("""<$tag style="${b.style}"><color rgb="FF${b.color}"/></$tag>""") else append("<$tag/>")
+                }
+                append("<diagonal/></border>")
+            }
+            append("</borders>")
             append("""<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>""")
             append("""<cellXfs count="${styles.size}">""")
             styles.forEach { s ->
-                val font = fonts.indexOf(Triple(s.bold, s.size, s.color))
+                val font = fonts.indexOf(fontKey(s))
                 val fill = s.fill?.let { fills.indexOf(it) + 2 } ?: 0
-                val border = if (s.border) 1 else 0
+                val border = borderKey(s)?.let { borders.indexOf(it) + 1 } ?: 0
                 append("""<xf numFmtId="0" fontId="$font" fillId="$fill" borderId="$border" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">""")
-                append("""<alignment horizontal="${s.hAlign}" vertical="${s.vAlign}"${if (s.wrap) " wrapText=\"1\"" else ""}/></xf>""")
+                append("""<alignment horizontal="${s.hAlign}" vertical="${s.vAlign}"${if (s.wrap) " wrapText=\"1\"" else ""}${if (s.indent > 0) " indent=\"${s.indent}\"" else ""}/></xf>""")
             }
             append("</cellXfs>")
             append("""<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>""")
@@ -123,6 +149,9 @@ class XlsxSheet internal constructor(val name: String, private val book: XlsxWor
     private val rowHeights = HashMap<Int, Double>()
     var landscape = false
     var fitToPage = false
+    var showGridLines = true
+    /** Kaydırırken sabit kalan üst satır sayısı. */
+    var frozenRows = 0
 
     /** Satır ve sütun 0'dan başlar. */
     fun set(row: Int, col: Int, value: Any, style: CellStyle = CellStyle()) {
@@ -139,6 +168,11 @@ class XlsxSheet internal constructor(val name: String, private val book: XlsxWor
     internal fun xml(): String = XlsxWorkbook.XML + buildString {
         append("""<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">""")
         if (fitToPage) append("""<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>""")
+        if (!showGridLines || frozenRows > 0) {
+            append("""<sheetViews><sheetView workbookViewId="0"${if (!showGridLines) " showGridLines=\"0\"" else ""}>""")
+            if (frozenRows > 0) append("""<pane ySplit="$frozenRows" topLeftCell="${ref(frozenRows, 0)}" activePane="bottomLeft" state="frozen"/>""")
+            append("</sheetView></sheetViews>")
+        }
         if (colWidths.isNotEmpty()) {
             append("<cols>")
             colWidths.forEach { (c, w) -> append("""<col min="${c + 1}" max="${c + 1}" width="$w" customWidth="1"/>""") }

@@ -12,6 +12,7 @@ import com.nobetmaker.core.model.InformalChange
 import com.nobetmaker.core.model.MonthPlan
 import com.nobetmaker.core.model.MonthStatus
 import com.nobetmaker.core.model.Person
+import com.nobetmaker.core.model.PersonPalette
 import com.nobetmaker.core.model.PersonRule
 import com.nobetmaker.core.model.RosterVersion
 import com.nobetmaker.core.model.RuleType
@@ -33,27 +34,27 @@ object SeedData {
 
     fun persons(): List<Person> = listOf(
         Person(
-            "yaren", "Yaren", 1, "#E91E63",
+            "yaren", "Yaren", 1, PersonPalette.colors[0],
             coefficients = listOf(CoefficientPeriod(duty = 0.50, hardDay = 0.50)),
             rules = listOf(RuleType.NO_SATURDAY, RuleType.NO_SUNDAY, RuleType.NO_HOLIDAY)
                 .map { PersonRule(it, from = LocalDate.of(2026, 7, 6)) },
         ),
-        Person("kenan", "Kenan", 2, "#2196F3", coefficients = listOf(CoefficientPeriod(duty = 0.80, hardDay = 0.65))),
-        Person("fatma", "Fatma", 3, "#FF9800", coefficients = listOf(CoefficientPeriod(duty = 0.90, hardDay = 0.70))),
+        Person("kenan", "Kenan", 2, PersonPalette.colors[1], coefficients = listOf(CoefficientPeriod(duty = 0.80, hardDay = 0.65))),
+        Person("fatma", "Fatma", 3, PersonPalette.colors[2], coefficients = listOf(CoefficientPeriod(duty = 0.90, hardDay = 0.70))),
         Person(
-            "betul", "Betül", 4, "#4CAF50", joinDate = LocalDate.of(2024, 11, 1),
+            "betul", "Betül", 4, PersonPalette.colors[3],
             coefficients = listOf(CoefficientPeriod(duty = 0.97, hardDay = 0.94)),
         ),
         Person(
-            "sule", "Şule", 5, "#FFC107", joinDate = LocalDate.of(2024, 11, 1),
+            "sule", "Şule", 5, PersonPalette.colors[4],
             coefficients = listOf(CoefficientPeriod(duty = 0.98, hardDay = 0.96)),
         ),
         Person(
-            "oguz", "Oğuz", 6, "#9C27B0", joinDate = LocalDate.of(2025, 4, 1),
+            "oguz", "Oğuz", 6, PersonPalette.colors[5],
             coefficients = listOf(CoefficientPeriod(duty = 0.99, hardDay = 0.98)),
         ),
         Person(
-            "asli", "Aslı", 7, "#00BCD4", joinDate = LocalDate.of(2026, 8, 1),
+            "asli", "Aslı", 7, PersonPalette.colors[6],
             coefficients = listOf(CoefficientPeriod(duty = 1.00, hardDay = 1.00)),
         ),
     )

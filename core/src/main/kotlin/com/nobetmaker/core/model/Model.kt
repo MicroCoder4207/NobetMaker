@@ -36,7 +36,7 @@ data class AppData(
     fun month(ym: YearMonth): MonthPlan? = months.firstOrNull { it.year == ym.year && it.month == ym.monthValue }
 
     companion object {
-        const val SCHEMA_VERSION = 2
+        const val SCHEMA_VERSION = 3
     }
 }
 
@@ -49,16 +49,21 @@ data class Person(
     /** 1 = en kıdemli. Tarihlerden türetilmez (K21). */
     val seniority: Int,
     val color: String,
-    /** Bölüme katılış; ekipte bulunulan dönemi belirler. */
+    /** Bölüme katılış. Nöbete katılış boşsa nöbet dönemi bu tarihten başlar. */
     val joinDate: LocalDate? = null,
     val leaveDate: LocalDate? = null,
-    /** Yalnızca bilgi; hiçbir hesaba girmez. */
+    /** Asistanlık başlangıcı (başka hastanede de olabilir). Yalnızca bilgi; hiçbir hesaba girmez. */
     val residencyStart: LocalDate? = null,
+    /** Nöbete katılış; bölüme katılınca hemen nöbete girilmiyor. Kişi bu tarihten önce listeye yazılmaz. */
+    val dutyStart: LocalDate? = null,
     val coefficients: List<CoefficientPeriod> = listOf(CoefficientPeriod()),
     val rules: List<PersonRule> = emptyList(),
 ) {
+    /** Nöbet döneminin başlangıcı: nöbete katılış, yoksa bölüme katılış. */
+    val dutyFrom: LocalDate? get() = dutyStart ?: joinDate
+
     fun isActiveOn(date: LocalDate): Boolean =
-        (joinDate == null || !date.isBefore(joinDate)) && (leaveDate == null || !date.isAfter(leaveDate))
+        (dutyFrom == null || !date.isBefore(dutyFrom)) && (leaveDate == null || !date.isAfter(leaveDate))
 
     fun coefficientOn(date: LocalDate): CoefficientPeriod =
         coefficients.filter { it.from == null || !it.from.isAfter(date) }
@@ -225,6 +230,8 @@ data class QuotaEntry(
     val final: Int,
     val carryIn: Double = 0.0,
     val carryOut: Double = 0.0,
+    /** Elle sabitlendi; kalan günler diğerlerine algoritmayla dağıtılır. */
+    val manual: Boolean = false,
 )
 
 @Serializable
