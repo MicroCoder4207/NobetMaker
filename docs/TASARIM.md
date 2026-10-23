@@ -24,7 +24,6 @@
 17. Kapsam dışı / sonraki sürümler
 18. Karar kaydı
 19. Varsayılan olarak alınanlar
-20. Açık sorular
 
 ---
 
@@ -78,6 +77,7 @@ Katsayılar asistanlık yılına otomatik olarak bağlanmaz. Elle girilir ve ge�
 
 - Her kişinin bir **bölüme katılış** tarihi, varsa bir de **ayrılış** tarihi vardır. Bu tarihler yalnızca kişinin ekipte hangi dönemde bulunduğunu belirler; kıdem sırasını etkilemez. Kişi ayrılış tarihinden sonra listeye girmez ve katsayılar kalanlar arasında kendiliğinden yeniden oranlanır.
 - İsteğe bağlı olarak **asistanlık başlangıç** tarihi de girilebilir (başka hastanede geçen süre dahil). Bu alan yalnızca bilgi içindir, hiçbir hesaba girmez.
+- Bir kişi ekipte kalıp nöbetten çıkabilir (Yaren için bu ihtimal var). Bu durumda kişiye bir **nöbet muafiyeti** dönemi girilir (bkz. 5.3). Kişi listeye girmez, payı kalanlara katsayılarına göre dağılır, borç yazılmaz. Geçmişi ve istatistiği yerinde durur.
 - Ayrılan kişinin geçmişi silinmez. İstatistikte ve geçmiş özel günlerde görünmeye devam eder ama adalet hesabına girmez.
 - Ekipte artık bulunmayan ama geçmiş kayıtlarda adı geçen kişiler "ayrılmış kişi" olarak eklenebilir.
 
@@ -163,11 +163,13 @@ Aralık 2025 ve Ocak 2026 kağıtlarının altındaki saat hesabı şu kurala uy
 | Pazar | 16 |
 | Hafta içi resmi tatil, ertesi gün iş günü (ör. 1 Ocak 2026 Perşembe) | 16 |
 | Tatil, ertesi gün de tatil (ör. bayram ortası) | 24 |
-| Arefe | Açık soru (bkz. 20) |
+| İş günü, ertesi gün tatil (ör. 31 Aralık) | 16 |
+| Arefe ve 28 Ekim (nöbet öğlen başlar, ertesi gün tatil) | 20 |
 
 - **Doğrulama:** Aralık 2025'te altı kişinin saati de bu kuralla birebir tutuyor. Örneğin Betül 7 nöbet tutmuş: 8+24+8+16+16+8+8 = 88 saat.
 - Saatler her kişi için ay bazında iki ayrı şekilde hesaplanır: resmi listeye göre ve gerçekte tutulan nöbetlere göre. Ocak 2026 kağıdında saatler değişimlere göre düzeltilmiş.
-- Saat ile zorluk puanı farklı şeyleri ölçer. Örneğin Perşembe 8 saattir ama en iyi gündür. Saatin adalet hesabındaki rolü açık sorudur (bkz. 20).
+- Saat ile zorluk puanı farklı şeyleri ölçer. Örneğin Perşembe 8 saattir ama en iyi gündür. Saat **yalnızca bilgi içindir**, adalet hesabına girmez (K23).
+- Saat bileşenleri (iş günü 16, tatil 24, arefe 20, nöbet ertesi düşüm 8) Ayarlar'dan değiştirilebilir.
 
 ---
 
@@ -225,7 +227,10 @@ Y4 ve Y5'teki sapma, gün birimiyle ölçülür (bkz. 6).
 Doğrulama:
 
 - **Yaren varken, 31 günlük ay:** Yaren ≈2.5, Kenan ≈4.0, Fatma ≈4.5, Betül/Şule/Oğuz/Aslı ≈4.9–5.05. Ekim 2026'nın elle hazırlanan listesi (2-4-5-5-5-5-5) bununla uyumlu.
-- **Yaren ayrıldıktan sonra, 30 günlük ay:** Kenan ≈4.3, Fatma ≈4.8, çömezler ≈5.2–5.3.
+- **Yaren ayrılır ya da nöbetten çıkarsa:**
+  - 30 günlük ay: Kenan ≈4.3, Fatma ≈4.8, çömezler ≈5.2–5.3.
+  - 31 günlük ay: Kenan ≈4.4, Fatma ≈4.9, çömezler ≈5.3–5.5.
+  - Yaren zaten hafta sonu ve tatil tutmadığı için Cumartesi, Pazar ve tatil dağılımı değişmez. Fark hafta içi ve Cuma günlerine yansır.
 
 ### 5.2 İzin kotayı düşürmez
 
@@ -241,6 +246,7 @@ Yıllık izin ve kongre/eğitim izni kotayı **düşürmez**. Kişinin nöbetler
 | Halk sağlığı rotasyonu | Hayır | Evet (orantılı) |
 | Diğer dış rotasyonlar | **Evet** (nöbeti bölümde tutar; kayıt yalnızca bilgi içindir) | Hayır |
 | Doğum izni / uzun izin | Hayır | Evet (orantılı) |
+| Nöbet muafiyeti (kişi ekipte ama nöbet tutmuyor) | Hayır | Evet (tamamen; payı diğerlerine dağılır, borç yazılmaz) |
 | Diğer | Kayıt bazında seçilir | Kayıt bazında seçilir |
 
 Her dönem kaydı **kesin** ya da **belirsiz** olarak işaretlenebilir (ör. tarihi henüz netleşmemiş bir izin). Belirsiz dönem sert kural olarak değil, "mümkünse" öncelikli bir istek gibi uygulanır (Y2).
@@ -261,7 +267,7 @@ Defter, her kişinin her kategoride ne kadar yük taşıdığını izler. Sonrak
 - **Hafıza süreleri:**
   - Kısa hafıza (Cumartesi, Pazar, Cuma, Perşembe): son **6 ay**.
   - Uzun hafıza (Bayram, Resmi tatil, Yılbaşı): **2023'ten beri** tüm geçmiş.
-- **Uzun hafızalı kategorilerde ölçü:** 2024–2025 bayram kayıtlarında yalnızca bugünkü ekibin kaç gün tuttuğu biliniyor. O dönem ekipte olup sonradan ayrılanların tuttuğu günler belli değil. Bu yüzden bu kategorilerde pay hesabı yerine **olay başına ortalama** kullanılır:
+- **Uzun hafızalı kategorilerde ölçü:** 2024–2025 bayram kayıtlarında yalnızca bugünkü ekibin kaç gün tuttuğu biliniyor. Kalan günleri o dönem nöbet tutan uzmanlar ya da sonradan ayrılan asistanlar tutmuş, kimin tuttuğu belli değil. Bu yüzden bu kategorilerde pay hesabı yerine **olay başına ortalama** kullanılır:
   - Kişinin değeri = ekipte bulunduğu bayramlarda tuttuğu toplam gün ÷ ekipte bulunduğu bayram sayısı ÷ zor gün katsayısı.
   - Değeri düşük olan öne geçer. Sapma, kişinin değerinin ekip ortalamasından farkıdır.
   - Eski kayıtlarda vizit bilgisi olmadığı için burada puan yerine gün sayısı kullanılır.
@@ -357,6 +363,7 @@ Uygulama "çözülemedi" deyip bırakmaz:
 - Çakışan kısıtları gösterir. Örnek: "15-21 arası 3 kişi izinli; günaşırı kuralıyla bu günler doldurulamıyor."
 - Gevşetme seçeneklerini en ucuzdan başlayarak sıralar: bir kişinin kotasını ±1 değiştirmek, bir "kesin" isteği "mümkünse"ye indirmek, belirli bir kilidi kaldırmak.
 - Art arda ve günaşırı kuralı **hiçbir zaman** gevşetme önerisi olarak sunulmaz.
+- **Erken uyarı:** Dönem ya da istek girilirken, o günlerin kurallara uygun doldurulup doldurulamayacağı hemen kontrol edilir. Ekip 6 kişiye inerse aynı haftada 3 kişinin izinli olması listeyi çok sıkıştırır; uygulama bunu liste üretilmeden önce söyler.
 
 ---
 
@@ -440,7 +447,7 @@ Bayramda kıdem önemlidir ama kesin bir kural yoktur. Bu yüzden bayram günler
    - Resmi liste ile gerçekte tutulanın karşılaştırması.
    - Aylık nöbet saatleri (resmi ve gerçekte tutulan).
 9. **Geçmiş özel günler:** 2023'ten beri bayram, yılbaşı ve resmi tatil kayıtlarının elle girildiği ekran. Kayıtlar iki şekilde girilebilir: gün gün (tarih, tür, vizit var/yok/bilinmiyor, tutan kişi, not) ya da tarihi bilinmeyen eski olaylar için toplu olarak (ör. "2024 Ramazan Bayramı, 10 gün: Yaren 2, Fatma 1").
-10. **Ayarlar:** Puan bileşenleri, ceza ağırlıkları, nöbetler arası en az gün (3), aylık üst sınır (6), hafıza süreleri, Excel başlığı, yedekleme ve geri yükleme.
+10. **Ayarlar:** Puan bileşenleri, saat bileşenleri, ceza ağırlıkları, nöbetler arası en az gün (3), aylık üst sınır (6), hafıza süreleri, Excel başlığı, yedekleme ve geri yükleme.
 
 ---
 
@@ -482,7 +489,7 @@ Dosya adı şu biçimdedir: `Nobet_Listesi_2026_11_Kasim.xlsx`. Dosyada yalnızc
   - Izgaranın altında kişi başı nöbet sayıları ve izin listesi.
   - Baskı ayarı: A4 yatay, tek sayfaya sığacak şekilde.
 - **Liste sayfası:** Tarih | Gün | Nöbetçi | Açıklama (resmi tatil ya da bayram adı).
-- **Özet sayfası:** Kişi | Toplam nöbet | Hafta içi | Hafta sonu/tatil.
+- **Özet sayfası:** Kişi | Toplam nöbet | Hafta içi | Hafta sonu/tatil | Saat (resmi listeye göre).
 
 ### 14.2 Görsel (WhatsApp için) ve PDF
 
@@ -532,7 +539,7 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
   - Şubat'ta Yaren'in hiç nöbeti görünmüyor, Aslı da Ağustos'ta başlamış. Aktarım sırasında kişi tarihleri buna göre netleştirilecek.
   - Yaren Temmuz 2026'ya kadar hafta sonu tutmuş (son: 5 Temmuz Pazar). Hafta sonu kuralının başlangıç tarihi aktarım sırasında netleştirilecek.
 - **Bayram geçmişi:** 2024 Nisan, 2024 Haziran, 2025 Mart ve 2025 Haziran bayramları bayram sayfasından toplu olarak girilecek.
-  - Sayfada yalnızca bugünkü ekibin günleri var gibi görünüyor (ör. 2024 Nisan'da 10 günün 3'ü). Kalan günleri o dönem ekipte olup sonradan ayrılanlar tutmuş olmalı.
+  - Sayfada yalnızca bugünkü ekibin günleri var gibi görünüyor (ör. 2024 Nisan'da 10 günün 3'ü). Kalan günleri o dönem nöbet tutan uzmanlar ya da sonradan ayrılan asistanlar tutmuş; olay başına ortalama yöntemi bu kayıtlara ihtiyaç duymaz.
   - Sayfanın altındaki toplamla satırlar arasındaki farklar (ör. Betül) aktarım sırasında sorulacak.
   - 2026 Ramazan ve Kurban bayramları Mart ve Mayıs 2026 listelerinden gelir.
 - **2023 – Ekim 2025:** Diğer bayram, yılbaşı ve resmi tatil nöbetleri "Geçmiş özel günler" ekranından elle girilecek.
@@ -575,6 +582,8 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 | K20 | Şubat–Ekim 2026 kağıtlardan aktarılacak; 2023'ten bu yana özel günler elle girilecek. |
 | K21 | Kıdem sırası elle tutulur, tarihlerden türetilmez. Bölüme katılış tarihi yalnızca ekipte bulunulan dönemi belirler (Yaren geçişle sonradan katıldı ama kıdemde en önde). |
 | K22 | İzin zor gün payını azaltmaz. Kaçırılan pay önce aynı ayın başka bir zor gününe verilir; sığmazsa defterde kalır ve sonraki ay telafi edilir. |
+| K23 | Nöbet saati yalnızca bilgi içindir, adalet hesabına girmez. Uygulamada resmi listeye ve gerçekte tutulana göre ayrı ayrı gösterilir; hocaya giden Excel'in özetinde resmi saat yer alır. |
+| K24 | Yaren'in bundan sonra nöbet tutmama ihtimali var. Bunun için "nöbet muafiyeti" dönemi kullanılır: kişi ekipte kalır, listeye girmez, payı diğerlerine dağılır, borç yazılmaz. |
 
 ---
 
@@ -589,11 +598,4 @@ Aşağıdakiler konuşmalarda açıkça kararlaştırılmadı. İtiraz gelmezse 
 - Belirsiz izin sert kural yerine "mümkünse" öncelikli bir istek gibi uygulanır.
 - Kenan'ın zor gün katsayısı, kıdem sırasına uygun olarak Fatma'nınkinin biraz altındadır (0.65 / 0.70).
 - Kişi renkleri sabittir ve Ayarlar'dan değiştirilebilir.
-
----
-
-## 20. Açık sorular
-
-1. **Nöbet saati ne için tutuluyor?** Nöbet ücreti ya da fazla mesai bildirimi için mi? Uygulama saatleri yalnızca rapor olarak mı göstersin, yoksa adalet hesabına da girsin mi (ör. aylık saatler birbirine yakın olsun)? Aralık 2025'te saatler 48 ile 88 arasında değişiyor.
-2. **Saatler hangi listeye göre?** Ocak 2026'da değişimlere göre düzeltilmiş, yani gerçekte tutulana göre hesaplanmış. Hocaya giden Excel'de saat tablosu olmalı mı? Olacaksa resmi listeye mi, gerçekte tutulana mı göre?
-3. **Tatil günlerinde saat:** 1 Ocak 2026 (Perşembe) 16 saat sayılmış, kural da bunu veriyor. Ama 31 Aralık 2025 8 saat sayılmış; kurala göre ertesi gün 1 Ocak tatil olduğu için 16 olmalıydı. Hangisi doğru? Arefe kaç saat sayılıyor?
+- Arefe ve 28 Ekim nöbeti 20 saat sayılır (nöbet öğlen başlar). Ertesi günü tatil olan iş günlerinde 8 saat düşülmez; yani 31 Aralık 16 saattir. Kağıtta 8 sayılmış, bu yüzden Aralık 2025 aktarılınca Fatma'nın saati kağıttaki 72 yerine 80 görünecek.
