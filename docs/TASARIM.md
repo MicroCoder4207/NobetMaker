@@ -233,7 +233,7 @@ Defter, her kişinin her kategoride ne kadar yük taşıdığını izler. Sonrak
 - **Ölçü:** Her kategoride kişinin topladığı **puan** (tutulan gün × gün puanı). Böylece vizitli bir bayram günü vizitsiz olandan daha ağır sayılır.
 - **Hedef:** Her günün puanı, o gün o kategori için **uygun** olan kişiler arasında zor gün katsayılarına göre paylaştırılır. Perşembe için herkesin payı eşittir. Kişinin hedefi bu payların toplamıdır.
   - Uygunluk şöyle belirlenir: kişi o gün ekipte olmalı, kalıcı bir kural (Yaren'in kuralı gibi) ya da **kotayı düşüren** bir dönem (halk sağlığı rotasyonu, doğum izni) yüzünden dışarıda kalmamalı.
-  - Yıllık izin uygunluğu düşürmez, tıpkı kotayı düşürmediği gibi. Kişinin izindeyken kaçırdığı zor gün, defter tarafından sonraki listelerde telafi ettirilir.
+  - Yıllık izin uygunluğu düşürmez, tıpkı kotayı düşürmediği gibi. Kişinin izindeyken kaçırdığı zor gün payı önce aynı ayın başka bir zor gününe verilir (elle hazırlanan listelerde de böyle oluyor). Sığmazsa defterde kalır ve sonraki listelerde telafi edilir.
   - Kişinin ekipte bulunmadığı dönemler hedefe girmez. Örneğin Aslı'dan 2023 bayramları için pay beklenmez. Burada bölüme katılış tarihi esas alınır; başka hastanede geçen süre sayılmaz.
 - **Sapma** = gerçekleşen − hedef. Kategorinin ortalama gün puanına bölünerek gün birimine çevrilir. Pozitif sapma kişinin fazla tuttuğunu, negatif sapma geride kaldığını gösterir.
 - **Hafıza süreleri:**
@@ -538,6 +538,7 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 | K19 | Bayram ve yılbaşı uzun hafızalıdır (2023'ten beri). Bayramda kıdem etkilidir ama kesin kural yoktur; bu yüzden bayram planlama ekranı var. |
 | K20 | Şubat–Ekim 2026 kağıtlardan aktarılacak; 2023'ten bu yana özel günler elle girilecek. |
 | K21 | Kıdem sırası elle tutulur, tarihlerden türetilmez. Bölüme katılış tarihi yalnızca ekipte bulunulan dönemi belirler (Yaren geçişle sonradan katıldı ama kıdemde en önde). |
+| K22 | İzin zor gün payını azaltmaz. Kaçırılan pay önce aynı ayın başka bir zor gününe verilir; sığmazsa defterde kalır ve sonraki ay telafi edilir. |
 
 ---
 
@@ -548,7 +549,6 @@ Aşağıdakiler konuşmalarda açıkça kararlaştırılmadı. İtiraz gelmezse 
 - Arefe yarım tatil sayılır (puan bileşenleri yarıya iner).
 - Kısa hafıza süresi 6 aydır.
 - Resmi tatiller de bayram ve yılbaşı gibi uzun hafızaya girer, çünkü yılda bir geldikleri için 6 aylık hafıza onları görmez.
-- İzindeyken denk gelen zor günler defterde "geride" olarak kalır: izin yükü azaltmaz ve kaçırılan zor gün sonraki listelerde telafi edilir. (Nöbet **sayısı** için borç yoktur, bkz. K6.)
 - Rapor kotayı düşürmez. Bu, kayıt bazında değiştirilebilir.
 - Belirsiz izin sert kural yerine "mümkünse" öncelikli bir istek gibi uygulanır.
 - Kenan'ın zor gün katsayısı, kıdem sırasına uygun olarak Fatma'nınkinin biraz altındadır (0.65 / 0.70).
