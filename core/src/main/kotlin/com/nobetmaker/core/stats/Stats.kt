@@ -1,0 +1,118 @@
+package com.nobetmaker.core.stats
+
+import com.nobetmaker.core.calendar.CalendarService
+import com.nobetmaker.core.calendar.Category
+import com.nobetmaker.core.ledger.Ledger
+import com.nobetmaker.core.model.AppData
+import com.nobetmaker.core.model.Person
+import com.nobetmaker.core.model.Priority
+import com.nobetmaker.core.model.RequestType
+import com.nobetmaker.core.rules.Availability
+import com.nobetmaker.core.rules.RosterIndex
+import com.nobetmaker.core.solver.MonthProblem
+import com.nobetmaker.core.solver.Solver
+import com.nobetmaker.core.solver.shortDate
+import java.time.LocalDate
+import java.time.YearMonth
+
+class PersonStats(
+    val person: Person,
+    val officialCount: Int,
+    val actualCount: Int,
+    val officialHours: Int,
+    val actualHours: Int,
+    val officialByCategory: Map<Category, Int>,
+    /** Kısa hafıza sapması (gün); pozitif = önde. */
+    val shortDeviation: Map<Category, Double>,
+    val longDays: Map<Category, Int>,
+    val longPresent: Map<Category, Int>,
+    /** Uzun hafıza sapması (gün). */
+    val longDeviation: Map<Category, Double>,
+    val requestsTotal: Int,
+    val requestsMet: Int,
+)
+
+/** İstatistik ekranı (§12-8). */
+object StatsService {
+
+    fun compute(data: AppData, from: YearMonth, to: YearMonth): List<PersonStats> {
+        val cal = CalendarService(data.dayOverrides, data.settings)
+        val avail = Availability(data, cal)
+        val roster = RosterIndex(data)
+        val ledger = Ledger(data, cal, avail, roster)
+        val start = from.atDay(1)
+        val endExclusive = to.plusMonths(1).atDay(1)
+        val persons = data.persons.filter { p ->
+            p.leaveDate == null || !p.leaveDate.isBefore(start)
+        }.sortedBy { it.seniority }
+
+        val short = ledger.shortMemory(persons, endExclusive.minusMonths(data.settings.shortMemoryMonths.toLong()), endExclusive, emptyList())
+        val long = ledger.longMemory(persons, endExclusive, emptyList(), endExclusive.minusDays(1))
+
+        fun inRange(d: LocalDate) = !d.isBefore(start) && d.isBefore(endExclusive)
+
+        return persons.map { p ->
+            val off = roster.official.filter { (d, who) -> who == p.id && inRange(d) }.keys
+            val act = roster.actual.filter { (d, who) -> who == p.id && inRange(d) }.keys
+            var total = 0
+            var met = 0
+            for (r in data.requests.filter { it.personId == p.id && it.priority != Priority.KESIN }) {
+                val dates = when (r.type) {
+                    RequestType.AVOID_DATES, RequestType.WANT_DATES -> r.dates
+                    else -> generateSequence(r.rangeStart) { d -> d.plusDays(1).takeIf { r.rangeEnd != null && !it.isAfter(r.rangeEnd) } }.toList()
+                }.filter { inRange(it) && roster.official.containsKey(it) }
+                if (dates.isEmpty()) continue
+                total++
+                val ok = when (r.type) {
+                    RequestType.AVOID_DATES, RequestType.AVOID_RANGE -> dates.none { roster.official[it] == p.id }
+                    RequestType.WANT_DATES -> dates.any { roster.official[it] == p.id }
+                    RequestType.CLUSTER -> true
+                    RequestType.WEEKLY_MAX -> dates.groupBy { Math.floorDiv(it.toEpochDay() + 3, 7L) }
+                        .all { (_, days) -> days.count { roster.official[it] == p.id } <= (r.maxPerWeek ?: 1) }
+                }
+                if (ok) met++
+            }
+            PersonStats(
+                person = p,
+                officialCount = off.size,
+                actualCount = act.size,
+                officialHours = off.sumOf { cal.hours(it) },
+                actualHours = act.sumOf { cal.hours(it) },
+                officialByCategory = off.groupingBy { cal.category(it) }.eachCount(),
+                shortDeviation = short.categories.withIndex().associate { (i, c) -> c to short.base.getValue(p.id)[i] },
+                longDays = long.categories.withIndex().associate { (i, c) -> c to long.days.getValue(p.id)[i] },
+                longPresent = long.categories.withIndex().associate { (i, c) -> c to long.presentEvents.getValue(p.id)[i] },
+                longDeviation = long.categories.withIndex().associate { (i, c) -> c to long.base.getValue(p.id)[i] },
+                requestsTotal = total,
+                requestsMet = met,
+            )
+        }
+    }
+}
+
+/** Liste üretilmeden önceki kontroller (§7.3, §8.6 erken uyarı). */
+object ConflictDetector {
+
+    fun detect(pr: MonthProblem): List<String> {
+        val out = ArrayList<String>()
+        out += pr.warnings
+        for (i in 0 until pr.dayCount) {
+            if (pr.locked[i] != -1) continue
+            val hard = pr.persons.indices.filter { pr.available[it][i] }
+            if (hard.isEmpty()) {
+                out += "${shortDate(pr.days[i])}: uygun kimse yok"
+                continue
+            }
+            val free = hard.filter { pr.softAvoid[it][i] == 0.0 }
+            if (free.isEmpty()) {
+                val names = hard.joinToString(", ") { pr.persons[it].name }
+                out += "${shortDate(pr.days[i])}: uygun herkes ($names) bu günü istemiyor; biri esnemeli"
+            }
+        }
+        pr.wants.groupBy { it.day }.filter { (_, w) -> w.map { it.p }.distinct().size > 1 }.forEach { (day, w) ->
+            out += "${shortDate(pr.days[day])}: aynı günü birden fazla kişi istiyor (${w.map { pr.persons[it.p].name }.distinct().joinToString(", ")})"
+        }
+        out += Solver(pr).crowdedWindows()
+        return out.distinct()
+    }
+}
