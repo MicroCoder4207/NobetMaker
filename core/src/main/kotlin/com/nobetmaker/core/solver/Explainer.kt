@@ -50,9 +50,6 @@ class Explainer(private val pr: MonthProblem) {
                     if (y in 0 until pr.extSize && has[q][y]) hard += "${shortDate(pr.dateOfExt(y))} nöbetine çok yakın"
                 }
             }
-            val lockedTo = pr.locked[day]
-            if (lockedTo != -1 && lockedTo != q) hard += "Gün ${pr.persons[lockedTo].name} için kilitli"
-
             val with = has[q].copyOf().also { it[x] = true }
             val without = has[q].copyOf().also { it[x] = false }
             val withItems = ArrayList<Penalty>()

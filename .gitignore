@@ -6,3 +6,6 @@ local.properties
 .DS_Store
 captures/
 .kotlin/
+
+# İmzalama anahtarı: repo özel olana kadar commit edilmez
+app/signing/
