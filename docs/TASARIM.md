@@ -47,7 +47,9 @@ Elle hazırlanan listelerde görülen ve uygulamanın çözmesi gereken sorunlar
 
 ## 2. Ekip, kıdem ve katsayılar
 
-Kıdem sırası kişi kartında elle tutulur, en kıdemliden en çömeze doğru. Her kişinin iki katsayısı vardır:
+Kıdem sırası kişi kartında elle tutulur, en kıdemliden en çömeze doğru. Sıra herhangi bir tarihten türetilmez. Başka hastaneden geçiş yapan bir asistan bölüme sonradan katılmış olsa bile kıdemde önde olabilir. Örneğin Yaren bölüme Kenan ve Fatma'dan sonra katıldı ama daha eski asistan olduğu için kıdemde en önde.
+
+Her kişinin iki katsayısı vardır:
 
 - **Nöbet katsayısı:** Kişinin ay içinde kaç nöbet tutacağını belirler.
 - **Zor gün katsayısı:** Kişinin zor günlerden (Cumartesi, Cuma, Pazar, resmi tatil, bayram, yılbaşı) alacağı payı belirler. "Önce çömez" ilkesi bu katsayı üzerinden işler.
@@ -73,7 +75,8 @@ Katsayılar asistanlık yılına otomatik olarak bağlanmaz. Elle girilir ve ge�
 
 ### 2.2 Kişi ekleme ve çıkarma
 
-- Her kişinin bir **başlangıç** tarihi, varsa bir de **ayrılış** tarihi vardır. Kişi ayrılış tarihinden sonra listeye girmez ve katsayılar kalanlar arasında kendiliğinden yeniden oranlanır.
+- Her kişinin bir **bölüme katılış** tarihi, varsa bir de **ayrılış** tarihi vardır. Bu tarihler yalnızca kişinin ekipte hangi dönemde bulunduğunu belirler; kıdem sırasını etkilemez. Kişi ayrılış tarihinden sonra listeye girmez ve katsayılar kalanlar arasında kendiliğinden yeniden oranlanır.
+- İsteğe bağlı olarak **asistanlık başlangıç** tarihi de girilebilir (başka hastanede geçen süre dahil). Bu alan yalnızca bilgi içindir, hiçbir hesaba girmez.
 - Ayrılan kişinin geçmişi silinmez. İstatistikte ve geçmiş özel günlerde görünmeye devam eder ama adalet hesabına girmez.
 - Ekipte artık bulunmayan ama geçmiş kayıtlarda adı geçen kişiler "ayrılmış kişi" olarak eklenebilir.
 
@@ -231,7 +234,7 @@ Defter, her kişinin her kategoride ne kadar yük taşıdığını izler. Sonrak
 - **Hedef:** Her günün puanı, o gün o kategori için **uygun** olan kişiler arasında zor gün katsayılarına göre paylaştırılır. Perşembe için herkesin payı eşittir. Kişinin hedefi bu payların toplamıdır.
   - Uygunluk şöyle belirlenir: kişi o gün ekipte olmalı, kalıcı bir kural (Yaren'in kuralı gibi) ya da **kotayı düşüren** bir dönem (halk sağlığı rotasyonu, doğum izni) yüzünden dışarıda kalmamalı.
   - Yıllık izin uygunluğu düşürmez, tıpkı kotayı düşürmediği gibi. Kişinin izindeyken kaçırdığı zor gün, defter tarafından sonraki listelerde telafi ettirilir.
-  - Kişinin ekipte bulunmadığı dönemler hedefe girmez. Örneğin Aslı'dan 2023 bayramları için pay beklenmez.
+  - Kişinin ekipte bulunmadığı dönemler hedefe girmez. Örneğin Aslı'dan 2023 bayramları için pay beklenmez. Burada bölüme katılış tarihi esas alınır; başka hastanede geçen süre sayılmaz.
 - **Sapma** = gerçekleşen − hedef. Kategorinin ortalama gün puanına bölünerek gün birimine çevrilir. Pozitif sapma kişinin fazla tuttuğunu, negatif sapma geride kaldığını gösterir.
 - **Hafıza süreleri:**
   - Kısa hafıza (Cumartesi, Pazar, Cuma, Perşembe): son **6 ay**.
@@ -419,7 +422,7 @@ Veriler telefonda SQLite (Room) ile tutulur. Temel tablolar:
 
 | Tablo | Alanlar (özet) |
 |---|---|
-| Kişi | id, ad, kıdem sırası, başlangıç tarihi, ayrılış tarihi, renk |
+| Kişi | id, ad, kıdem sırası (elle), bölüme katılış tarihi, asistanlık başlangıç tarihi (bilgi), ayrılış tarihi, renk |
 | KişiKatsayı | kişi, geçerlilik başlangıcı, nöbet katsayısı, zor gün katsayısı |
 | KişiKuralı | kişi, tür (Cumartesi yok, Pazar yok, tatil yok, haftanın günü yok, …), parametre, geçerlilik başlangıcı/bitişi |
 | TakvimGünü | tarih, tatil türü, tatil adı, planlanan vizit (var/yok/belirsiz), gerçekleşen vizit, ek puan, not |
@@ -497,7 +500,7 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
   - Fatma'nın nöbetlerindeki tik ve çarpılar dikkate alınmayacak.
   - Şubat'ta Yaren'in hiç nöbeti görünmüyor, Aslı da Ağustos'ta başlamış. Aktarım sırasında kişi tarihleri buna göre netleştirilecek.
 - **2023 – Ocak 2026:** Bayram, yılbaşı ve resmi tatil nöbetleri "Geçmiş özel günler" ekranından elle girilecek.
-- Herkesin başlangıç tarihi (ay/yıl) Kişiler ekranına girilecek. Uzun hafızalı defter için bu bilgi gerekli.
+- Herkesin bölüme katılış tarihi (ay/yıl) Kişiler ekranına girilecek. Uzun hafızalı defter için bu bilgi gerekli. Yaren başka hastaneden geçiş yaptığı için katılış tarihi Kenan ve Fatma'dan sonra olacak; kıdem sırası bundan etkilenmez.
 
 ---
 
@@ -534,6 +537,7 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 | K18 | 1 Ocak varsayılan olarak vizitlidir; değiştirilebilir. |
 | K19 | Bayram ve yılbaşı uzun hafızalıdır (2023'ten beri). Bayramda kıdem etkilidir ama kesin kural yoktur; bu yüzden bayram planlama ekranı var. |
 | K20 | Şubat–Ekim 2026 kağıtlardan aktarılacak; 2023'ten bu yana özel günler elle girilecek. |
+| K21 | Kıdem sırası elle tutulur, tarihlerden türetilmez. Bölüme katılış tarihi yalnızca ekipte bulunulan dönemi belirler (Yaren geçişle sonradan katıldı ama kıdemde en önde). |
 
 ---
 
