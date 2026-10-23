@@ -17,7 +17,7 @@ class StatsHistoryButtonsTest : AppUiTest() {
         click("Son 6 ay")
         waitForText("Mayıs 2026 – Ekim 2026")
         click("Tümü")
-        waitForText("Kasım 2025 – Ekim 2026")
+        waitForText("Nisan 2024 – Ekim 2026")
         click("Takvim")
         waitForText("Gerçekleşen")
     }
@@ -27,7 +27,7 @@ class StatsHistoryButtonsTest : AppUiTest() {
         val today = LocalDate.now()
         val before = data().historyEvents.size
         click("İstatistik")
-        click("Geçmiş özel günler (2023'ten beri)")
+        click("Geçmiş özel günler (listesi olmayan dönemler)")
         waitForText("Kayıt ekle")
         click("Kayıt ekle")
         typeInDialog("Ad (ör. 2024 Kurban Bayramı)", "2023 Cumhuriyet Bayramı")

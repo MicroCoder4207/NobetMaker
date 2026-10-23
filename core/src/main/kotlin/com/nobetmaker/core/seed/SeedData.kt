@@ -5,8 +5,6 @@ import com.nobetmaker.core.model.Assignment
 import com.nobetmaker.core.model.CoefficientPeriod
 import com.nobetmaker.core.model.DayInfo
 import com.nobetmaker.core.model.DayKind
-import com.nobetmaker.core.model.EventKind
-import com.nobetmaker.core.model.HistoryEntry
 import com.nobetmaker.core.model.HistoryEvent
 import com.nobetmaker.core.model.InformalChange
 import com.nobetmaker.core.model.MonthPlan
@@ -21,9 +19,10 @@ import java.time.LocalDate
 import java.time.YearMonth
 
 /**
- * Uygulamanın ilk açılışta yüklediği başlangıç verisi: ekip ve kağıt listelerden aktarılan
- * Kasım 2025 – Ekim 2026 geçmişi (§16). Kağıttaki "A (B)" yazımı: resmide A, tutan B.
- * [flagged] okunması belirsiz ya da doğrulanması gereken günlerdir.
+ * Uygulamanın ilk açılışta yüklediği başlangıç verisi: ekip ve Nisan 2024 – Ekim 2026 resmi listeleri (§16).
+ * Nisan 2024 – Mart 2025 hastanenin Excel çalışma planlarından, sonrası kağıt listelerden aktarıldı.
+ * "-" asistanın tutmadığı gündür (o dönem uzmanlar tuttu; 21 Nisan 2025'i doğum iznindeki Canay tuttu).
+ * Kağıttaki "A (B)" yazımı: resmide A, tutan B. [flagged] okunması belirsiz ya da doğrulanması gereken günlerdir.
  */
 object SeedData {
 
@@ -33,34 +32,68 @@ object SeedData {
     )
 
     fun persons(): List<Person> = listOf(
+        // Yaren asistanlığa 2021'de başka hastanede başladı (ay tahmini: 4 yılı Nisan 2025'te doldu, o ay cumartesiden
+        // çıktı), Aralık 2023'te geldi; şimdi uzatmada.
         Person(
             "yaren", "Yaren", 1, PersonPalette.colors[0],
+            joinDate = LocalDate.of(2023, 12, 1), residencyStart = LocalDate.of(2021, 4, 1),
             coefficients = listOf(CoefficientPeriod(duty = 0.50, hardDay = 0.50)),
             rules = listOf(RuleType.NO_SATURDAY, RuleType.NO_SUNDAY, RuleType.NO_HOLIDAY)
                 .map { PersonRule(it, from = LocalDate.of(2026, 7, 6)) },
         ),
-        Person("kenan", "Kenan", 2, PersonPalette.colors[1], coefficients = listOf(CoefficientPeriod(duty = 0.80, hardDay = 0.65))),
-        Person("fatma", "Fatma", 3, PersonPalette.colors[2], coefficients = listOf(CoefficientPeriod(duty = 0.90, hardDay = 0.70))),
+        Person(
+            "kenan", "Kenan", 2, PersonPalette.colors[1],
+            joinDate = LocalDate.of(2023, 8, 1), residencyStart = LocalDate.of(2023, 8, 1),
+            coefficients = listOf(CoefficientPeriod(duty = 0.80, hardDay = 0.65)),
+        ),
+        Person(
+            "fatma", "Fatma", 3, PersonPalette.colors[2],
+            joinDate = LocalDate.of(2023, 9, 1), residencyStart = LocalDate.of(2023, 9, 1),
+            coefficients = listOf(CoefficientPeriod(duty = 0.90, hardDay = 0.70)),
+        ),
         Person(
             "betul", "Betül", 4, PersonPalette.colors[3],
+            joinDate = LocalDate.of(2023, 12, 1), residencyStart = LocalDate.of(2023, 12, 1),
             coefficients = listOf(CoefficientPeriod(duty = 0.97, hardDay = 0.94)),
         ),
         Person(
             "sule", "Şule", 5, PersonPalette.colors[4],
+            joinDate = LocalDate.of(2024, 8, 1), residencyStart = LocalDate.of(2024, 8, 1),
             coefficients = listOf(CoefficientPeriod(duty = 0.98, hardDay = 0.96)),
         ),
         Person(
             "oguz", "Oğuz", 6, PersonPalette.colors[5],
+            joinDate = LocalDate.of(2024, 12, 1), residencyStart = LocalDate.of(2024, 12, 1),
             coefficients = listOf(CoefficientPeriod(duty = 0.99, hardDay = 0.98)),
         ),
         Person(
             "asli", "Aslı", 7, PersonPalette.colors[6],
+            joinDate = LocalDate.of(2026, 1, 1), residencyStart = LocalDate.of(2026, 1, 1),
             coefficients = listOf(CoefficientPeriod(duty = 1.00, hardDay = 1.00)),
         ),
     )
 
     /** Ayın resmi listesi, 1'inden başlayarak gün gün. */
     val rosters: Map<YearMonth, String> = linkedMapOf(
+        YearMonth.of(2024, 4) to "- - - - - - Yaren - - Yaren - - Kenan - - - - - - - - - - - - - - - Yaren Kenan",
+        YearMonth.of(2024, 5) to "- - - Kenan - - - - Kenan - Yaren - - - - - Kenan Fatma - - Fatma Yaren - - Fatma - - - Yaren - Fatma",
+        YearMonth.of(2024, 6) to "- Yaren - - - Yaren Kenan Fatma - - - - Fatma - - - Fatma - Kenan - Fatma - - Fatma - - - Yaren Kenan -",
+        YearMonth.of(2024, 7) to "Yaren - - - Yaren Kenan - - - - - - Kenan - - - - Kenan Betül Fatma Yaren - - - Fatma - Betül Fatma - - Fatma",
+        YearMonth.of(2024, 8) to "- - Betül Kenan - - - - Fatma Yaren Betül - - Kenan - - Fatma - Yaren Fatma - - Kenan Fatma - - Fatma - Yaren Betül Fatma",
+        YearMonth.of(2024, 9) to "- Yaren Fatma Kenan Betül - Yaren Betül - - - - Yaren Betül - - Fatma Betül - Kenan Fatma - - Fatma Kenan - Betül Fatma Kenan -",
+        YearMonth.of(2024, 10) to "Yaren - - Fatma Betül - Fatma Kenan - - Betül Fatma Yaren Kenan Betül - - - Yaren Kenan Fatma Betül - - - Fatma Kenan Yaren Betül Fatma -",
+        YearMonth.of(2024, 11) to "Kenan Yaren - Betül Fatma - - Yaren Fatma - Yaren Fatma - - Betül Kenan - Fatma Betül Kenan - Fatma Betül - Kenan Betül Yaren - Betül Fatma",
+        YearMonth.of(2024, 12) to "Fatma Betül Yaren - - Kenan Fatma - Betül Fatma - - Fatma Kenan - Betül Yaren Kenan - Yaren Fatma - Betül Fatma - - Fatma Betül - Yaren Betül",
+        YearMonth.of(2025, 1) to "Kenan Yaren Fatma Betül Kenan - Fatma Betül Kenan Yaren Fatma Betül - - - Betül Fatma Kenan Yaren - Betül Yaren Fatma Betül Yaren Fatma - - - Betül Fatma",
+        YearMonth.of(2025, 2) to "Yaren Kenan Betül - Kenan Yaren Fatma Betül Yaren - Betül Yaren Fatma Betül Kenan Fatma - - Fatma Betül Yaren Fatma Betül - - Betül Kenan Fatma",
+        YearMonth.of(2025, 3) to "Betül Yaren - - Fatma Kenan Betül Fatma Kenan - - Betül Yaren Fatma Kenan Betül - - Fatma Betül Kenan Yaren Fatma - Şule Yaren Kenan Fatma Şule Yaren Fatma",
+        YearMonth.of(2025, 4) to "Betül Şule Fatma Kenan Şule Fatma Kenan Yaren Betül Şule Fatma Betül Yaren Şule Betül Yaren Kenan Şule Fatma Kenan - Fatma Betül Yaren Fatma Kenan Betül Fatma Yaren Şule",
+        YearMonth.of(2025, 5) to "Kenan Betül Fatma Şule Yaren Fatma Betül Şule Fatma Betül Yaren Fatma Şule Betül Fatma Kenan Şule Yaren Kenan Şule Fatma Betül Kenan Fatma Yaren Kenan Betül Yaren Şule Fatma Kenan",
+        YearMonth.of(2025, 6) to "Şule Fatma Kenan Oğuz Fatma Kenan Oğuz Fatma Betül Oğuz Fatma Yaren Şule Kenan Betül Fatma Şule Kenan Fatma Yaren Betül Fatma Yaren Oğuz Şule Betül Oğuz Fatma Şule Betül",
+        YearMonth.of(2025, 7) to "Oğuz Şule Fatma Kenan Oğuz Betül Fatma Oğuz Yaren Betül Şule Kenan Fatma Oğuz Fatma Yaren Şule Kenan Fatma Oğuz Betül Fatma Şule Kenan Fatma Betül Yaren Şule Fatma Betül Yaren",
+        YearMonth.of(2025, 8) to "Oğuz Fatma Şule Oğuz Betül Şule Fatma Betül Kenan Yaren Fatma Betül Oğuz Fatma Kenan Betül Fatma Yaren Kenan Fatma Yaren Oğuz Fatma Betül Kenan Şule Betül Oğuz Kenan Şule Oğuz",
+        YearMonth.of(2025, 9) to "Fatma Betül Kenan Şule Fatma Betül Şule Fatma Yaren Kenan Betül Fatma Şule Yaren Oğuz Betül Şule Yaren Kenan Oğuz Fatma Şule Betül Fatma Oğuz Kenan Fatma Betül Oğuz Fatma",
+        YearMonth.of(2025, 10) to "Kenan Yaren Şule Oğuz Fatma Kenan Betül Şule Oğuz Kenan Betül Yaren Fatma Oğuz Yaren Şule Betül Fatma Şule Oğuz Betül Fatma Yaren Şule Kenan Oğuz Şule Fatma Yaren Betül Fatma",
         YearMonth.of(2025, 11) to "Kenan Yaren Betül Fatma Şule Kenan Betül Oğuz Şule Yaren Betül Oğuz Fatma Şule Betül Fatma Şule Oğuz Fatma Yaren Oğuz Fatma Yaren Kenan Şule Oğuz Betül Fatma Şule Kenan",
         YearMonth.of(2025, 12) to "Oğuz Betül Şule Fatma Yaren Betül Şule Kenan Betül Oğuz Şule Betül Fatma Yaren Oğuz Şule Kenan Yaren Fatma Kenan Betül Oğuz Yaren Kenan Betül Şule Oğuz Fatma Betül Şule Fatma",
         YearMonth.of(2026, 1) to "Yaren Şule Betül Yaren Oğuz Betül Kenan Fatma Yaren Şule Betül Kenan Oğuz Fatma Betül Oğuz Fatma Şule Oğuz Fatma Yaren Şule Fatma Oğuz Kenan Betül Yaren Fatma Oğuz Şule Kenan",
@@ -94,6 +127,8 @@ object SeedData {
         LocalDate.of(2026, 5, 2) to "Betül",
         LocalDate.of(2026, 5, 3) to "Kenan",
         LocalDate.of(2026, 6, 15) to "Fatma",
+        LocalDate.of(2025, 5, 18) to "Şule",
+        LocalDate.of(2025, 7, 15) to "Yaren",
     )
 
     /** Okunması belirsiz ya da doğrulanması gereken günler. */
@@ -115,37 +150,26 @@ object SeedData {
         DayInfo(LocalDate.of(2026, 10, 29), DayKind.RESMI_TATIL, "Cumhuriyet Bayramı", eventId = "2026-10-29", actualVisit = Visit.VAR),
     )
 
-    /** Bayram sayfasından: yalnızca bugünkü ekibin günleri (kalanları uzmanlar ya da ayrılanlar tuttu). */
-    fun historyEvents(): List<HistoryEvent> = listOf(
-        HistoryEvent(
-            "h-2024-ramazan", "2024 Ramazan Bayramı", EventKind.BAYRAM, LocalDate.of(2024, 4, 9), LocalDate.of(2024, 4, 12), 10,
-            listOf(HistoryEntry("yaren", 2), HistoryEntry("fatma", 1)),
-        ),
-        HistoryEvent(
-            "h-2024-kurban", "2024 Kurban Bayramı", EventKind.BAYRAM, LocalDate.of(2024, 6, 15), LocalDate.of(2024, 6, 19), 10,
-            listOf(HistoryEntry("fatma", 2), HistoryEntry("yaren", 1)),
-        ),
-        HistoryEvent(
-            "h-2025-ramazan", "2025 Ramazan Bayramı", EventKind.BAYRAM, LocalDate.of(2025, 3, 29), LocalDate.of(2025, 4, 1), 10,
-            listOf(HistoryEntry("sule", 3), HistoryEntry("fatma", 3), HistoryEntry("yaren", 1), HistoryEntry("betul", 1), HistoryEntry("kenan", 1)),
-        ),
-        HistoryEvent(
-            "h-2025-kurban", "2025 Kurban Bayramı", EventKind.BAYRAM, LocalDate.of(2025, 6, 5), LocalDate.of(2025, 6, 9), 5,
-            listOf(HistoryEntry("fatma", 2), HistoryEntry("kenan", 1), HistoryEntry("betul", 1), HistoryEntry("oguz", 1)),
-        ),
-    )
+    /**
+     * Elle girilen eski bayram kayıtları. Nisan 2024'ten beri resmi listeler olduğu için gerekmiyor;
+     * eski sürümlerin bayram sayfasından girdiği kayıtlar göçte kaldırılır ([legacyHistoryIds]).
+     */
+    fun historyEvents(): List<HistoryEvent> = emptyList()
+
+    val legacyHistoryIds = setOf("h-2024-ramazan", "h-2024-kurban", "h-2025-ramazan", "h-2025-kurban")
 
     fun build(): AppData {
         val months = rosters.map { (ym, line) ->
             val names = line.split(' ').filter { it.isNotBlank() }
             require(names.size == ym.lengthOfMonth()) { "$ym: ${names.size} isim, ${ym.lengthOfMonth()} gün" }
-            val assignments = names.mapIndexed { i, name ->
-                Assignment(ym.atDay(i + 1), ids[name] ?: error("Bilinmeyen isim: $name"), locked = true)
+            val assignments = names.mapIndexedNotNull { i, name ->
+                if (name == "-") null else Assignment(ym.atDay(i + 1), ids[name] ?: error("Bilinmeyen isim: $name"), locked = true)
             }
             val status = if (ym < YearMonth.of(2026, 10)) MonthStatus.KAPANDI else MonthStatus.YAYINLANDI
+            val source = if (ym < YearMonth.of(2025, 4) && ym != YearMonth.of(2025, 1)) "Excel çalışma planından aktarıldı" else "Kağıt listeden aktarıldı"
             MonthPlan(
                 ym.year, ym.monthValue, status,
-                versions = listOf(RosterVersion(1, "${ym.atDay(1)}T00:00", "Kağıt listeden aktarıldı", assignments)),
+                versions = listOf(RosterVersion(1, "${ym.atDay(1)}T00:00", source, assignments)),
             )
         }
         val official = months.flatMap { it.current!!.assignments }.associate { it.date to it.personId }

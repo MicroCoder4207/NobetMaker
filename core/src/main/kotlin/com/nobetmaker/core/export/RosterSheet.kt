@@ -16,10 +16,15 @@ object RosterSheet {
     private const val GAP = 12f
     private const val RADIUS = 18f
 
-    fun layout(view: MonthView, generatedOn: LocalDate? = null): SheetLayout {
+    /**
+     * @param dokum verilirse nöbet sayıları kartlarının yerine takvimin altına nöbet dökümü çizilir ve görsel uzar
+     */
+    fun layout(view: MonthView, generatedOn: LocalDate? = null, dokum: Dokum? = null): SheetLayout {
         val ops = ArrayList<DrawOp>()
         val w = WIDTH.toFloat()
-        ops += DrawOp.Rect(0f, 0f, w, HEIGHT.toFloat(), fill = Colors.WHITE)
+        val leavesH = if (view.leaves.isNotEmpty()) 50f else 0f
+        val height = if (dokum == null) HEIGHT.toFloat() else 1176f + leavesH + DokumSheet.height(dokum) + 80f
+        ops += DrawOp.Rect(0f, 0f, w, height, fill = Colors.WHITE)
 
         // Başlık: küçük üst satır, büyük ay adı, sağda liste türü.
         ops += DrawOp.Text(M, 48f, 1300f, 30f, view.title.uppercase(tr), 22f, Colors.MUTED, align = Align.LEFT, weight = 600, tracking = 0.14f)
@@ -52,6 +57,17 @@ object RosterSheet {
             for ((c, cell) in week.withIndex()) {
                 drawCell(ops, cell, M + c * (colW + GAP), cellsTop + r * (rowH + GAP), colW, rowH, view.showActual)
             }
+        }
+
+        if (dokum != null) {
+            if (view.leaves.isNotEmpty()) {
+                val y = 1166f
+                ops += DrawOp.Text(M, y, 130f, 30f, "İZİNLER", 20f, Colors.MUTED, align = Align.LEFT, weight = 700, tracking = 0.12f)
+                ops += DrawOp.Text(M + 140f, y, w - 2 * M - 140f, 30f, view.leaves.joinToString("   ·   "), 21f, Colors.INK, align = Align.LEFT, weight = 500)
+            }
+            DokumSheet.draw(ops, dokum, 1176f + leavesH, w)
+            ops += DrawOp.Text(M, height - 46f, w - 2 * M, 28f, "NöbetMaker", 19f, Colors.FAINT, align = Align.RIGHT, weight = 600)
+            return SheetLayout(WIDTH, height.toInt(), ops)
         }
 
         // Nöbet sayıları: kişi başına bir kart.
@@ -117,6 +133,9 @@ object RosterSheet {
                 ops += DrawOp.Text(x + 16f, y + 47f, cw - 32f, 24f, note, 19f, Colors.shade(Colors.parse(other!!.color), 0.75f), align = Align.LEFT, weight = 700)
         }
 
+        if (main == null && cell.specialist) {
+            ops += DrawOp.Text(x + 16f, y + ch - 46f, cw - 32f, 30f, "Uzman", 22f, Colors.FAINT, align = Align.LEFT, weight = 600)
+        }
         if (main != null) {
             val pillH = minOf(62f, ch * 0.40f)
             val pillY = y + ch - pillH - 12f

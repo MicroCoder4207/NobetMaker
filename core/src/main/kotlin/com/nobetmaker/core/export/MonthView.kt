@@ -21,6 +21,8 @@ class DayCell(
     val visitUncertain: Boolean,
     val hours: Int,
     val flagged: Boolean = false,
+    /** Taslak olmayan ayda asistan yazılmamış gün: o dönem uzmanlar tutuyordu. */
+    val specialist: Boolean = false,
 )
 
 class PersonTotal(val person: Person, val count: Int, val hours: Int, val weekendOrHoliday: Int)
@@ -49,6 +51,7 @@ object MonthViewBuilder {
         val last = month.atEndOfMonth()
         val end = last.plusDays((7 - last.dayOfWeek.value).toLong())
 
+        val draft = data.month(month)?.status?.let { it == com.nobetmaker.core.model.MonthStatus.TASLAK } ?: true
         val weeks = ArrayList<List<DayCell>>()
         var d = start
         while (!d.isAfter(end)) {
@@ -67,6 +70,7 @@ object MonthViewBuilder {
                     visitUncertain = cal.visit(date) == com.nobetmaker.core.model.Visit.BELIRSIZ,
                     hours = cal.hours(date),
                     flagged = date in flagged,
+                    specialist = !draft && YearMonth.from(date) == month && roster.official[date] == null,
                 )
             }
             weeks += week

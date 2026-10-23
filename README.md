@@ -4,14 +4,16 @@ Tıbbi mikrobiyoloji asistanları için aylık nöbet listesini otomatik ve adil
 
 ## Neler yapıyor
 - **Liste üretimi:** art arda ve günaşırı yasağı, izinler, kişiye özel kurallar ve kesin istekler hiçbir zaman çiğnenmez. "Mümkünse" istekler, uzun tatil koruması (Perşembe kuralı) ve zor günlerin adil dağılımı ceza puanıyla dengelenir. Her seferinde 3 alternatif liste sunulur.
-- **Sıra:** vizit (Cumartesi ve vizitli tatiller), Cuma, Pazar, Perşembe ve Pazartesi (Salı dersi) sırayla döner; son 3 ay hatırlanır. Aynı kişiye ayda 2 Cuma, 2 Cumartesi ya da 2 Pazar yazılmaz. Liste haftadan haftaya aynı sırayla tekrar etmez.
-- **Adalet defteri:** bayram, yılbaşı ve resmi tatiller için 2023'ten beri. Kıdem katsayılarıyla ağırlıklandırılır.
-- **Nöbet sayıları:** kıdem katsayısı, küsurat devri, aylık üst sınır; izin sayıyı düşürmez. Birinin sayısı elle değişince kalan günler diğerlerine yeniden dağılır.
+- **Kıdem eğrisi:** katsayılar asistanlık yılından hesaplanır; herkes aynı eğriden geçer (ilk yıllar 1,00 → 0,97, son yıl 0,82 → 0,78, uzatma 0,50 ve hafta sonu/tatil yok). Doğum izni süreden düşülür; ekip 5 kişinin altına inince son yıl indirimi yarıya iner. İsteyen kişi katsayısını elle girebilir.
+- **Sıra:** vizit (tatil olmayan Cumartesi), Cuma, Pazar, Perşembe ve Pazartesi (Salı dersi) sırayla döner; son 6 ay hatırlanır. Vizit, Cuma ve Pazar kıdeme göre ağırlıklı, vizitte eşitlikte önce çömez. Yeni başlayana ilk ay vizit yazılmaz. Aynı kişiye ayda 2 Cuma, 2 Cumartesi ya da 2 Pazar yazılmaz. Liste haftadan haftaya aynı sırayla tekrar etmez.
+- **Adalet defteri:** bayram, yılbaşı ve resmi tatiller ilk resmi listeden (Nisan 2024) beri sayılır; her olay o gün nöbette olanlar arasında o günkü katsayıyla paylaştırılır, uzman günleri sayılmaz, arefe yarım gündür, 9 günlük tatil bütün olarak bayramdır. Tatil günleri sıraya girmez, böylece tatilde vizit olup olmadığının bilinmemesi hesabı etkilemez. Kişi nöbete başladığı günden itibaren sayılır; yeni gelen borçsuz başlar.
+- **Nöbet sayıları:** kıdem eğrisi, küsurat devri, aylık üst sınır; izin sayıyı düşürmez. Birinin sayısı elle değişince kalan günler diğerlerine yeniden dağılır. Hocalar kalıcı bir sayı söylerse kişiye "ayda sabit sayı" kuralı girilir. Yayınlanmış ayda "Kalan günleri yeniden üret" bugüne kadarki günleri korur.
 - **Resmi / gayriresmi liste:** yayınlanan listede değişiklik yeni sürüm açar; aranızdaki değişimler ayrıca kaydedilir. Değişim asistanı kurallara uyan takasları önerir.
-- **Çıktılar:** hocaya Excel (Takvim, Liste, Özet), WhatsApp için görsel, çıktı için PDF; modern tasarım, belirgin kişi renkleri.
+- **Çıktılar:** hocaya Excel (Takvim, Liste, Özet, Döküm), WhatsApp için görsel, çıktı için PDF; modern tasarım, belirgin kişi renkleri. Resmi listeye **nöbet dökümü** eklenir: herkesin asistanlık yılı, katsayısı, sayısı, hafta sonları, son 6 aydaki vizitleri, bayram/tatil dengesi ve kıdem eğrisi; "neden bana bu kadar" sorusunun cevabı listenin üstünde.
+- **Geçmiş:** Nisan 2024 – Ekim 2026 resmi listelerinin tamamı (Excel çalışma planları ve kağıt listeler); uzmanların tuttuğu günler "Uzman" olarak görünür.
 - **Telefon ve tablet:** geniş ekranda yan menü ve iki sütunlu takvim.
 - **Veri:** tek bir JSON dosyası, otomatik yedekler, dışa/içe aktarma. İnternet izni yok.
-- Kasım 2025 – Ekim 2026 kağıt listeleri başlangıç verisi olarak gelir.
+- Nisan 2024 – Ekim 2026 resmi listeleri başlangıç verisi olarak gelir; eski sürümden güncellenince eksik aylar eklenir (girdiğiniz hiçbir şeyin üstüne yazılmaz).
 
 ## Kurulum
 `app-release.apk` dosyasını telefona indirip açın. Android ilk kez sorduğunda dosyayı açan uygulamaya "bilinmeyen uygulamaları yükleme" izni verin.
@@ -30,7 +32,7 @@ Tıbbi mikrobiyoloji asistanları için aylık nöbet listesini otomatik ve adil
 - Gereksinimler: JDK 17+, Android SDK (API 36).
 - Derleme: `./gradlew :app:assembleRelease`
 - Testler: `./gradlew :core:test :app:testDebugUnitTest`
-  - `core` testleri kuralları, kota, defter, çözücü ve geçmiş verinin kağıtla tutarlılığını sınar.
+  - `core` testleri kuralları, kıdem eğrisi, kota, defter, çözücü, nöbet dökümü, veri göçü ve geçmiş verinin kağıtla tutarlılığını sınar.
   - `app` testleri uygulamayı Robolectric ile telefon ve tablet boyutunda açar; her ekrandaki düğmelere basıp sonucun veriye yazıldığını kontrol eder (takvim, gün ayrıntısı, değişim, paylaşım, ay hazırlığı, liste üretimi, kişiler, istatistik, geçmiş, ayarlar, yedekler) ve `app/build/screens` altına ekran görüntüleri yazar.
 - Modüller:
   - `core`: saf Kotlin; takvim, kurallar, kota, adalet defteri, çözücü, Excel ve görsel düzeni.

@@ -18,14 +18,15 @@ import com.nobetmaker.core.model.QuotaEntry
 import com.nobetmaker.core.model.RosterVersion
 import com.nobetmaker.core.model.Settings
 import com.nobetmaker.core.model.Visit
+import com.nobetmaker.core.seed.SeedData
 import com.nobetmaker.core.solver.MonthProblem
 import com.nobetmaker.core.solver.ProblemBuilder
-import kotlinx.serialization.json.Json
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
 import java.util.UUID
+import kotlinx.serialization.json.Json
 
 object AppJson {
     val json = Json {
@@ -62,6 +63,29 @@ object AppJson {
                     )
                 },
                 months = d.months.map { m -> m.copy(quotas = m.quotas.map { q -> if (q.final != q.suggested) q.copy(manual = true) else q }) },
+            )
+        }
+        if (d.schemaVersion < 4) {
+            // 0.4.0: kıdem eğrisi için asistanlık başlangıçları; Nisan 2024 – Ekim 2025 resmi listeleri (eski bayram
+            // sayfası kayıtlarının yerini alır); sıra hafızası 6 ay. Kullanıcının girdiği hiçbir şeyin üstüne yazılmaz.
+            val seed = SeedData.build()
+            val seedPersons = seed.persons.associateBy { it.id }
+            val importUntil = YearMonth.of(2025, 11)
+            val newMonths = seed.months.filter { sm ->
+                YearMonth.of(sm.year, sm.month) < importUntil && d.months.none { it.year == sm.year && it.month == sm.month }
+            }
+            val importedDates = newMonths.flatMap { m -> (1..YearMonth.of(m.year, m.month).lengthOfMonth()).map { YearMonth.of(m.year, m.month).atDay(it) } }.toSet()
+            d = d.copy(
+                persons = d.persons.map { p ->
+                    val sp = seedPersons[p.id] ?: return@map p
+                    p.copy(residencyStart = p.residencyStart ?: sp.residencyStart, joinDate = p.joinDate ?: sp.joinDate)
+                },
+                months = (d.months + newMonths).sortedWith(compareBy({ it.year }, { it.month })),
+                informalChanges = d.informalChanges + seed.informalChanges.filter { c ->
+                    c.date in importedDates && d.informalChanges.none { it.date == c.date }
+                },
+                historyEvents = d.historyEvents.filterNot { it.id in SeedData.legacyHistoryIds },
+                settings = if (d.settings.rotationMonths == 3) d.settings.copy(rotationMonths = 6) else d.settings,
             )
         }
         return if (d.schemaVersion == AppData.SCHEMA_VERSION) d else d.copy(schemaVersion = AppData.SCHEMA_VERSION)
@@ -178,6 +202,17 @@ object DataOps {
         val cur = plan.current ?: return data
         val updated = cur.copy(assignments = cur.assignments.map { if (it.date == date) it.copy(locked = locked) else it })
         return replaceMonth(data, plan.copy(versions = plan.versions.dropLast(1) + updated))
+    }
+
+    /**
+     * [date] dahil o güne kadarki günleri kilitler. Hocalar sayı söylediğinde ya da ay ortasında bir şey
+     * değiştiğinde geçmiş günler korunur, yalnızca kalan günler yeniden üretilir.
+     */
+    fun lockThrough(data: AppData, ym: YearMonth, date: LocalDate): AppData {
+        val plan = data.month(ym) ?: return data
+        val cur = plan.current ?: return data
+        val updated = cur.copy(assignments = cur.assignments.map { if (!it.date.isAfter(date)) it.copy(locked = true) else it })
+        return log(replaceMonth(data, plan.copy(versions = plan.versions.dropLast(1) + updated)), "Geçmiş günler kilitlendi", "$ym: ${date.dayOfMonth}. güne kadar")
     }
 
     fun clearUnlocked(data: AppData, ym: YearMonth): AppData {

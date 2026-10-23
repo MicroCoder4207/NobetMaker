@@ -18,11 +18,13 @@ object RosterExcel {
         return "${prefix}_${view.month.year}_${"%02d".format(view.month.monthValue)}_$month.xlsx"
     }
 
-    fun write(view: MonthView, out: OutputStream) {
+    /** @param dokum verilirse "Döküm" sayfası eklenir (§14.3). */
+    fun write(view: MonthView, out: OutputStream, dokum: Dokum? = null) {
         val book = XlsxWorkbook()
         calendarSheet(book, view)
         listSheet(book, view)
         summarySheet(book, view)
+        if (dokum != null) dokumSheet(book, dokum)
         book.write(out)
     }
 
@@ -93,6 +95,7 @@ object RosterExcel {
                 )
                 val nameStyle = tile.copy(size = 12.0, hAlign = "center", borderSides = "lr", fill = bg, color = FAINT)
                 when {
+                    person == null && cell.specialist -> sheet.set(row + 1, c, "Uzman", nameStyle.copy(color = FAINT))
                     person == null -> sheet.set(row + 1, c, "", nameStyle)
                     !cell.inMonth -> sheet.set(row + 1, c, person.name, nameStyle)
                     else -> sheet.set(row + 1, c, person.name, personCell(person, nameStyle))
@@ -164,7 +167,11 @@ object RosterExcel {
             val base = tableCell.copy(fill = fill, indent = 1, color = if (cell.holiday) HOLIDAY_INK else INK)
             sheet.set(r, 0, "%02d.%02d.%d".format(cell.date.dayOfMonth, cell.date.monthValue, cell.date.year), base)
             sheet.set(r, 1, cell.date.dayOfWeek.trName(), base)
-            if (person != null) sheet.set(r, 2, person.name, personCell(person, base.copy(color = INK))) else sheet.set(r, 2, "", base)
+            when {
+                person != null -> sheet.set(r, 2, person.name, personCell(person, base.copy(color = INK)))
+                cell.specialist -> sheet.set(r, 2, "Uzman", base.copy(color = MUTED))
+                else -> sheet.set(r, 2, "", base)
+            }
             sheet.set(r, 3, note, base.copy(color = if (cell.holiday) HOLIDAY_INK else MUTED))
             sheet.rowHeight(r, 20.0)
         }
@@ -198,5 +205,42 @@ object RosterExcel {
         sheet.set(r, 3, view.totals.sumOf { it.weekendOrHoliday }, total)
         sheet.set(r, 4, view.totals.sumOf { it.hours }, total)
         sheet.rowHeight(r, 22.0)
+    }
+
+    private fun dokumSheet(book: XlsxWorkbook, dokum: Dokum) {
+        val sheet = book.sheet("Döküm")
+        sheet.landscape = true
+        sheet.fitToPage = true
+        sheet.showGridLines = false
+        sheet.frozenRows = 1
+        val heads = listOf(
+            "Kişi", "Asistanlık", "Nöbet katsayısı", "Hafta sonu katsayısı", "Nöbet", "Saat",
+            "Cuma", "Cumartesi", "Pazar", "Vizit (son ${dokum.rotationMonths} ay)", "Bayram", "Resmi tatil",
+        )
+        heads.forEachIndexed { c, h -> sheet.set(0, c, h, if (c <= 1) headerLeft else header) }
+        sheet.rowHeight(0, 24.0)
+        sheet.columnWidth(0, 16.0); sheet.columnWidth(1, 16.0)
+        for (c in 2..11) sheet.columnWidth(c, if (c >= 10) 16.0 else 13.0)
+        val num = tableCell.copy(hAlign = "center")
+        dokum.rows.forEachIndexed { i, r ->
+            val row = i + 1
+            sheet.set(row, 0, r.person.name, personCell(r.person, tableCell.copy(indent = 1)))
+            sheet.set(row, 1, r.stage ?: "—", tableCell.copy(indent = 1))
+            sheet.set(row, 2, Dokum.coef(r.duty), num)
+            sheet.set(row, 3, if (r.noWeekend) "yok" else Dokum.coef(r.hard), num)
+            sheet.set(row, 4, if (r.fixedCount != null) "${r.count} (sabit)" else "${r.count}", num.copy(bold = true))
+            sheet.set(row, 5, r.hours, num)
+            listOf(r.friday, r.saturday, r.sunday).forEachIndexed { k, has -> sheet.set(row, 6 + k, if (has) "✓" else "", num) }
+            sheet.set(row, 9, r.visits?.toString() ?: "—", num)
+            sheet.set(row, 10, Dokum.balanceText(r.bayram), num)
+            sheet.set(row, 11, Dokum.balanceText(r.resmi), num)
+            sheet.rowHeight(row, 20.0)
+        }
+        var row = dokum.rows.size + 2
+        sheet.set(row, 0, "NASIL HESAPLANDI", eyebrow)
+        for (note in dokum.notes) {
+            row++
+            sheet.set(row, 0, "•  $note", CellStyle(size = 10.5, color = INK))
+        }
     }
 }

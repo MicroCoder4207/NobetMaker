@@ -133,7 +133,7 @@ class Objective(private val pr: MonthProblem) {
         // Haftanın aynı günü, aynı bayram, defter.
         val weekday = IntArray(7)
         val rotation = IntArray(groups.size)
-        val longDays = IntArray(longCats.size)
+        val longDays = DoubleArray(longCats.size)
         var bayramKeys: MutableMap<String, Int>? = null
         for (i in 0 until D) {
             if (!has[i + pad]) continue
@@ -141,7 +141,7 @@ class Objective(private val pr: MonthProblem) {
             val ri = pr.rotationIndex[i]
             if (ri >= 0) rotation[ri]++
             val li = pr.longIndex[i]
-            if (li >= 0) longDays[li]++
+            if (li >= 0) longDays[li] += pr.longWeight[i]
             val bk = pr.bayramKey[i]
             if (bk != null) {
                 if (bayramKeys == null) bayramKeys = HashMap()

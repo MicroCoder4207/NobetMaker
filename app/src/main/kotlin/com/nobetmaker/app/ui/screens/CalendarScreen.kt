@@ -162,6 +162,17 @@ fun CalendarScreen(vm: AppViewModel, nav: Nav) {
             if (plan?.current != null && status != MonthStatus.KAPANDI) {
                 OutlinedButton(onClick = { swapFrom = null; swapPicking = true }) { Text("İki günü değiştir") }
             }
+            if (status == MonthStatus.YAYINLANDI) {
+                // Hocalar sayı söylediğinde ya da ay ortasında bir şey değiştiğinde: bugüne kadarki günler kilitlenir,
+                // kalan günler yeniden üretilir ve yeni sürüm olarak kaydedilir.
+                OutlinedButton(onClick = {
+                    confirm = "Bugüne kadarki günler kilitlensin ve kalan günler yeniden üretilsin mi? Seçtiğiniz liste yeni sürüm olarak kaydedilir." to {
+                        vm.update("Bugüne kadarki günler kilitlendi", onDone = { nav.generate(month) }) {
+                            DataOps.lockThrough(it, month, java.time.LocalDate.now())
+                        }
+                    }
+                }) { Icon(Icons.Default.Refresh, null); Spacer(Modifier.width(6.dp)); Text("Kalan günleri yeniden üret") }
+            }
         }
     }
 

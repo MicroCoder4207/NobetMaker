@@ -36,7 +36,7 @@ data class AppData(
     fun month(ym: YearMonth): MonthPlan? = months.firstOrNull { it.year == ym.year && it.month == ym.monthValue }
 
     companion object {
-        const val SCHEMA_VERSION = 3
+        const val SCHEMA_VERSION = 4
     }
 }
 
@@ -49,15 +49,24 @@ data class Person(
     /** 1 = en kıdemli. Tarihlerden türetilmez (K21). */
     val seniority: Int,
     val color: String,
-    /** Bölüme katılış. Nöbete katılış boşsa nöbet dönemi bu tarihten başlar. */
+    /**
+     * Bölüme katılış. Nöbete katılış boşsa kişi bu tarihten önce listeye yazılmaz. Adalet hesabına girmez;
+     * bölüme katılınca hemen nöbete girilmiyor (§2.2).
+     */
     val joinDate: LocalDate? = null,
     val leaveDate: LocalDate? = null,
-    /** Asistanlık başlangıcı (başka hastanede de olabilir). Yalnızca bilgi; hiçbir hesaba girmez. */
+    /** Asistanlık başlangıcı (başka hastanede de olabilir). Kıdem eğrisi bu tarihten hesaplanır (§5.1-9). */
     val residencyStart: LocalDate? = null,
-    /** Nöbete katılış; bölüme katılınca hemen nöbete girilmiyor. Kişi bu tarihten önce listeye yazılmaz. */
+    /**
+     * Nöbete katılış; kişi bu tarihten önce listeye yazılmaz ve adalet hesabında bu tarihten itibaren ekipte
+     * sayılır. Boşsa kayıtlardaki ilk nöbetinden çıkarılır.
+     */
     val dutyStart: LocalDate? = null,
+    /** Elle girilen katsayılar; [autoCoefficients] açıksa ve asistanlık başlangıcı biliniyorsa kullanılmaz. */
     val coefficients: List<CoefficientPeriod> = listOf(CoefficientPeriod()),
     val rules: List<PersonRule> = emptyList(),
+    /** Katsayılar kıdem eğrisinden gelir (§5.1-9); kapalıysa [coefficients] kullanılır. */
+    val autoCoefficients: Boolean = true,
 ) {
     /** Nöbet döneminin başlangıcı: nöbete katılış, yoksa bölüme katılış. */
     val dutyFrom: LocalDate? get() = dutyStart ?: joinDate
@@ -84,6 +93,8 @@ enum class RuleType(val label: String) {
     NO_SATURDAY("Cumartesi yok"),
     NO_SUNDAY("Pazar yok"),
     NO_HOLIDAY("Resmi tatil, bayram ve arefe yok"),
+    /** Hocaların söylediği sabit sayı; her ayın nöbet sayısı bu sayıya sabitlenir, kalan günler diğerlerine dağılır. */
+    MONTHLY_COUNT("Ayda sabit nöbet sayısı"),
 }
 
 @Serializable
@@ -91,6 +102,8 @@ data class PersonRule(
     val type: RuleType,
     val from: LocalDate? = null,
     val to: LocalDate? = null,
+    /** [RuleType.MONTHLY_COUNT] için aylık nöbet sayısı. */
+    val count: Int? = null,
 ) {
     fun appliesOn(date: LocalDate): Boolean =
         (from == null || !date.isBefore(from)) && (to == null || !date.isAfter(to))
@@ -135,6 +148,7 @@ enum class PeriodType(val label: String, val defaultWorksDuty: Boolean, val defa
     DIS_ROTASYON("Dış rotasyon", true, false),
     DOGUM_IZNI("Doğum izni / uzun izin", false, true),
     NOBET_MUAFIYETI("Nöbet muafiyeti", false, true),
+    SINAV("Sınav", false, true),
     DIGER("Diğer", false, false),
 }
 
@@ -333,10 +347,33 @@ data class Settings(
     val penalties: PenaltyWeights = PenaltyWeights(),
     val minGap: Int = 3,
     val maxPerMonth: Int = 6,
-    /** Vizit/Cuma/Pazar/Perşembe sırasının geriye baktığı ay sayısı. */
-    val rotationMonths: Int = 3,
+    /** Vizit/Cuma/Pazar/Perşembe/Pazartesi sırasının geriye baktığı ay sayısı. */
+    val rotationMonths: Int = 6,
     val longMemoryStart: LocalDate = LocalDate.of(2023, 1, 1),
     val excelTitle: String = "Tıbbi Mikrobiyoloji Asistan Nöbet Listesi",
+    val curve: SeniorityCurve = SeniorityCurve(),
+    /** Liste görseline, PDF'e ve Excel'e nöbet dökümü eklenir (§14.3). */
+    val exportSummary: Boolean = true,
+)
+
+/**
+ * Kıdem eğrisi (§5.1-9): katsayı asistanlık yılından hesaplanır, herkes aynı eğriden geçer.
+ * İlk yıllarda nöbet katsayısı 1,00'dan [earlyDutyEnd]'e yavaşça iner; son yılda [finalDutyStart]'tan
+ * [finalDutyEnd]'e; uzatmada [extension] olur ve cumartesi, pazar, tatil yazılmaz.
+ */
+@Serializable
+data class SeniorityCurve(
+    val enabled: Boolean = true,
+    val years: Int = 4,
+    val earlyDutyEnd: Double = 0.97,
+    val earlyHardEnd: Double = 0.94,
+    val finalDutyStart: Double = 0.82,
+    val finalDutyEnd: Double = 0.78,
+    val finalHardStart: Double = 0.67,
+    val finalHardEnd: Double = 0.63,
+    val extension: Double = 0.50,
+    /** Nöbet tutan kişi sayısı bunun altına düşünce son yıl ve uzatma indirimi yarıya iner (çömezler ezilmesin). */
+    val smallTeam: Int = 5,
 )
 
 @Serializable

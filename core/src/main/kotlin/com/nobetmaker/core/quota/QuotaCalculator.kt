@@ -20,6 +20,7 @@ object QuotaCalculator {
      * @param carryIn önceki aydan devreden küsurat
      * @param capacity kişinin bu ay en fazla kaç nöbete sığabileceği (uygun günler ve en az aralık kuralına göre)
      * @param fixed elle sabitlenen sayılar; kalan günler diğerlerine aynı kurallarla dağıtılır
+     * @param dutyOf kişinin o günkü nöbet katsayısı (kıdem eğrisi ya da elle girilen)
      */
     fun compute(
         month: YearMonth,
@@ -30,13 +31,14 @@ object QuotaCalculator {
         maxPerMonth: Int,
         fixedTotal: Int = month.lengthOfMonth(),
         fixed: Map<String, Int> = emptyMap(),
+        dutyOf: (Person, java.time.LocalDate) -> Double = { p, d -> p.coefficientOn(d).duty },
     ): QuotaResult {
         if (fixed.isNotEmpty()) {
             // Önce kimse sabitlenmemiş gibi öneri (gösterim için), sonra kalan günlerin diğerlerine dağıtımı.
-            val full = compute(month, persons, availability, carryIn, capacity, maxPerMonth, fixedTotal)
+            val full = compute(month, persons, availability, carryIn, capacity, maxPerMonth, fixedTotal, dutyOf = dutyOf)
             val rest = persons.filter { it.id !in fixed }
             val remaining = (fixedTotal - fixed.values.sum()).coerceAtLeast(0)
-            val part = compute(month, rest, availability, carryIn, capacity, maxPerMonth, remaining)
+            val part = compute(month, rest, availability, carryIn, capacity, maxPerMonth, remaining, dutyOf = dutyOf)
             val entries = persons.map { p ->
                 val v = fixed[p.id]
                 if (v != null) full.entries.first { it.personId == p.id }.copy(final = v, manual = true)
@@ -51,7 +53,7 @@ object QuotaCalculator {
         val warnings = ArrayList<String>()
 
         val effective = persons.associate { p ->
-            p.id to days.sumOf { d -> if (availability.countsForQuota(p, d)) p.coefficientOn(d).duty else 0.0 } / n
+            p.id to days.sumOf { d -> if (availability.countsForQuota(p, d)) dutyOf(p, d) else 0.0 } / n
         }
         val participants = persons.filter { (effective[it.id] ?: 0.0) > 0.0 }
         val sumEff = participants.sumOf { effective.getValue(it.id) }

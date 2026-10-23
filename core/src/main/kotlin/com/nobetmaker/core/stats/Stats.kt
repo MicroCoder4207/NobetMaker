@@ -27,7 +27,7 @@ class PersonStats(
     val rotationCount: Map<RotationGroup, Int>,
     /** Tutulan − beklenen; pozitif = payından fazla tutmuş. */
     val rotationBalance: Map<RotationGroup, Double>,
-    val longDays: Map<Category, Int>,
+    val longDays: Map<Category, Double>,
     val longPresent: Map<Category, Int>,
     /** Uzun hafıza sapması (gün). */
     val longDeviation: Map<Category, Double>,
@@ -50,7 +50,7 @@ object StatsService {
         }.sortedBy { it.seniority }
 
         val rotation = ledger.rotation(persons, endExclusive.minusMonths(data.settings.rotationMonths.toLong()), endExclusive, emptyList(), availableInPlan = { _, _ -> true })
-        val long = ledger.longMemory(persons, endExclusive, emptyList(), endExclusive.minusDays(1))
+        val long = ledger.longMemory(persons, endExclusive, emptyList())
 
         fun inRange(d: LocalDate) = !d.isBefore(start) && d.isBefore(endExclusive)
 

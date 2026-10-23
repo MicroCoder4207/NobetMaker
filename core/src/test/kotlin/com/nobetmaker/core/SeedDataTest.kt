@@ -48,6 +48,13 @@ class SeedDataTest {
             mapOf("yaren" to 48, "kenan" to 48, "fatma" to 80, "betul" to 88, "sule" to 64, "oguz" to 56),
             hours(YearMonth.of(2025, 12), roster.official),
         )
+        // Ocak 2025 kağıdındaki saatler (boş günleri uzmanlar tuttu); 1 Ocak tatil, ertesi iş günü: 16.
+        val jan25 = YearMonth.of(2025, 1)
+        assertEquals(
+            mapOf("yaren" to 72, "kenan" to 64, "fatma" to 104, "betul" to 88),
+            (1..31).map { jan25.atDay(it) }.filter { it in roster.official }
+                .groupBy { roster.official.getValue(it) }.mapValues { (_, d) -> d.sumOf { cal.hours(it) } },
+        )
         // Ocak 2026 resmi: Yaren 64, Kenan 56, Fatma 72, Betül 64, Şule 80, Oğuz 72.
         assertEquals(
             mapOf("yaren" to 64, "kenan" to 56, "fatma" to 72, "betul" to 64, "sule" to 80, "oguz" to 72),
@@ -57,10 +64,15 @@ class SeedDataTest {
 
     @Test
     fun `resmi listede art arda ve gunasiri yok`() {
+        // Eski listelerde Fatma'nın isteğe bağlı tuttuğu iki istisna (hafta sonu art arda; 15 Temmuz'u Yaren tuttu).
+        val known = setOf(
+            "Fatma: (2024-11-30, 2024-12-01)",
+            "Fatma: (2025-07-13, 2025-07-15)",
+        )
         val violations = data.persons.flatMap { p ->
             roster.officialDutiesOf(p.id).zipWithNext().filter { (a, b) -> b.toEpochDay() - a.toEpochDay() < 3 }
                 .map { "${p.name}: $it" }
-        }
+        }.filterNot { it in known }
         assertTrue(violations.isEmpty(), violations.joinToString())
     }
 

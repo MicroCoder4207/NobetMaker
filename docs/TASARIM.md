@@ -54,33 +54,53 @@ Her kişinin iki katsayısı vardır:
 - **Nöbet katsayısı:** Kişinin ay içinde kaç nöbet tutacağını belirler.
 - **Zor gün katsayısı:** Kişinin zor günlerden (Cumartesi, Cuma, Pazar, resmi tatil, bayram, yılbaşı) alacağı payı belirler. "Önce çömez" ilkesi bu katsayı üzerinden işler.
 
-Katsayılar asistanlık yılına otomatik olarak bağlanmaz. Elle girilir ve geçerlilik tarihiyle saklanır, böylece sonradan yapılan bir değişiklik geçmiş hesapları bozmaz.
+Katsayılar 0.4.0'dan itibaren **kıdem eğrisinden** gelir (2.3): asistanlık başlangıcı biliniyorsa her günün katsayısı o günkü asistanlık yılından hesaplanır. Kişi isterse katsayısını elle de girebilir; elle girilen katsayılar geçerlilik tarihiyle saklanır, böylece sonradan yapılan bir değişiklik geçmiş hesapları bozmaz.
 
 ### 2.1 Başlangıç değerleri
 
-| Sıra | Kişi | Nöbet katsayısı | Zor gün katsayısı | Kişiye özel kural |
-|---|---|---|---|---|
-| 1 | Yaren | 0.50 | 0.50 (yalnız Cuma için) | Cumartesi, Pazar, resmi tatil, bayram ve arefe yok |
-| 2 | Kenan | 0.80 | 0.65 | — |
-| 3 | Fatma | 0.90 | 0.70 | — |
-| 4 | Betül | 0.97 | 0.94 | — |
-| 5 | Şule | 0.98 | 0.96 | — |
-| 6 | Oğuz | 0.99 | 0.98 | — |
-| 7 | Aslı | 1.00 | 1.00 | — |
+| Sıra | Kişi | Asistanlık başlangıcı | Kasım 2026'da | Nöbet | Zor gün | Kişiye özel kural |
+|---|---|---|---|---|---|---|
+| 1 | Yaren | 2021 (başka hastane; ay tahmini Nisan), bölüme Aralık 2023 | uzatma | 0.50 | — | Cumartesi, Pazar, resmi tatil, bayram ve arefe yok |
+| 2 | Kenan | Ağustos 2023 (bölümün ilk asistanı) | 4. yıl 4. ay | 0.81 | 0.66 | — |
+| 3 | Fatma | Eylül 2023 | 4. yıl 3. ay | 0.81 | 0.66 | — |
+| 4 | Betül | Aralık 2023 | 3. yıl 12. ay | 0.97 | 0.94 | — |
+| 5 | Şule | Ağustos 2024 | 3. yıl 4. ay | 0.98 | 0.96 | — |
+| 6 | Oğuz | Aralık 2024 | 2. yıl 12. ay | 0.98 | 0.97 | — |
+| 7 | Aslı | Ocak 2026 | 1. yıl 11. ay | 1.00 | 0.99 | — |
+
+Eğri bulunmadan önce elle girilen değerler (Kenan 0.80/0.65, Fatma 0.90/0.70, Betül 0.97/0.94, Şule 0.98/0.96, Oğuz 0.99/0.98, Aslı 1.00) zaten asistanlık yılına göre gidiyordu; eğri bunu kurala bağladı. Fatma Kenan'dan bir ay çömez olduğu için katsayısı çok az yüksektir.
 
 - Betül, Şule, Oğuz ve Aslı arasındaki fark bilerek çok küçük tutuldu. Yıllık etkisi kabaca şu: Aslı, Betül'den 2 nöbet ve 1-2 zor gün fazla tutar.
 - İyi günler (Perşembe) kıdeme bakılmadan, uygun olan herkese eşit dağıtılır.
 - Yaren'in özel kuralı yalnızca Yaren'e aittir. Yaren ayrılınca bu kural kimseye otomatik geçmez.
-- **Canay** 2027 yazında eklenecek. Yeni gelen birinin ilk ayında katsayı elle düşük girilir.
+- **Canay** 2027 yazında doğum izninden dönecek; kıdemi Aslı'dan öndedir. Doğum izni asistanlık süresinden düşülür (2.3). Yeni gelenin ilk ayında vizit yazılmaz (6.1).
+
+### 2.3 Kıdem eğrisi
+
+Herkes aynı eğriden geçer: çömezken çok, kıdemliyken az. Böylece 4 yılın toplamında herkes kabaca aynı yükü taşır.
+
+| Asistanlık süresi | Nöbet katsayısı | Zor gün katsayısı |
+|---|---|---|
+| İlk 6 ay | 1.00 (bu dönemde nöbet yok) | 1.00 |
+| 6. ay – 3. yıl sonu | 1.00'dan 0.97'ye yavaşça iner | 1.00'dan 0.94'e |
+| Son yıl (4. yıl) | 0.82'den 0.78'e | 0.67'den 0.63'e |
+| Uzatma (4 yıl dolduktan sonra) | 0.50 | cumartesi, pazar ve tatil yazılmaz |
+
+- Eğri aylıktır: bir ay kıdem farkı çok küçük bir katsayı farkı yaratır.
+- Doğum izni (uzun izin) asistanlık süresinden düşülür.
+- **Küçük ekip:** Nöbet tutan kişi sayısı 5'in altına düşünce son yıl ve uzatma indirimi yarıya iner. Az kişiyle bu indirim birkaç çömezin sırtına binerdi.
+- Değerler, asistanlık süresi ve küçük ekip sınırı Ayarlar'dan değiştirilebilir; eğri kapatılırsa elle girilen katsayılar kullanılır.
+- Adalet defteri geçmiş günleri o günkü katsayıyla hesaplar; kıdemli olan birinin çömezken tuttuğu bayramlar bugünkü düşük katsayısıyla yeniden değerlendirilmez.
+- Kişiler ekranında eğri ve herkesin üzerindeki yeri gösterilir; kişi kartında asistanlık yılı, son yıla giriş ve 4 yılın dolacağı tarih yazar (uzatma olursa ayrılış sonra girilir).
 
 ### 2.2 Kişi ekleme ve çıkarma
 
 - Her kişi için dört tarih girilebilir; hiçbiri kıdem sırasını etkilemez:
-  - **Asistanlık başlangıcı:** başka hastanede geçen süre dahil. Yalnızca bilgi içindir. Varsayılan olarak bölüme katılışla aynıdır; biri girilince boş olan diğeri de aynı tarihi alır.
-  - **Bölüme katılış.**
-  - **Nöbete katılış:** bölüme gelen hemen nöbete girmiyor. Kişi bu tarihten önce listeye yazılmaz. Boşsa bölüme katılış esas alınır.
+  - **Asistanlık başlangıcı:** başka hastanede geçen süre dahil. Kıdem eğrisi bu tarihten hesaplanır (2.3). Varsayılan olarak bölüme katılışla aynıdır; biri girilince boş olan diğeri de aynı tarihi alır.
+  - **Bölüme katılış:** kişi bu tarihten önce listeye yazılmaz (nöbete katılış boşsa). Adalet hesabını başlatmaz.
+  - **Nöbete katılış:** bölüme gelen hemen nöbete girmiyor; çömez ilk 5–6 ay nöbet tutmaz (listelerde 6–8 ay). Uygulama asistanlık başlangıcı + 6 ayı önerir. Kişi bu tarihten önce listeye yazılmaz ve adalet hesabında bu tarihten itibaren ekipte sayılır.
   - **Ayrılış:** kişi bu tarihten sonra listeye girmez ve katsayılar kalanlar arasında kendiliğinden yeniden oranlanır.
-- Tarihler boş bırakılabilir (başlangıç verisinde hepsi boştur). Bu durumda adalet hesabı, kişinin ekipte olduğu dönemi kayıtlardan çıkarır: kişinin ya da kendisinden çömez birinin ilk kayıtlı nöbeti başlangıç sayılır, çünkü çömez nöbete başladığında kıdemli zaten bölümdedir. Hiç kaydı olmayan yeni kişi, kayıtların bittiği günden sonra ekipte sayılır. Başka hastaneden geçişle sonradan gelen kıdemli biri için nöbete katılış tarihi girilmelidir.
+- **Adalet hesabında ekipte sayılma:** nöbete katılış girilmişse o tarih; girilmemişse kişinin kayıtlardaki ilk nöbeti. Hiç kaydı olmayan kişi (yeni gelen ya da izinden dönen) **borçsuz başlar**: kayıtların bittiği günün ertesinden itibaren sayılır. Bölüme katılış tek başına yetmez; yoksa nöbete başlamadan önceki bayramlar "tuttu mu tutmadı mı" diye borç yazardı. 0.3'teki "kendinden çömezin ilk nöbetine bak" çıkarımı kaldırıldı; geçişle ya da izinden dönen kıdemlilerde yanlış sonuç veriyordu.
 - Bir kişi ekipte kalıp nöbetten çıkabilir (Yaren için bu ihtimal var). Bu durumda kişiye bir **nöbet muafiyeti** dönemi girilir (bkz. 5.3). Kişi listeye girmez, payı kalanlara katsayılarına göre dağılır, borç yazılmaz. Geçmişi ve istatistiği yerinde durur.
 - Ayrılan kişinin geçmişi silinmez. İstatistikte ve geçmiş özel günlerde görünmeye devam eder ama adalet hesabına girmez.
 - Ekipte artık bulunmayan ama geçmiş kayıtlarda adı geçen kişiler "ayrılmış kişi" olarak eklenebilir.
@@ -228,8 +248,11 @@ Y4'teki sapma, ayın sırasında beklenen gün sayısından fark; Y5'teki sapma 
 4. Önceki aydan devreden **küsurat** ham hakka eklenir.
 5. **Yuvarlama:** Toplam N olacak şekilde en büyük kalan yöntemiyle yapılır. Eşitlik olursa fazla nöbet çömeze gider.
 6. **Yeni küsurat** = (hak + eski küsurat) − verilen kota. Bu fark sonraki aya devreder. Örneğin Yaren'in hakkı 2.5 ise bir ay 2, bir ay 3 nöbet tutar.
-7. **Sınırlar:** Üst sınır 6'dır (S6). Ayrıca fiziksel sığma kontrol edilir: kişinin uygun günlerine en az 3 gün arayla en fazla kaç nöbet sığabileceğine bakılır. Sınırı aşan kısım o ay diğerlerine dağıtılır. Bunun için **borç yazılmaz** ve küsurat devri yapılmaz.
-8. Uygulama sayıları **önerir** (uygulamada "Nöbet sayıları" sekmesi). Liste yapan, bir kişinin sayısını ±1 değiştirdiğinde o kişi **elle sabitlenir** ve kalan günler diğerlerine yukarıdaki adımlarla yeniden dağıtılır; toplam N korunur. Örnek: Kasım 2026'da Yaren 0'a indirilince 2 günü Fatma ve Aslı'ya geçer. Sabitleme kişi bazında kaldırılabilir ya da "Öneriye dön" ile hepsi sıfırlanır. Elle sabitlenen kişiye borç yazılmaz.
+7. **Katsayı:** Kıdem eğrisinden (2.3) ya da kişinin elle girdiği değerden gelir; her gün o günün katsayısı kullanılır.
+8. **Sınırlar:** Üst sınır 6'dır (S6). Ekip küçülürse (ör. Eylül 2027'den sonra 4 kişi) kişi başı 7–8 nöbet düşer; bu durumda üst sınır Ayarlar'dan artırılır. Ayrıca fiziksel sığma kontrol edilir: kişinin uygun günlerine en az 3 gün arayla en fazla kaç nöbet sığabileceğine bakılır. Sınırı aşan kısım o ay diğerlerine dağıtılır. Bunun için **borç yazılmaz** ve küsurat devri yapılmaz.
+9. Uygulama sayıları **önerir** (uygulamada "Nöbet sayıları" sekmesi). Liste yapan, bir kişinin sayısını ±1 değiştirdiğinde o kişi **elle sabitlenir** ve kalan günler diğerlerine yukarıdaki adımlarla yeniden dağıtılır; toplam N korunur. Örnek: Kasım 2026'da Yaren 0'a indirilince 2 günü Fatma ve Aslı'ya geçer. Sabitleme kişi bazında kaldırılabilir ya da "Öneriye dön" ile hepsi sıfırlanır. Elle sabitlenen kişiye borç yazılmaz.
+   - Hocalar bir kişi için sayı söylerse o ay elle sabitlenir. Kalıcıysa kişiye **"Ayda sabit nöbet sayısı"** kuralı girilir; her ay o sayıyla gelir, kural kalkınca öneriye döner.
+   - Sayısı düşen kişinin Cuma/Cumartesi/Pazar sırası değişmez; düşen nöbet hafta içinden gelir. Böylece diğerleri onun yükünü iki kez (hem sayı hem hafta sonu) taşımaz.
 
 Doğrulama:
 
@@ -254,6 +277,7 @@ Yıllık izin ve kongre/eğitim izni kotayı **düşürmez**. Kişinin nöbetler
 | Diğer dış rotasyonlar | **Evet** (nöbeti bölümde tutar; kayıt yalnızca bilgi içindir) | Hayır |
 | Doğum izni / uzun izin | Hayır | Evet (orantılı) |
 | Nöbet muafiyeti (kişi ekipte ama nöbet tutmuyor) | Hayır | Evet (tamamen; payı diğerlerine dağılır, borç yazılmaz) |
+| Sınav (ör. uzmanlık sınavı) | Hayır | Evet (orantılı; borç yazılmaz) |
 | Diğer | Kayıt bazında seçilir | Kayıt bazında seçilir |
 
 Her dönem kaydı **kesin** ya da **belirsiz** olarak işaretlenebilir (ör. tarihi henüz netleşmemiş bir izin). Belirsiz dönem sert kural olarak değil, "mümkünse" öncelikli bir istek gibi uygulanır (Y2).
@@ -269,16 +293,16 @@ Defter, her kişinin her kategoride ne kadar yük taşıdığını izler. Sonrak
 - **Pay:** Her gün, o gün **uygun** olan kişiler arasında paylaştırılır.
   - Uygunluk şöyle belirlenir: kişi o gün ekipte olmalı, kalıcı bir kural (Yaren'in kuralı gibi) ya da **kotayı düşüren** bir dönem (halk sağlığı rotasyonu, doğum izni) yüzünden dışarıda kalmamalı.
   - Yıllık izin uygunluğu düşürmez, tıpkı kotayı düşürmediği gibi. Kişinin izindeyken kaçırdığı zor gün payı önce aynı ayın başka bir zor gününe verilir (elle hazırlanan listelerde de böyle oluyor). Sığmazsa defterde kalır ve sonraki listelerde telafi edilir.
-  - Kişinin ekipte bulunmadığı dönemler hedefe girmez. Örneğin Aslı'dan 2023 bayramları için pay beklenmez. Burada bölüme katılış tarihi esas alınır; başka hastanede geçen süre sayılmaz.
+  - Kişinin ekipte bulunmadığı dönemler hedefe girmez. Örneğin Aslı'dan 2025 bayramları için pay beklenmez. Burada nöbete katılış (yoksa ilk kayıtlı nöbet) esas alınır (2.2).
 - **Sapma** = gerçekleşen − hedef. Kategorinin ortalama gün puanına bölünerek gün birimine çevrilir. Pozitif sapma kişinin fazla tuttuğunu, negatif sapma geride kaldığını gösterir.
 - **Hafıza süreleri:**
-  - Sıra hafızası (Vizit, Cuma, Pazar, Perşembe, Pazartesi): son **3 ay**.
-  - Uzun hafıza (Bayram, Resmi tatil, Yılbaşı): **2023'ten beri** tüm geçmiş.
-- **Uzun hafızalı kategorilerde ölçü:** 2024–2025 bayram kayıtlarında yalnızca bugünkü ekibin kaç gün tuttuğu biliniyor. Kalan günleri o dönem nöbet tutan uzmanlar ya da sonradan ayrılan asistanlar tutmuş, kimin tuttuğu belli değil. Bu yüzden bu kategorilerde pay hesabı yerine **olay başına ortalama** kullanılır:
-  - Kişinin değeri = ekipte bulunduğu bayramlarda tuttuğu toplam gün ÷ ekipte bulunduğu bayram sayısı ÷ zor gün katsayısı.
-  - Değeri düşük olan öne geçer. Sapma, kişinin değerinin ekip ortalamasından farkıdır.
-  - Eski kayıtlarda vizit bilgisi olmadığı için burada puan yerine gün sayısı kullanılır.
-  - Yılbaşı ve resmi tatiller için de aynı yöntem kullanılır (ör. ekipte bulunduğu yılbaşı sayısı).
+  - Sıra hafızası (Vizit, Cuma, Pazar, Perşembe, Pazartesi): son **6 ay** (0.4.0; 3 ayda kaymalar birikiyordu: son 12 ayda bir kişi 13, diğeri 7 cumartesi tutmuştu).
+  - Uzun hafıza (Bayram, Resmi tatil, Yılbaşı): **ilk resmi listeden (Nisan 2024) beri** tüm geçmiş.
+- **Uzun hafızalı kategorilerde ölçü:** Her olayın (bir bayram tatili, bir resmi tatil, bir yılbaşı gecesi) günleri, o gün ekipte olan asistanlar arasında **o günkü zor gün katsayısıyla** paylaştırılır. Sapma = tuttuğu gün − payı.
+  - Yalnızca asistanların tuttuğu günler paylaştırılır; 2024'te bayramların üçte ikisini uzmanlar tuttu, o günler kimseye borç ya da alacak yazmaz.
+  - Bayram tatili bütün olarak sayılır: idari izinle 9 güne çıkan tatilde idari izin günleri ve bitişik hafta sonları da bayramdır. Arefe yarım gün sayılır (idari izne bağlanan arefe tam gün).
+  - Tatil günleri yalnızca kendi kategorisinde sayılır, sıra gruplarına (6.1) girmez. Böylece tatilde vizit olup olmadığının bilinmemesi hesabı etkilemez.
+  - Puan yerine gün sayısı kullanılır.
 - Salı ve Çarşamba dengelenmez. Toplam nöbet sayısı zaten kota ile dengelenir.
 - İstatistik ekranında ayrıca şunlar gösterilir: toplam nöbet (resmi ve gerçekte tutulan), toplam puan, istek karşılanma oranı.
 
@@ -289,12 +313,13 @@ Defter ayrı bir tabloda saklanmaz. Her seferinde resmi atamalardan, geçmiş ö
 Elle hazırlanan listelerde zor günler sırayla döner. Örnek: Eylül 2026'da 4 Cumartesi vizitini Şule, Aslı, Betül ve Oğuz tuttu; Ekim'deki 6 viziti Yaren dışında herkes tuttu. Kasım'da 4 vizit var. Sıra, Eylül'de tutmayan Kenan ve Fatma'dandır; kalan iki vizit en uzun süredir tutmayanlara gider.
 
 - **Gruplar:**
-  - **Vizit:** Vizitli her gün; Cumartesi, 1 Ocak ve vizitli tatiller. Geçmişte yalnızca kesinleşmiş vizit sayılır, planlamada belirsiz vizit var kabul edilir. Herkese eşit döner.
+  - **Vizit:** Tatil olmayan vizitli gün (Cumartesi). Tatil günleri vizitli olsa da yalnızca kendi kategorisinde sayılır (6). Geçmişte yalnızca kesinleşmiş vizit sayılır, planlamada belirsiz vizit var kabul edilir. Cuma ve Pazar gibi **zor gün katsayısıyla** döner; eşitlikte önce çömez gelir (alışılmış "önce çömezi yaz" düzeni).
+  - **İlk ay:** Nöbete yeni başlayana (ve uzun izinden dönene) ilk ayında vizit yazılmaz; o ayın vizitleri ona borç da yazmaz.
   - **Cuma** ve **Pazar** (vizitsiz): zor gün katsayısıyla döner (önce çömez).
   - **Perşembe:** herkese eşit döner.
   - **Pazartesi:** Salı günleri ders var ve Pazartesi nöbetçisi nöbet ertesi olduğu için dersi kaçırıyor. Herkese eşit döner. Salı tatilse o Pazartesi sıraya girmez. En kolay esneyen kuraldır (Y4a).
-- **Borç:** Son 3 ayda her kişi için beklenen − tutulan. Beklenen, her günün uygun kişiler arasındaki payının toplamıdır.
-- **Ayın sırası:** Ayın o gruptaki günleri sırayla dağıtılır. Her gün, borcu en büyük olana gider (borç yarım güne yuvarlanır); eşitlikte o günü en uzun süredir tutmayan, o da eşitse çömez seçilir.
+- **Borç:** Son 6 ayda her kişi için beklenen − tutulan. Beklenen, her günün uygun kişiler arasındaki payının toplamıdır.
+- **Ayın sırası:** Ayın o gruptaki günleri sırayla dağıtılır. Her gün, borcu en büyük olana gider (borç yarım güne yuvarlanır); eşitlikte o günü en uzun süredir tutmayan, o da eşitse çömez seçilir. Vizitte eşitlikte önce çömez, sonra en uzun süredir tutmayan gelir.
   - Aynı kişiye ayda o günden ikincisi verilmez (bkz. Y9).
   - O günü isteyen biri varsa istek sıradan önce gelir. O günü istemeyen kişi mümkünse atlanır.
 - Ortaya çıkan sıra her kişi için bir hedef sayı verir (ör. "Vizit: Kenan 1, Aslı 1, Fatma 1, Oğuz 1"). Liste üretimi bu hedeften sapmayı cezalandırır (Y4). Sıra kurallarla tutmuyorsa esner ve skor kartında gösterilir.
@@ -530,7 +555,18 @@ Sade, modern bir takvim:
 - Resmi ya da gayriresmi görünüm seçilebilir. Gayriresmi görünümde "Oğuz (Betül)" gösterimi kullanılır.
 - Biçimler: PNG (WhatsApp'a tek dokunuşla) ve PDF (A4 yatay).
 
-### 14.3 İç istatistik dışa aktarımı
+### 14.3 Nöbet dökümü
+
+Resmi listenin görseline (takvimin altına), PDF'ine (ikinci sayfa) ve Excel'ine ("Döküm" sayfası) herkesin bu ayki durumu ve nedeni eklenir. Amaç "neden bana bu kadar" sorusunu kuralı göstererek cevaplamak. Ayarlar'dan kapatılabilir; gerçekleşen listeye eklenmez.
+
+- Kişi başına bir satır: asistanlık yılı, nöbet ve hafta sonu katsayısı, nöbet sayısı ve saat, bu ay tuttuğu Cuma/Cumartesi/Pazar, son 6 aydaki vizit sayısı, bayram ve resmi tatil dengesi (tam gün olarak: "dengede", "1 gün geride", "2 gün önde"; yarım günler gösterilmez).
+- Elle ya da kuralla sabitlenen sayılar yıldızla işaretlenir ve notlarda yazar.
+- Kıdem eğrisi grafiği: herkes aynı çizgi üzerinde, adıyla bir nokta.
+- "Nasıl hesaplandı" notları: kıdem eğrisi değerleri, sıra kuralı, bu ay cumartesi tutmayanların gelecek ay önce yazılacağı, bayram/tatil dengesinin ilk listeden beri sayıldığı, ilk ay kuralı, takasların hesaba girmediği.
+- İstek karşılanma oranları görsele konmaz ("onunki karşılandı benimki karşılanmadı" tartışması çıkmasın).
+- Liste elle değiştirilse de döküm yayınlanan listeden çizilir; denge her seferinde resmi listeden yeniden hesaplandığı için elle değişiklik sonraki aylarda kendiliğinden telafi edilir.
+
+### 14.4 İç istatistik dışa aktarımı
 
 Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. Bu dosya hocaya gitmez.
 
@@ -559,6 +595,16 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 ---
 
 ## 16. Geçmiş verilerin aktarımı
+
+0.4.0'dan itibaren **Nisan 2024 – Ekim 2026 resmi listelerinin tamamı** uygulamada:
+
+- **Nisan 2024 – Mart 2025:** hastanenin Excel çalışma planlarının "Nöbet" sütunundan. Boş günleri uzmanlar tuttu (uygulamada "Uzman" yazar). Şubat 2025 dosyasının başlığı yanlışlıkla "Ocak" yazıyor; tarih sütunu esas alındı.
+- **Ocak 2025 ve Nisan – Ekim 2025:** kağıt listelerin fotoğraflarından (Ocak 2025'te parantez içindeki saatler kontrolde kullanıldı: Kenan 64, Yaren 72, Fatma 104, Betül 88).
+- **Kasım 2025 – Ekim 2026:** kağıt listelerden (aşağıda).
+- 21 Nisan 2025'i doğum iznine çıkmadan önce Canay tuttu; Canay henüz uygulamada olmadığı için boş bırakıldı.
+- Bayram sayfasındaki 2024 kayıtları resmi listeyle iki günde ayrılıyor (13 Nisan ve 19 Haziran 2024; resmi listede Kenan, sayfada Fatma ve Yaren). Takas olduğu düşünülüyor; resmi liste esas alındı. Eski sürümlerin bayram sayfasından girdiği kayıtlar göçte kaldırıldı.
+- 2024 Ramazan (6–14 Nisan), 2024 Kurban (15–23 Haziran), 2025 Ramazan (29 Mart – 6 Nisan) ve 2026 Kurban (23–31 Mayıs) idari izinle 9 gündü; idari izin günleri takvimde hazır gelir.
+- Dini bayram tarihleri 2027'ye kadar hazır. Sonraki yıllar Diyanet açıklayınca Takvim'den girilir; uygulama o yılın ayını hazırlarken uyarır.
 
 - **Kasım 2025 – Ekim 2026 (12 ay):** Kağıt listelerin fotoğraflarından aktarılacak.
   - Kağıttaki "A (B)" gösteriminde resmi kişi A, gerçekte tutan B olarak alınacak.
@@ -590,7 +636,7 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 | # | Karar |
 |---|---|
 | K1 | Kıdem sırası: Yaren › Kenan › Fatma › Betül › Şule › Oğuz › Aslı. |
-| K2 | Nöbet sayısı katsayıyla belirlenir; katsayılar asistanlık yılına otomatik bağlı değildir. Kesirli kısım sonraki aya devreder. |
+| K2 | Nöbet sayısı katsayıyla belirlenir; kesirli kısım sonraki aya devreder. (Katsayıların kaynağı için K34.) |
 | K3 | Betül, Şule, Oğuz ve Aslı arasında çok küçük bir kıdem farkı vardır. |
 | K4 | Aylık üst sınır 6 nöbettir. |
 | K5 | Art arda ve günaşırı yasağı resmi listede asla çiğnenmez; gayriresmi listede yalnızca uyarı verir. |
@@ -622,6 +668,15 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 | K31 | İsteklerde takvim yalnızca hazırlanan ayı gösterir; günler takvimden seçilir. |
 | K32 | Kişi renkleri belirgin biçimde farklıdır ve dolu renk olarak kullanılır. Görsel, PDF ve Excel modern tasarımdadır (14.1, 14.2). |
 | K33 | Uygulama telefon ve tablete uyumludur: geniş ekranda sekmeler solda, takvim solda ve özet sağda; takvim ekran genişliğiyle büyür. |
+| K34 | Katsayılar kıdem eğrisinden gelir (2.3); herkes aynı eğriden geçer. Fatma Kenan'dan çok az çömezdir. Kişi elle katsayı girebilir. K2'nin yerini alır. |
+| K35 | Ekip 5 kişinin altına düşünce son yıl indirimi yarıya iner. Uzman şu an nöbet tutmaz; ekip çok küçülürse konuşulacak. |
+| K36 | Vizit de zor gün katsayısıyla döner; eşitlikte önce çömez. Yeni başlayana ilk ay vizit yazılmaz. |
+| K37 | Tatil günleri (bayram, resmi tatil, yılbaşı) yalnızca kendi kategorisinde sayılır; tatilde vizit olup olmadığı bilinmese de hesap etkilenmez. |
+| K38 | Bayram/tatil dengesi ilk resmi listeden (Nisan 2024) başlar; her olay o gün ekipte olanlar arasında o günkü katsayıyla paylaştırılır; uzman günleri sayılmaz; 9 günlük tatil bütün olarak bayramdır; arefe yarım gündür. Kenan çömezken payından az bayram tuttuğu için son yılında da bayram tutabilir (tam hesap). |
+| K39 | Sıra hafızası 6 aydır. |
+| K40 | Adalet hesabı nöbete katılıştan (yoksa ilk kayıtlı nöbetten) başlar; kaydı olmayan borçsuz başlar. Bölüme katılış tek başına yetmez (2.2). |
+| K41 | Hocalar sayı söylerse o ay sabitlenir ya da kişiye "ayda sabit sayı" kuralı girilir; düşen nöbet hafta içinden gelir. Yayınlanmış ayda "Kalan günleri yeniden üret" bugüne kadarki günleri kilitler. Sınav için dönem türü var. |
+| K42 | Resmi listeye nöbet dökümü eklenir (14.3). |
 
 ---
 

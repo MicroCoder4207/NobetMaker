@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import com.nobetmaker.core.model.MonthStatus
 import com.nobetmaker.core.model.Visit
+import com.nobetmaker.core.ops.DataOps
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -110,6 +111,29 @@ class CalendarButtonsTest : AppUiTest() {
         waitForText("ile yer değiştirecek günü seçin")
         click("6")
         waitForData(what = "iki günü değiştir") { official(d3) == b && official(d6) == a }
+    }
+
+    @Test
+    fun kalanGunleriYenidenUret() {
+        // Yayınlanmış Ekim: bugüne kadarki günler kilitlenir, kalanlar yeniden üretilir (yeni sürüm).
+        update { d ->
+            val plan = d.month(ekim)!!
+            val cur = plan.current!!
+            DataOps.setStatus(d, ekim, MonthStatus.YAYINLANDI).let { x ->
+                x.copy(months = x.months.map { m -> if (m.year == ekim.year && m.month == ekim.monthValue) m.copy(versions = m.versions.dropLast(1) + cur.copy(assignments = cur.assignments.map { it.copy(locked = false) })) else m })
+            }
+        }
+        goToMonth(ekim)
+        click("Kalan günleri yeniden üret")
+        click("Vazgeç")
+        assertTrue(data().month(ekim)!!.current!!.assignments.none { it.locked })
+        click("Kalan günleri yeniden üret")
+        click("Evet")
+        val until = minOf(LocalDate.now(), ekim.atEndOfMonth())
+        waitForData(what = "geçmiş günleri kilitleme") { d ->
+            d.month(ekim)!!.current!!.assignments.all { it.locked == !it.date.isAfter(until) }
+        }
+        waitForText("Ekim 2026 seçenekleri")
     }
 
     @Test

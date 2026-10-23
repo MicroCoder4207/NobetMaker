@@ -61,7 +61,8 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
         }
         Text("${from.title()} – ${last.title()} · resmi listeye göre", style = MaterialTheme.typography.bodySmall)
         Text(
-            "Denge: + önde (payından fazla tutmuş), − geride. Sıralar (vizit, Cuma, Pazar, Perşembe, Pazartesi) son ${data.settings.rotationMonths} ay; bayram, yılbaşı ve resmi tatil 2023'ten beri.",
+            "Denge: + önde (payından fazla tutmuş), − geride. Sıralar (vizit, Cuma, Pazar, Perşembe, Pazartesi) son ${data.settings.rotationMonths} ay; " +
+                "bayram, yılbaşı ve resmi tatil ilk listeden beri (o gün ekipte olanlar arasında, o günkü katsayıyla; arefe yarım gün).",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
@@ -87,15 +88,16 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
                 }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     s.longDeviation.forEach { (cat, v) ->
-                        val days = s.longDays[cat] ?: 0
+                        val days = s.longDays[cat] ?: 0.0
                         val present = s.longPresent[cat] ?: 0
-                        BalanceChip("${cat.label} $days gün / $present", v)
+                        val dayText = if (days % 1.0 == 0.0) days.toInt().toString() else String.format(java.util.Locale.ROOT, "%.1f", days).replace('.', ',')
+                        BalanceChip("${cat.label} $dayText gün / $present", v)
                     }
                 }
                 if (s.requestsTotal > 0) Text("İstek karşılanma: ${s.requestsMet} / ${s.requestsTotal}", style = MaterialTheme.typography.bodySmall)
             }
         }
-        OutlinedButton(onClick = { nav.history() }) { Text("Geçmiş özel günler (2023'ten beri)") }
+        OutlinedButton(onClick = { nav.history() }) { Text("Geçmiş özel günler (listesi olmayan dönemler)") }
         Spacer(Modifier.padding(16.dp))
     }
 }

@@ -36,12 +36,14 @@ enum class Category(val label: String, val memory: Memory) {
 }
 
 /**
- * Sırayla dönen gün grupları (§6). Vizit = Cumartesi ve vizitli tatil; herkese eşit döner.
- * Cuma ve Pazar zor gün katsayısıyla, Perşembe eşit döner. Pazartesi: ertesi gün Salı dersi var ve
- * nöbetçi dersi kaçırıyor; herkese eşit döner ama en kolay esneyen sıradır.
+ * Sırayla dönen gün grupları (§6). Tatil günleri (bayram, resmi tatil, yılbaşı) hiçbir gruba girmez; yalnızca
+ * kendi uzun hafızasında sayılır, böylece tatilde vizit olup olmadığının bilinmemesi hesabı etkilemez.
+ * Vizit = tatil olmayan vizitli gün (cumartesi); Cuma ve Pazar gibi zor gün katsayısıyla döner, eşitlikte
+ * çömez önce gelir. Perşembe eşit döner. Pazartesi: ertesi gün Salı dersi var ve nöbetçi dersi kaçırıyor;
+ * herkese eşit döner ama en kolay esneyen sıradır.
  */
 enum class RotationGroup(val label: String, val equalShare: Boolean) {
-    VIZIT("Vizit", true),
+    VIZIT("Vizit", false),
     CUMA("Cuma", false),
     PAZAR("Pazar", false),
     PERSEMBE("Perşembe", true),
@@ -175,11 +177,16 @@ class CalendarService(overrides: List<DayInfo>, private val settings: Settings) 
         }
     }
 
-    /** Geçmişte yalnızca kesinleşmiş vizit sayılır; planlamada belirsiz vizit var kabul edilir. */
+    /**
+     * Geçmişte yalnızca kesinleşmiş vizit sayılır; planlamada belirsiz vizit var kabul edilir.
+     * Tatil günleri sıraya girmez (yalnızca uzun hafızada sayılır).
+     */
     fun rotationGroup(date: LocalDate, history: Boolean): RotationGroup? {
+        val cat = category(date)
+        if (cat.memory == Memory.LONG) return null
         val v = visit(date)
         if (if (history) v == Visit.VAR else v != Visit.YOK) return RotationGroup.VIZIT
-        return when (category(date)) {
+        return when (cat) {
             Category.CUMA -> RotationGroup.CUMA
             Category.PAZAR -> RotationGroup.PAZAR
             Category.PERSEMBE -> RotationGroup.PERSEMBE
@@ -188,6 +195,12 @@ class CalendarService(overrides: List<DayInfo>, private val settings: Settings) 
             else -> null
         }
     }
+
+    /**
+     * Uzun hafızada günün ağırlığı: arefe gibi yarım günler yarım sayılır; yılbaşı gecesi (iş günü) ve tam
+     * tatiller bir.
+     */
+    fun longWeight(date: LocalDate): Double = holidayFraction(date).let { if (it > 0.0 && it < 1.0) it else 1.0 }
 
     /** Uzun hafızada olayları ayırt etmek için anahtar. */
     fun longEventKey(date: LocalDate): String = eventId(date) ?: "gun-$date"

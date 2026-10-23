@@ -13,42 +13,61 @@ import com.nobetmaker.core.model.RequestType
 import com.nobetmaker.core.model.RuleType
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.YearMonth
 
 /** Sert kurallardan doğan uygunluk ve paylaşım kuralları (§4.1, §6). */
 class Availability(data: AppData, private val cal: CalendarService) {
 
     private val periodsByPerson = data.periods.groupBy { it.personId }
     private val requestsByPerson = data.requests.groupBy { it.personId }
+    val coefficients = Coefficients(data)
 
-    /**
-     * Adalet hesabında kişinin ekipte sayıldığı ilk gün. Nöbete ya da bölüme katılış girilmişse o tarihtir.
-     * Girilmemişse kayıtlardan çıkarılır: kişinin ya da kendisinden çömez birinin ilk kayıtlı nöbeti
-     * (çömez nöbet tutmaya başladığında kıdemli zaten bölümdedir). Hiç kayıt yoksa kayıtların bittiği günün ertesi.
-     */
-    private val presence: Map<String, LocalDate?> = run {
-        val first = HashMap<String, LocalDate>()
-        var recordedEnd: LocalDate? = null
+    /** Kişinin kayıtlardaki (taslak olmayan aylar ve geçmiş olaylar) ilk nöbeti. */
+    private val firstRecord = HashMap<String, LocalDate>()
+
+    /** Kayıtlardaki son nöbet günü. */
+    private val recordedEnd: LocalDate? = run {
+        var end: LocalDate? = null
         for (m in data.months) {
             if (m.status == MonthStatus.TASLAK) continue
             for (a in m.current?.assignments.orEmpty()) {
-                first.merge(a.personId, a.date) { x, y -> minOf(x, y) }
-                if (recordedEnd == null || a.date.isAfter(recordedEnd)) recordedEnd = a.date
+                firstRecord.merge(a.personId, a.date) { x, y -> minOf(x, y) }
+                if (end == null || a.date.isAfter(end)) end = a.date
             }
         }
         for (h in data.historyEvents) {
             val s = h.start ?: continue
-            for (e in h.entries) if (e.days > 0) first.merge(e.personId, s) { x, y -> minOf(x, y) }
+            for (e in h.entries) if (e.days > 0) firstRecord.merge(e.personId, s) { x, y -> minOf(x, y) }
         }
-        data.persons.associate { p ->
-            p.id to (
-                p.dutyFrom
-                    ?: data.persons.filter { it.seniority >= p.seniority }.mapNotNull { first[it.id] }.minOrNull()
-                    ?: recordedEnd?.plusDays(1)
-                )
-        }
+        end
+    }
+
+    /**
+     * Adalet hesabında kişinin ekipte sayıldığı ilk gün (§2.2). Nöbete katılış girilmişse o tarihtir;
+     * girilmemişse kişinin kayıtlardaki ilk nöbeti. Hiç kaydı olmayan kişi borçsuz başlar: kayıtların bittiği
+     * günün ertesinden (ya da daha sonraysa bölüme katılıştan) itibaren sayılır. Bölüme katılış tek başına
+     * ekipte sayılmak için yetmez; bölüme katılınca hemen nöbete girilmiyor.
+     */
+    private val presence: Map<String, LocalDate?> = data.persons.associate { p ->
+        p.id to (p.dutyStart ?: firstRecord[p.id] ?: listOfNotNull(p.joinDate, recordedEnd?.plusDays(1)).maxOrNull())
     }
 
     fun presenceStart(person: Person): LocalDate? = if (person.id in presence) presence[person.id] else person.dutyFrom
+
+    /**
+     * Kişinin nöbete başladığı ay: nöbete katılış ya da kayıtlardaki ilk nöbet. Hiç kaydı yoksa (ve kayıtlar
+     * varsa) henüz başlamamıştır; planlanan ay ilk ayıdır.
+     */
+    fun firstDutyMonth(person: Person): YearMonth? =
+        (person.dutyStart ?: firstRecord[person.id])?.let { YearMonth.from(it) }
+
+    private fun isFirstDutyMonth(person: Person, date: LocalDate): Boolean {
+        val first = firstDutyMonth(person) ?: return recordedEnd?.let { date.isAfter(it) } ?: false
+        return YearMonth.from(date) == first
+    }
+
+    private fun isHolidayCategory(date: LocalDate): Boolean =
+        cal.category(date).let { it == Category.BAYRAM || it == Category.RESMI_TATIL || it == Category.YILBASI }
 
     fun ruleBlock(person: Person, date: LocalDate): String? {
         for (rule in person.rules) {
@@ -56,11 +75,14 @@ class Availability(data: AppData, private val cal: CalendarService) {
             val blocked = when (rule.type) {
                 RuleType.NO_SATURDAY -> date.dayOfWeek == DayOfWeek.SATURDAY
                 RuleType.NO_SUNDAY -> date.dayOfWeek == DayOfWeek.SUNDAY
-                RuleType.NO_HOLIDAY -> cal.isOfficialHoliday(date) ||
-                    cal.category(date).let { it == Category.BAYRAM || it == Category.RESMI_TATIL || it == Category.YILBASI }
+                RuleType.NO_HOLIDAY -> cal.isOfficialHoliday(date) || isHolidayCategory(date)
+                RuleType.MONTHLY_COUNT -> false
             }
             if (blocked) return "Kişiye özel kural: ${rule.type.label}"
         }
+        if (coefficients.inExtension(person, date) &&
+            (cal.isWeekend(date) || cal.isOfficialHoliday(date) || isHolidayCategory(date))
+        ) return "Uzatmada: cumartesi, pazar ve tatil yok"
         return null
     }
 
@@ -81,6 +103,7 @@ class Availability(data: AppData, private val cal: CalendarService) {
         if (!person.isActiveOn(date)) reasons += "Ekipte değil"
         blockingPeriod(person, date)?.let { reasons += "${it.type.label} (${periodText(it)})" }
         ruleBlock(person, date)?.let { reasons += it }
+        if (firstMonthVisit(person, date)) reasons += "İlk nöbet ayı: vizit yok"
         for (r in requestsOf(person)) {
             if (r.priority == Priority.KESIN && avoids(r, date)) reasons += "Kesin istek: ${RequestText.describe(r)}"
         }
@@ -94,7 +117,12 @@ class Availability(data: AppData, private val cal: CalendarService) {
     /** Adalet defterinde o günün payına ortak olup olmadığı (§6). */
     fun eligibleForShare(person: Person, date: LocalDate): Boolean =
         countsForQuota(person, date) && ruleBlock(person, date) == null &&
-            presenceStart(person).let { it == null || !date.isBefore(it) }
+            presenceStart(person).let { it == null || !date.isBefore(it) } &&
+            !firstMonthVisit(person, date)
+
+    /** İlk nöbet ayındaki vizit günü: yazılmaz ve borç da yazmaz. */
+    private fun firstMonthVisit(person: Person, date: LocalDate): Boolean =
+        cal.hasVisit(date) && !isHolidayCategory(date) && isFirstDutyMonth(person, date)
 
     companion object {
         fun avoids(r: DutyRequest, date: LocalDate): Boolean = when (r.type) {

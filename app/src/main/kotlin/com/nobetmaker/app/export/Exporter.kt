@@ -13,6 +13,9 @@ import androidx.core.content.res.ResourcesCompat
 import com.nobetmaker.app.R
 import com.nobetmaker.core.export.Align
 import com.nobetmaker.core.export.DrawOp
+import com.nobetmaker.core.export.Dokum
+import com.nobetmaker.core.export.DokumBuilder
+import com.nobetmaker.core.export.DokumSheet
 import com.nobetmaker.core.export.MonthViewBuilder
 import com.nobetmaker.core.export.RosterExcel
 import com.nobetmaker.core.export.RosterSheet
@@ -105,15 +108,19 @@ object Exporter {
     private fun baseName(data: AppData, month: YearMonth, actual: Boolean): String =
         RosterExcel.fileName(MonthViewBuilder.build(data, month, actual)).removeSuffix(".xlsx")
 
+    /** Resmi listeye eklenen nöbet dökümü (ayarlardan kapatılabilir; gerçekleşen listeye eklenmez). */
+    private fun dokum(data: AppData, month: YearMonth, actual: Boolean): Dokum? =
+        if (actual || !data.settings.exportSummary) null else DokumBuilder.build(data, month)
+
     fun shareExcel(context: Context, data: AppData, month: YearMonth, actual: Boolean) {
         val view = MonthViewBuilder.build(data, month, actual)
         val file = File(exportDir(context), RosterExcel.fileName(view))
-        file.outputStream().use { RosterExcel.write(view, it) }
+        file.outputStream().use { RosterExcel.write(view, it, dokum(data, month, actual)) }
         share(context, file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", view.monthTitle)
     }
 
     private fun bitmap(context: Context, data: AppData, month: YearMonth, actual: Boolean): Bitmap {
-        val layout = RosterSheet.layout(MonthViewBuilder.build(data, month, actual), LocalDate.now())
+        val layout = RosterSheet.layout(MonthViewBuilder.build(data, month, actual), LocalDate.now(), dokum(data, month, actual))
         val bmp = Bitmap.createBitmap(layout.width, layout.height, Bitmap.Config.ARGB_8888)
         AndroidRenderer.draw(layout, Canvas(bmp), ExportFonts(context))
         return bmp
@@ -128,14 +135,18 @@ object Exporter {
     }
 
     fun sharePdf(context: Context, data: AppData, month: YearMonth, actual: Boolean) {
-        val layout = RosterSheet.layout(MonthViewBuilder.build(data, month, actual), LocalDate.now())
+        val view = MonthViewBuilder.build(data, month, actual)
+        val pages = listOfNotNull(RosterSheet.layout(view, LocalDate.now()), dokum(data, month, actual)?.let { DokumSheet.page(it, view.title) })
         val doc = PdfDocument()
-        // A4 yatay: 842 x 595 nokta.
-        val page = doc.startPage(PdfDocument.PageInfo.Builder(842, 595, 1).create())
-        val scale = minOf(842f / layout.width, 595f / layout.height)
-        page.canvas.scale(scale, scale)
-        AndroidRenderer.draw(layout, page.canvas, ExportFonts(context))
-        doc.finishPage(page)
+        val fonts = ExportFonts(context)
+        // A4 yatay: 842 x 595 nokta. Döküm ikinci sayfada.
+        pages.forEachIndexed { i, layout ->
+            val page = doc.startPage(PdfDocument.PageInfo.Builder(842, 595, i + 1).create())
+            val scale = minOf(842f / layout.width, 595f / layout.height)
+            page.canvas.scale(scale, scale)
+            AndroidRenderer.draw(layout, page.canvas, fonts)
+            doc.finishPage(page)
+        }
         val file = File(exportDir(context), baseName(data, month, actual) + ".pdf")
         file.outputStream().use { doc.writeTo(it) }
         doc.close()

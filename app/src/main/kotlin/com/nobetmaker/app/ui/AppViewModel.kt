@@ -52,11 +52,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         messages.tryEmit(text)
     }
 
-    /** Veriyi değiştirir; hata olursa mesaj gösterilir. */
-    fun update(success: String? = null, transform: (AppData) -> AppData) {
+    /** Veriyi değiştirir; hata olursa mesaj gösterilir. [onDone] kayıt bittikten sonra ana iş parçacığında çalışır. */
+    fun update(success: String? = null, onDone: (() -> Unit)? = null, transform: (AppData) -> AppData) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.update(transform)
-                .onSuccess { success?.let { messages.tryEmit(it) } }
+                .onSuccess {
+                    success?.let { messages.tryEmit(it) }
+                    if (onDone != null) withContext(Dispatchers.Main) { onDone() }
+                }
                 .onFailure { messages.tryEmit(it.message ?: "Beklenmeyen hata") }
         }
     }
@@ -77,9 +80,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _generation.value = Generation(ym, seedOffset, running = true)
         generationJob = viewModelScope.launch(Dispatchers.Default) {
             try {
+                // Önerilen sayılar güncel veriye (kıdem eğrisi, izinler, kurallar) göre yenilenir; elle sabitlenenler kalır.
                 var d = data.value
-                if (d.month(ym) == null) {
-                    repository.update { DataOps.ensureMonth(it, ym) }
+                val refreshed = DataOps.refreshQuotas(DataOps.ensureMonth(d, ym), ym)
+                if (refreshed !== d) {
+                    repository.update { DataOps.refreshQuotas(DataOps.ensureMonth(it, ym), ym) }
                     d = data.value
                 }
                 val pr = ProblemBuilder.build(d, ym, DataOps.currentAssignments(d, ym), DataOps.quotaMap(d.month(ym)))

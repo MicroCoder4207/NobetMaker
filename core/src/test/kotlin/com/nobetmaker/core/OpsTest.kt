@@ -36,7 +36,7 @@ class OpsTest {
         assertEquals(com.nobetmaker.core.model.Visit.VAR, migrated.dayOverrides.single { it.date == oct29 }.actualVisit)
         // 0.1.0 ayarlarında olmayan alanlar varsayılan değerini alır, kaldırılan alanlar sorun çıkarmaz.
         val legacy = AppJson.encode(old).replace("\"rotationMonths\": 3", "\"shortMemoryMonths\": 6")
-        assertEquals(3, AppJson.decode(legacy).settings.rotationMonths)
+        assertEquals(6, AppJson.decode(legacy).settings.rotationMonths)
         // 0.2.x: eski renkler yenilerine, başlangıç verisindeki katılış tarihleri boşa çevrilir.
         val v2 = old.copy(persons = old.persons.map { p ->
             when (p.id) {
@@ -47,8 +47,42 @@ class OpsTest {
         })
         val m2 = AppJson.decode(AppJson.encode(v2))
         assertEquals(com.nobetmaker.core.model.PersonPalette.colors[6], m2.person("asli")!!.color)
-        assertEquals(null, m2.person("asli")!!.joinDate)
+        // Eski tahmini tarih (Ağustos 2026) silinir, 0.4.0'ın bilinen tarihi (Ocak 2026) yazılır.
+        assertEquals(LocalDate.of(2026, 1, 1), m2.person("asli")!!.joinDate)
         assertEquals(LocalDate.of(2020, 1, 1), m2.person("kenan")!!.joinDate, "kullanıcının girdiği tarih korunmalı")
+    }
+
+    @Test
+    fun `0_3 verisine eski listeler ve asistanlik tarihleri eklenir`() {
+        val seed = SeedData.build()
+        val since = LocalDate.of(2025, 11, 1)
+        val v3 = seed.copy(
+            schemaVersion = 3,
+            persons = seed.persons.map { p -> if (p.id == "sule") p.copy(residencyStart = LocalDate.of(2024, 9, 1)) else p.copy(residencyStart = null, joinDate = null) },
+            months = seed.months.filter { !YearMonth.of(it.year, it.month).atDay(1).isBefore(since) },
+            informalChanges = seed.informalChanges.filter { !it.date.isBefore(since) },
+            historyEvents = listOf(
+                com.nobetmaker.core.model.HistoryEvent(
+                    "h-2025-kurban", "2025 Kurban Bayramı", com.nobetmaker.core.model.EventKind.BAYRAM,
+                    LocalDate.of(2025, 6, 5), LocalDate.of(2025, 6, 9), 5, listOf(com.nobetmaker.core.model.HistoryEntry("fatma", 2)),
+                ),
+                com.nobetmaker.core.model.HistoryEvent(
+                    "h-kullanici", "Kullanıcının kaydı", com.nobetmaker.core.model.EventKind.RESMI_TATIL,
+                    LocalDate.of(2023, 5, 1), null, 1, listOf(com.nobetmaker.core.model.HistoryEntry("yaren", 1)),
+                ),
+            ),
+            settings = seed.settings.copy(rotationMonths = 3),
+        )
+        val m = AppJson.decode(AppJson.encode(v3))
+        assertEquals(seed.months.map { it.year to it.month }, m.months.map { it.year to it.month })
+        assertEquals(seed.informalChanges.map { it.date }.sorted(), m.informalChanges.map { it.date }.sorted())
+        assertEquals(LocalDate.of(2024, 12, 1), m.person("oguz")!!.residencyStart)
+        assertEquals(LocalDate.of(2024, 9, 1), m.person("sule")!!.residencyStart, "kullanıcının girdiği tarih korunmalı")
+        assertEquals(LocalDate.of(2023, 12, 1), m.person("yaren")!!.joinDate)
+        assertEquals(listOf("h-kullanici"), m.historyEvents.map { it.id }, "eski bayram sayfası kayıtları kalkar, kullanıcınınki kalır")
+        assertEquals(6, m.settings.rotationMonths)
+        // Uzman günleri boş kalır.
+        assertEquals(5, m.month(YearMonth.of(2024, 4))!!.current!!.assignments.size)
     }
 
     @Test
@@ -97,6 +131,21 @@ class OpsTest {
 
         data = DataOps.applySolution(data, pr, best)
         assertEquals(30, data.month(ym)!!.current!!.assignments.size)
+
+        // Döküm: herkesin satırı, kurallar ve eğri; görsel, PDF'in ikinci sayfası ve Excel'in Döküm sayfası.
+        val dokum = com.nobetmaker.core.export.DokumBuilder.build(data, ym)
+        dokum.rows.forEach { println("döküm ${it.person.name}: ${it.stage} ${it.duty} ${it.hard} sayı=${it.count} vizit=${it.visits} bayram=${it.bayram} resmi=${it.resmi}") }
+        dokum.notes.forEach { println("not: $it") }
+        assertEquals(7, dokum.rows.size)
+        assertEquals("4. yıl 4. ay", dokum.rows.single { it.person.id == "kenan" }.stage)
+        assertTrue(dokum.rows.single { it.person.id == "fatma" }.duty > dokum.rows.single { it.person.id == "kenan" }.duty, "Fatma Kenan'dan çok az çömez")
+        assertEquals(null, dokum.rows.single { it.person.id == "yaren" }.visits, "Yaren hafta sonu tutmuyor")
+        assertTrue(dokum.notes.any { it.startsWith("Bu ay cumartesi tutmayanlar") })
+        val previews = java.io.File("build/previews").apply { mkdirs() }
+        val view = com.nobetmaker.core.export.MonthViewBuilder.build(data, ym, showActual = false)
+        AwtRenderer.render(com.nobetmaker.core.export.RosterSheet.layout(view, LocalDate.of(2026, 10, 26), dokum), java.io.File(previews, "kasim-2026-dokum.png"))
+        AwtRenderer.render(com.nobetmaker.core.export.DokumSheet.page(dokum, view.title), java.io.File(previews, "kasim-2026-dokum-sayfa.png"), 0.6f)
+        java.io.File(previews, "kasim-2026.xlsx").outputStream().use { com.nobetmaker.core.export.RosterExcel.write(view, it, dokum) }
         data = DataOps.setStatus(data, ym, MonthStatus.YAYINLANDI)
         val d5 = ym.atDay(5)
         val someone = data.persons.first { it.id != data.month(ym)!!.current!!.personOn(d5) }.id

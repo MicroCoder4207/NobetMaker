@@ -54,8 +54,11 @@ import com.nobetmaker.app.ui.DateField
 import com.nobetmaker.app.ui.Nav
 import com.nobetmaker.app.ui.PersonDot
 import com.nobetmaker.app.ui.SectionCard
+import com.nobetmaker.app.ui.SeniorityCurveCard
+import com.nobetmaker.app.ui.fmt2
 import com.nobetmaker.app.ui.personColor
 import com.nobetmaker.app.ui.rememberData
+import com.nobetmaker.core.calendar.monthNameTr
 import com.nobetmaker.core.calendar.trFormat
 import com.nobetmaker.core.model.CoefficientPeriod
 import com.nobetmaker.core.model.Person
@@ -63,6 +66,7 @@ import com.nobetmaker.core.model.PersonPalette
 import com.nobetmaker.core.model.PersonRule
 import com.nobetmaker.core.model.RuleType
 import com.nobetmaker.core.ops.DataOps
+import com.nobetmaker.core.rules.Coefficients
 import java.time.LocalDate
 import java.util.Locale
 
@@ -72,6 +76,7 @@ fun PeopleScreen(vm: AppViewModel, nav: Nav) {
     val today = LocalDate.now()
     val active = data.persons.filter { it.leaveDate == null || !it.leaveDate!!.isBefore(today) }.sortedBy { it.seniority }
     val left = data.persons.filter { it.leaveDate != null && it.leaveDate!!.isBefore(today) }.sortedBy { it.seniority }
+    val coef = Coefficients(data)
 
     Scaffold(floatingActionButton = {
         ExtendedFloatingActionButton(onClick = { nav.person(null) }, icon = { Icon(Icons.Default.Add, null) }, text = { Text("Kişi ekle") })
@@ -82,9 +87,10 @@ fun PeopleScreen(vm: AppViewModel, nav: Nav) {
         ) {
             Text("Kişiler", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text("Kıdem sırası (en kıdemli üstte). Okla sırayı değiştirebilirsiniz.", style = MaterialTheme.typography.bodySmall)
+            SeniorityCurveCard(data, today)
             active.forEachIndexed { i, p ->
                 PersonCard(
-                    p,
+                    p, coef,
                     onClick = { nav.person(p.id) },
                     onUp = if (i > 0) ({ move(vm, active, i, -1) }) else null,
                     onDown = if (i < active.lastIndex) ({ move(vm, active, i, +1) }) else null,
@@ -92,7 +98,7 @@ fun PeopleScreen(vm: AppViewModel, nav: Nav) {
             }
             if (left.isNotEmpty()) {
                 Text("Ayrılanlar", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
-                left.forEach { PersonCard(it, onClick = { nav.person(it.id) }, onUp = null, onDown = null) }
+                left.forEach { PersonCard(it, coef, onClick = { nav.person(it.id) }, onUp = null, onDown = null) }
             }
             Spacer(Modifier.padding(36.dp))
         }
@@ -107,8 +113,10 @@ private fun move(vm: AppViewModel, list: List<Person>, index: Int, delta: Int) {
 }
 
 @Composable
-private fun PersonCard(p: Person, onClick: () -> Unit, onUp: (() -> Unit)?, onDown: (() -> Unit)?) {
-    val c = p.coefficientOn(LocalDate.now())
+private fun PersonCard(p: Person, coef: Coefficients, onClick: () -> Unit, onUp: (() -> Unit)?, onDown: (() -> Unit)?) {
+    val today = LocalDate.now()
+    val c = coef.on(p, today)
+    val auto = coef.usesCurve(p)
     Surface(shape = MaterialTheme.shapes.medium, tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             PersonDot(p, 18)
@@ -116,11 +124,15 @@ private fun PersonCard(p: Person, onClick: () -> Unit, onUp: (() -> Unit)?, onDo
             Column(Modifier.weight(1f)) {
                 Text("${p.seniority}. ${p.name}", fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Nöbet ${fmt(c.duty)} · Zor gün ${fmt(c.hardDay)}",
+                    listOfNotNull(coef.stageText(p, today), "Nöbet ${fmt2(c.duty)}", "Zor gün ${fmt2(c.hardDay)}").joinToString(" · ") +
+                        if (auto) " (kıdem eğrisi)" else " (elle)",
                     style = MaterialTheme.typography.bodySmall,
                 )
+                val lastYear = coef.dateAtMonths(p, coef.lastYearStart)?.takeIf { auto && it.isAfter(today) && it.isBefore(today.plusMonths(6)) }
+                val fourYears = coef.dateAtMonths(p, coef.totalMonths)?.takeIf { it.isAfter(today) }
                 val extra = listOfNotNull(
-                    p.joinDate?.let { "Bölüme katılış ${it.trFormat()}" },
+                    lastYear?.let { "Son yıla giriş: ${monthYear(it)} (nöbet ${fmt2(coef.curveAt(coef.lastYearStart.toDouble()).first)})" },
+                    fourYears?.let { "${coef.totalMonths / 12} yıl doluyor: ${monthYear(it)} (uzatma olursa ayrılışı sonra girin)" },
                     p.dutyStart?.let { "Nöbete katılış ${it.trFormat()}" },
                     p.leaveDate?.let { "Ayrılış ${it.trFormat()}" },
                     p.rules.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.type.label },
@@ -137,6 +149,8 @@ private fun PersonCard(p: Person, onClick: () -> Unit, onUp: (() -> Unit)?, onDo
 
 private fun fmt(v: Double) = String.format(Locale.ROOT, "%.2f", v)
 
+private fun monthYear(d: LocalDate) = "${monthNameTr(d.monthValue)} ${d.year}"
+
 private val palette = PersonPalette.colors
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -152,6 +166,7 @@ fun PersonEditScreen(vm: AppViewModel, nav: Nav, id: String?) {
     var dutyStart by remember { mutableStateOf(existing?.dutyStart) }
     var coefficients by remember { mutableStateOf(existing?.coefficients ?: listOf(CoefficientPeriod(from = LocalDate.now().withDayOfMonth(1), duty = 0.6, hardDay = 0.6))) }
     var rules by remember { mutableStateOf(existing?.rules.orEmpty()) }
+    var auto by remember { mutableStateOf(existing?.autoCoefficients ?: true) }
 
     Scaffold(
         topBar = {
@@ -195,16 +210,46 @@ fun PersonEditScreen(vm: AppViewModel, nav: Nav, id: String?) {
                     joinDate = d
                 }, Modifier.fillMaxWidth(), allowClear = true)
                 DateField("Nöbete katılış", dutyStart, { dutyStart = it }, Modifier.fillMaxWidth(), allowClear = true)
+                val suggestion = residency?.plusMonths(6)?.let { s -> joinDate?.let { maxOf(s, it) } ?: s }
+                if (dutyStart == null && suggestion != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Öneri: ${suggestion.trFormat()} (çömez ilk 6 ay nöbete girmiyor)", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { dutyStart = suggestion }) { Text("Kullan") }
+                    }
+                }
                 DateField("Ayrılış", leaveDate, { leaveDate = it }, Modifier.fillMaxWidth(), allowClear = true)
                 Text(
-                    "Nöbete katılış boşsa bölüme katılış esas alınır. Tarihler boşsa adalet hesabı kişinin (ya da kendisinden çömez birinin) ilk kayıtlı nöbetini başlangıç sayar. " +
-                        "Kıdem sırası tarihlerden hesaplanmaz; Kişiler ekranından değiştirilir.",
+                    "Kişi nöbete katılıştan (yoksa bölüme katılıştan) önce listeye yazılmaz. Adalet hesabı nöbete katılıştan, " +
+                        "o boşsa kayıtlardaki ilk nöbetinden başlar; hiç kaydı olmayan kişi borçsuz başlar. " +
+                        "Asistanlık başlangıcı kıdem eğrisinde kullanılır. Kıdem sırası tarihlerden hesaplanmaz; Kişiler ekranından değiştirilir.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
             SectionCard("Katsayılar") {
                 Text("Nöbet katsayısı kaç nöbet tutacağını, zor gün katsayısı Cumartesi/Cuma/Pazar/bayram payını belirler.", style = MaterialTheme.typography.bodySmall)
-                coefficients.sortedBy { it.from ?: LocalDate.MIN }.forEach { c ->
+                SwitchRow("Kıdem eğrisinden hesapla", auto) { auto = it }
+                val curveOn = data.settings.curve.enabled
+                val preview = Person(
+                    id = existing?.id ?: "yeni", name = name, seniority = existing?.seniority ?: 99, color = color,
+                    joinDate = joinDate, residencyStart = residency, dutyStart = dutyStart, coefficients = coefficients, autoCoefficients = auto,
+                )
+                val coef = Coefficients(data)
+                val today = LocalDate.now()
+                val usesCurve = coef.usesCurve(preview)
+                if (auto && usesCurve) {
+                    val c = coef.on(preview, today)
+                    Text(
+                        "Bugün ${coef.stageText(preview, today)}: nöbet ${fmt2(c.duty)}, zor gün ${fmt2(c.hardDay)}. Yıl ilerledikçe kendiliğinden değişir.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                } else if (auto) {
+                    Text(
+                        if (!curveOn) "Kıdem eğrisi ayarlardan kapalı; aşağıdaki değerler kullanılır."
+                        else "Asistanlık başlangıcı girilince eğriden hesaplanır; şimdilik aşağıdaki değerler kullanılır.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                if (!(auto && usesCurve)) coefficients.sortedBy { it.from ?: LocalDate.MIN }.forEach { c ->
                     Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainer) {
                         Column(Modifier.padding(8.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -216,7 +261,7 @@ fun PersonEditScreen(vm: AppViewModel, nav: Nav, id: String?) {
                         }
                     }
                 }
-                TextButton(onClick = {
+                if (!(auto && usesCurve)) TextButton(onClick = {
                     val last = coefficients.maxByOrNull { it.from ?: LocalDate.MIN } ?: CoefficientPeriod()
                     coefficients = coefficients + last.copy(from = LocalDate.now().withDayOfMonth(1).plusMonths(1))
                 }) { Text("Yeni dönem katsayısı ekle") }
@@ -225,7 +270,14 @@ fun PersonEditScreen(vm: AppViewModel, nav: Nav, id: String?) {
                 RuleType.entries.forEach { type ->
                     val rule = rules.firstOrNull { it.type == type }
                     SwitchRow(type.label, rule != null) { on ->
-                        rules = if (on) rules + PersonRule(type, from = LocalDate.now()) else rules.filterNot { it.type == type }
+                        rules = if (on) {
+                            rules + PersonRule(type, from = LocalDate.now(), count = if (type == RuleType.MONTHLY_COUNT) 4 else null)
+                        } else rules.filterNot { it.type == type }
+                    }
+                    if (rule != null && type == RuleType.MONTHLY_COUNT) {
+                        Stepper("Aylık nöbet", (rule.count ?: 4).toDouble(), 1.0, 0.0, 10.0, { it.toInt().toString() }) { v ->
+                            rules = rules.map { if (it.type == type) it.copy(count = v.toInt()) else it }
+                        }
                     }
                     if (rule != null) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -250,6 +302,7 @@ fun PersonEditScreen(vm: AppViewModel, nav: Nav, id: String?) {
                         dutyStart = dutyStart,
                         coefficients = coefficients,
                         rules = rules,
+                        autoCoefficients = auto,
                     )
                     vm.update("Kaydedildi") { DataOps.upsertPerson(it, person) }
                     nav.back()

@@ -14,6 +14,7 @@ import com.nobetmaker.core.model.PersonPalette
 import com.nobetmaker.core.model.RuleType
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Kişiler ekranı: kıdem sırası, kişi ekleme, düzenleme, silme. */
@@ -25,11 +26,28 @@ class PeopleButtonsTest : AppUiTest() {
     fun kidemSirasiOklari() {
         click("Kişiler")
         waitForText("Kıdem sırası")
+        assertTrue("kıdem eğrisi kartı", exists("Kıdem eğrisi"))
+        assertTrue("kişi kartında katsayı kaynağı", exists("(kıdem eğrisi)", substring = true))
         // Son kartın okları yüzen "Kişi ekle" düğmesinin altında kalabiliyor; düğmeye doğrudan tıklama eylemiyle basılır.
         rule.onNode(hasContentDescription("Yukarı") and hasAnyAncestor(hasText("7. Aslı"))).performSemanticsAction(SemanticsActions.OnClick)
         waitForData(what = "yukarı taşıma") { seniority("asli") == 6 && seniority("oguz") == 7 }
         rule.onNode(hasContentDescription("Aşağı") and hasAnyAncestor(hasText("6. Aslı"))).performSemanticsAction(SemanticsActions.OnClick)
         waitForData(what = "aşağı taşıma") { seniority("asli") == 7 && seniority("oguz") == 6 }
+    }
+
+    @Test
+    fun sabitSayiKurali() {
+        click("Kişiler")
+        waitForText("2. Kenan")
+        click("2. Kenan")
+        waitForText("Kişiye özel kurallar")
+        assertTrue("eğri önizlemesi", exists("Yıl ilerledikçe kendiliğinden değişir", substring = true))
+        toggle("Ayda sabit nöbet sayısı")
+        stepper("Aylık nöbet", plus = false)
+        click("Kaydet")
+        waitForData(what = "sabit sayı kuralı") { d ->
+            d.person("kenan")!!.rules.singleOrNull { it.type == RuleType.MONTHLY_COUNT }?.count == 3
+        }
     }
 
     @Test
@@ -51,6 +69,9 @@ class PeopleButtonsTest : AppUiTest() {
         pickDay(15, monthName)
         click("Ayrılış")
         pickDay(28, monthName)
+        // Asistanlık başlangıcı girilince katsayılar kıdem eğrisinden gelir; elle girmek için kapatılır.
+        assert(exists("Yıl ilerledikçe kendiliğinden değişir", substring = true)) { "eğri önizlemesi yok" }
+        toggle("Kıdem eğrisinden hesapla")
         stepper("Nöbet", plus = true)
         stepper("Zor gün", plus = false)
         click("Yeni dönem katsayısı ekle")
@@ -72,6 +93,7 @@ class PeopleButtonsTest : AppUiTest() {
         assertEquals(listOf(RuleType.NO_SATURDAY), canay.rules.map { it.type })
         assertEquals(today.withDayOfMonth(28), canay.rules.single().to)
         assertEquals(8, canay.seniority)
+        assertEquals(false, canay.autoCoefficients)
 
         // Düzenle: kuralı kapat, ikinci katsayı dönemini sil.
         waitForText("8. Canay")

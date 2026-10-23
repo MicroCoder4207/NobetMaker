@@ -82,6 +82,32 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
                 title, { title = it }, label = { Text("Excel/görsel başlığı") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
             )
             if (title != s.excelTitle) TextButton(onClick = { set { it.copy(excelTitle = title) } }) { Text("Başlığı kaydet") }
+            SwitchRow("Listeye nöbet dökümü ekle", s.exportSummary) { on -> set { it.copy(exportSummary = on) } }
+            Text("Görselin altına, PDF'in ikinci sayfasına ve Excel'e herkesin sayısı ve nedenleri eklenir.", style = MaterialTheme.typography.bodySmall)
+        }
+
+        SectionCard("Kıdem eğrisi") {
+            val c = s.curve
+            fun setCurve(f: (com.nobetmaker.core.model.SeniorityCurve) -> com.nobetmaker.core.model.SeniorityCurve) = set { it.copy(curve = f(it.curve)) }
+            SwitchRow("Katsayıları asistanlık yılından hesapla", c.enabled) { on -> setCurve { it.copy(enabled = on) } }
+            Text(
+                "Herkes aynı eğriden geçer. İlk yıllarda nöbet katsayısı 1,00'dan yavaşça iner, son yılda belirgin düşer, " +
+                    "uzatmada cumartesi, pazar ve tatil yazılmaz. Kişi kendi katsayısını elle de girebilir.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (c.enabled) {
+                val two = { v: Double -> String.format(java.util.Locale.ROOT, "%.2f", v) }
+                Stepper("Asistanlık süresi (yıl)", c.years.toDouble(), 1.0, 3.0, 6.0, int) { v -> setCurve { it.copy(years = v.toInt()) } }
+                Stepper("İlk yılların sonunda nöbet", c.earlyDutyEnd, 0.01, 0.5, 1.0, two) { v -> setCurve { it.copy(earlyDutyEnd = v) } }
+                Stepper("İlk yılların sonunda zor gün", c.earlyHardEnd, 0.01, 0.5, 1.0, two) { v -> setCurve { it.copy(earlyHardEnd = v) } }
+                Stepper("Son yıl başı nöbet", c.finalDutyStart, 0.01, 0.3, 1.0, two) { v -> setCurve { it.copy(finalDutyStart = v) } }
+                Stepper("Son yıl sonu nöbet", c.finalDutyEnd, 0.01, 0.3, 1.0, two) { v -> setCurve { it.copy(finalDutyEnd = v) } }
+                Stepper("Son yıl başı zor gün", c.finalHardStart, 0.01, 0.3, 1.0, two) { v -> setCurve { it.copy(finalHardStart = v) } }
+                Stepper("Son yıl sonu zor gün", c.finalHardEnd, 0.01, 0.3, 1.0, two) { v -> setCurve { it.copy(finalHardEnd = v) } }
+                Stepper("Uzatma", c.extension, 0.05, 0.0, 1.0, two) { v -> setCurve { it.copy(extension = v) } }
+                Stepper("Küçük ekip sınırı (kişi)", c.smallTeam.toDouble(), 1.0, 2.0, 10.0, int) { v -> setCurve { it.copy(smallTeam = v.toInt()) } }
+                Text("Nöbet tutan kişi sayısı bu sınırın altına düşünce son yıl indirimi yarıya iner.", style = MaterialTheme.typography.bodySmall)
+            }
         }
 
         SectionCard("Zorluk puanı") {
@@ -131,7 +157,7 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
                 }
             }, Modifier.fillMaxWidth()) { Text("Başlangıç verisine dön") }
         }
-        Text("NöbetMaker 0.3.2", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("NöbetMaker 0.4.0", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.padding(16.dp))
     }
 

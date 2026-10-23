@@ -2,15 +2,18 @@ package com.nobetmaker.core.solver
 
 import com.nobetmaker.core.calendar.CalendarService
 import com.nobetmaker.core.calendar.Category
+import com.nobetmaker.core.calendar.TurkishHolidays
 import com.nobetmaker.core.calendar.monthNameTr
 import com.nobetmaker.core.ledger.Ledger
 import com.nobetmaker.core.model.AppData
 import com.nobetmaker.core.model.Assignment
+import com.nobetmaker.core.model.DayKind
 import com.nobetmaker.core.model.PenaltyWeights
 import com.nobetmaker.core.model.Person
 import com.nobetmaker.core.model.Priority
 import com.nobetmaker.core.model.QuotaEntry
 import com.nobetmaker.core.model.RequestType
+import com.nobetmaker.core.model.RuleType
 import com.nobetmaker.core.quota.QuotaCalculator
 import com.nobetmaker.core.quota.QuotaResult
 import com.nobetmaker.core.rules.Availability
@@ -58,6 +61,8 @@ class MonthProblem(
     val rotationQueue: List<List<Int>>,
     val longBase: Array<DoubleArray>,
     val longIndex: IntArray,
+    /** [gün] → uzun hafızadaki ağırlığı (arefe yarım). */
+    val longWeight: DoubleArray,
     val weights: PenaltyWeights,
     val minGap: Int,
     val maxPerMonth: Int,
@@ -236,7 +241,22 @@ object ProblemBuilder {
         }
         val prevMonth = data.month(month.minusMonths(1))
         val carryIn = prevMonth?.quotas?.associate { it.personId to it.carryOut }.orEmpty()
-        val quotaResult = QuotaCalculator.compute(month, persons, avail, carryIn, capacity, settings.maxPerMonth, fixed = quotaFixed)
+        // Kişiye özel "ayda sabit sayı" kuralı; elle sabitlenen sayı ondan önce gelir.
+        val ruleFixed = persons.mapNotNull { p ->
+            val rule = p.rules.firstOrNull { it.type == RuleType.MONTHLY_COUNT && it.count != null && days.any { d -> it.appliesOn(d) } }
+            rule?.let { p.id to it.count!! }
+        }.toMap()
+        val fixed = ruleFixed + quotaFixed
+        val computed = QuotaCalculator.compute(
+            month, persons, avail, carryIn, capacity, settings.maxPerMonth, fixed = fixed,
+            dutyOf = { p, d -> avail.coefficients.on(p, d).duty },
+        )
+        // Kuraldan gelen sayı önerinin kendisidir; elle sabitlenmiş sayılmaz (kural kalkınca öneriye döner).
+        val quotaResult = computed.copy(
+            entries = computed.entries.map {
+                if (it.personId in ruleFixed && it.personId !in quotaFixed) it.copy(suggested = it.final, manual = false) else it
+            },
+        )
         val quotaMap: Map<String, Int> = quotaOverride ?: quotaResult.entries.associate { it.personId to it.final }
         val quotas = IntArray(P) { quotaMap[persons[it].id] ?: 0 }
         warnings += quotaResult.warnings
@@ -254,9 +274,13 @@ object ProblemBuilder {
         val rotationIndex = IntArray(D) { cal.rotationGroup(days[it], history = false)?.ordinal ?: -1 }
         val rotationTarget = Array(P) { rotation.target.getValue(persons[it].id) }
         val rotationQueue = rotation.queue.map { q -> q.map { personPos.getValue(it) } }
-        val long = ledger.longMemory(persons, first, days, first)
+        val long = ledger.longMemory(persons, first, days)
         val longBase = Array(P) { long.base.getValue(persons[it].id) }
         val longIndex = IntArray(D) { Category.LONG_MEMORY.indexOf(category[it]) }
+        val longWeight = DoubleArray(D) { cal.longWeight(days[it]) }
+        if (month.year !in TurkishHolidays.religiousYears && data.dayOverrides.none { it.date.year == month.year && it.kind == DayKind.BAYRAM }) {
+            warnings += "${month.year} dini bayram tarihleri uygulamada yok; açıklanınca Takvim'den bayram günlerini girin"
+        }
 
         return MonthProblem(
             month = month, days = days, persons = persons, quotas = quotas,
@@ -265,7 +289,7 @@ object ProblemBuilder {
             softAvoid = softAvoid, softAvoidLabel = softAvoidLabel, softAvoidRequest = softAvoidRequest,
             wants = wants, clusters = clusters, weekly = weekly, longBlocks = longBlocks,
             rotationIndex = rotationIndex, rotationTarget = rotationTarget, rotationQueue = rotationQueue,
-            longBase = longBase, longIndex = longIndex,
+            longBase = longBase, longIndex = longIndex, longWeight = longWeight,
             weights = w, minGap = settings.minGap, maxPerMonth = settings.maxPerMonth,
             quotaResult = quotaResult, softRequestIds = softRequestIds, warnings = warnings,
         )

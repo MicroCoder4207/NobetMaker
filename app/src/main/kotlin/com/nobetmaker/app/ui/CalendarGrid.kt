@@ -50,6 +50,8 @@ class GridDay(
     val holiday: Boolean,
     val holidayName: String?,
     val weekend: Boolean,
+    /** Kapanmış ayda asistan yazılmamış gün: o dönem uzmanlar tutuyordu. */
+    val specialist: Boolean = false,
 )
 
 private fun weeksOf(month: YearMonth): List<LocalDate> {
@@ -82,6 +84,7 @@ fun gridFromData(data: AppData, month: YearMonth, actual: Boolean): List<GridDay
             holiday = cal.isOfficialHoliday(d) || info.kind == DayKind.YILBASI,
             holidayName = info.name,
             weekend = d.dayOfWeek == DayOfWeek.SATURDAY || d.dayOfWeek == DayOfWeek.SUNDAY,
+            specialist = !editable && data.month(month) != null && YearMonth.from(d) == month && off == null,
         )
     }
 }
@@ -215,6 +218,8 @@ private fun DayCell(day: GridDay, scale: Float, modifier: Modifier, selected: Bo
                 } else {
                     Text(p.name, fontSize = (10 * scale).sp, color = scheme.outline, maxLines = 1)
                 }
+            } else if (day.inMonth && day.specialist) {
+                Text("Uzman", fontSize = (10 * scale).sp, color = scheme.outline, maxLines = 1)
             }
             val o = day.other
             if (day.inMonth && o != null && o.id != p?.id) {

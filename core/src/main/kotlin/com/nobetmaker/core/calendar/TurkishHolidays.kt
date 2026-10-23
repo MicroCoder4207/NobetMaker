@@ -30,6 +30,17 @@ object TurkishHolidays {
 
     val religiousYears: IntRange = 2023..2027
 
+    /**
+     * Bayramı 9 güne çıkaran idari izinler (geçmiş yıllar; yenileri açıklanınca Takvim'den girilir).
+     * İdari izne bağlanan arefe tam gün sayılır.
+     */
+    private val adminLeave: Map<String, List<LocalDate>> = mapOf(
+        "2024-ramazan" to listOf(LocalDate.of(2024, 4, 8), LocalDate.of(2024, 4, 9)),
+        "2024-kurban" to listOf(LocalDate.of(2024, 6, 20), LocalDate.of(2024, 6, 21)),
+        "2025-ramazan" to listOf(LocalDate.of(2025, 4, 2), LocalDate.of(2025, 4, 3), LocalDate.of(2025, 4, 4)),
+        "2026-kurban" to listOf(LocalDate.of(2026, 5, 25), LocalDate.of(2026, 5, 26)),
+    )
+
     fun forYear(year: Int): List<DayInfo> {
         val days = LinkedHashMap<LocalDate, DayInfo>()
 
@@ -72,6 +83,13 @@ object TurkishHolidays {
 
         religious(ramazan[year], "Ramazan Bayramı", "$year-ramazan")
         religious(kurban[year], "Kurban Bayramı", "$year-kurban")
+        for ((eventId, dates) in adminLeave) {
+            for (date in dates) {
+                if (date.year != year) continue
+                val name = days[date]?.name?.let { "$it (idari izin)" } ?: "Bayram idari izni"
+                days[date] = DayInfo(date = date, kind = DayKind.IDARI_IZIN, name = name, eventId = eventId)
+            }
+        }
 
         return days.values.filter { it.date.year == year }.sortedBy { it.date }
     }

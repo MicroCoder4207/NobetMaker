@@ -32,6 +32,34 @@ class SettingsButtonsTest : AppUiTest() {
     )
 
     @Test
+    fun kidemEgrisiVeDokum() {
+        click("Ayarlar")
+        waitForText("Kıdem eğrisi")
+        toggle("Listeye nöbet dökümü ekle")
+        waitForData(what = "döküm kapatma") { !it.settings.exportSummary }
+        toggle("Listeye nöbet dökümü ekle")
+        waitForData(what = "döküm açma") { it.settings.exportSummary }
+        val curveSteppers = listOf(
+            "Asistanlık süresi (yıl)", "İlk yılların sonunda nöbet", "İlk yılların sonunda zor gün", "Son yıl başı nöbet",
+            "Son yıl sonu nöbet", "Son yıl başı zor gün", "Son yıl sonu zor gün", "Uzatma", "Küçük ekip sınırı (kişi)",
+        )
+        for (label in curveSteppers) {
+            val before = data().settings.curve
+            val atMax = rule.onNode(hasText("+") and hasClickAction() and hasAnySibling(hasText(label))).fetchSemanticsNode()
+                .config.contains(SemanticsProperties.Disabled)
+            stepper(label, plus = !atMax)
+            waitForData(what = "$label") { it.settings.curve != before }
+            stepper(label, plus = atMax)
+            waitForData(what = "$label geri") { it.settings.curve == before }
+        }
+        toggle("Katsayıları asistanlık yılından hesapla")
+        waitForData(what = "eğriyi kapatma") { !it.settings.curve.enabled }
+        assertTrue(!exists("Son yıl başı nöbet"))
+        toggle("Katsayıları asistanlık yılından hesapla")
+        waitForData(what = "eğriyi açma") { it.settings.curve.enabled }
+    }
+
+    @Test
     fun butunSayaclar() {
         click("Ayarlar")
         waitForText("Kurallar")
