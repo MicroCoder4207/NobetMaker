@@ -31,7 +31,7 @@ Tıbbi mikrobiyoloji asistanları için aylık nöbet listesini otomatik ve adil
 - Derleme: `./gradlew :app:assembleRelease`
 - Testler: `./gradlew :core:test :app:testDebugUnitTest`
   - `core` testleri kuralları, kota, defter, çözücü ve geçmiş verinin kağıtla tutarlılığını sınar.
-  - `app` testleri uygulamayı Robolectric ile açıp ana akışı dolaşır ve `app/build/screens` altına ekran görüntüleri yazar.
+  - `app` testleri uygulamayı Robolectric ile telefon ve tablet boyutunda açar; her ekrandaki düğmelere basıp sonucun veriye yazıldığını kontrol eder (takvim, gün ayrıntısı, değişim, paylaşım, ay hazırlığı, liste üretimi, kişiler, istatistik, geçmiş, ayarlar, yedekler) ve `app/build/screens` altına ekran görüntüleri yazar.
 - Modüller:
   - `core`: saf Kotlin; takvim, kurallar, kota, adalet defteri, çözücü, Excel ve görsel düzeni.
   - `app`: Jetpack Compose arayüzü, veri saklama, Android çizici ve paylaşım.

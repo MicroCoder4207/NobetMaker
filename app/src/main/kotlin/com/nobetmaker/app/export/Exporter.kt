@@ -88,7 +88,8 @@ object AndroidRenderer {
 
 object Exporter {
 
-    private fun exportDir(context: Context) = File(context.cacheDir, "exports").apply { mkdirs() }
+    /** Paylaşım sağlayıcısının (FileProvider) baktığı uygulama önbelleği; etkinliğin yerel ayarlı bağlamından bağımsız. */
+    private fun exportDir(context: Context) = File(context.applicationContext.cacheDir, "exports").apply { mkdirs() }
 
     private fun share(context: Context, file: File, mime: String, title: String) {
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)

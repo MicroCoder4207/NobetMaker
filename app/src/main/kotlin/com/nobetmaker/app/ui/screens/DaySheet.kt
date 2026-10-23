@@ -111,10 +111,7 @@ fun DaySheet(vm: AppViewModel, date: LocalDate, candidates: List<CandidateInfo>?
                 }
             }
             if (status == null || status == MonthStatus.TASLAK) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Kilitle (yeniden üretimde korunur)", Modifier.weight(1f))
-                    Switch(checked = locked, enabled = official != null, onCheckedChange = { vm.update { d -> DataOps.setLock(d, ym, date, it) } })
-                }
+                SwitchRow("Kilitle (yeniden üretimde korunur)", locked, enabled = official != null) { on -> vm.update { d -> DataOps.setLock(d, ym, date, on) } }
             }
 
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

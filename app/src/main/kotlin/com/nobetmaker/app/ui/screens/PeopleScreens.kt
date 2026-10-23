@@ -44,6 +44,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nobetmaker.app.ui.AppViewModel
@@ -171,11 +174,12 @@ fun PersonEditScreen(vm: AppViewModel, nav: Nav, id: String?) {
             OutlinedTextField(name, { name = it }, label = { Text("Ad") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             SectionCard("Renk") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    palette.forEach { c ->
+                    palette.forEachIndexed { i, c ->
                         Box(
                             Modifier.size(36.dp).background(personColor(c), CircleShape)
                                 .border(if (c == color) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                                .clickable { color = c },
+                                .clickable { color = c }
+                                .semantics { contentDescription = "Renk ${i + 1}"; selected = c == color },
                         )
                     }
                 }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -46,6 +47,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nobetmaker.app.ui.AppViewModel
@@ -330,7 +334,7 @@ private fun QuotaTab(vm: AppViewModel, month: YearMonth, editable: Boolean) {
     )
     SectionCard {
         plan.quotas.mapNotNull { q -> data.person(q.personId)?.let { it to q } }.sortedBy { it.first.seniority }.forEach { (p, q) ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.semantics { isTraversalGroup = true }, verticalAlignment = Alignment.CenterVertically) {
                 PersonDot(p)
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
@@ -390,16 +394,20 @@ fun ItemCard(person: Person?, title: String, lines: List<String>, onEdit: () -> 
 }
 
 @Composable
-fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+fun SwitchRow(label: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+    // Satırın tamamı dokunulabilir; ekran okuyucu da etiketi ve anahtarı tek öğe olarak okur.
+    Row(
+        Modifier.fillMaxWidth().toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onChange),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(label, Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onChange)
+        Switch(checked = checked, enabled = enabled, onCheckedChange = null)
     }
 }
 
 @Composable
 fun Stepper(label: String, value: Double, step: Double, min: Double, max: Double, format: (Double) -> String, onChange: (Double) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.semantics { isTraversalGroup = true }, verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f))
         IconButton(enabled = value - step >= min - 1e-9, onClick = { onChange(((value - step) * 1000).let { Math.round(it) / 1000.0 }) }) {
             Text("−", style = MaterialTheme.typography.titleLarge)

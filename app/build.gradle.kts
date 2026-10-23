@@ -14,8 +14,8 @@ android {
         applicationId = "com.nobetmaker"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.3.1"
+        versionCode = 6
+        versionName = "0.3.2"
     }
 
     // Sabit imza: yeni sürümler eskisinin üstüne veriler silinmeden kurulabilsin.
@@ -90,6 +90,7 @@ dependencies {
 
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)
+    testImplementation(libs.espresso.idling)
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
 }
