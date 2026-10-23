@@ -19,6 +19,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -52,6 +53,7 @@ import com.nobetmaker.app.ui.screens.PrepareScreen
 import com.nobetmaker.app.ui.screens.SettingsScreen
 import com.nobetmaker.app.ui.screens.StatsScreen
 import java.time.YearMonth
+import kotlinx.coroutines.launch
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
@@ -82,6 +84,9 @@ fun NobetNavHost() {
     val nav = remember(controller) { Nav(controller) }
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) {
+        vm.repository.startupNotice?.let { notice ->
+            launch { snackbar.showSnackbar(notice, withDismissAction = true, duration = SnackbarDuration.Indefinite) }
+        }
         vm.messages.collect { snackbar.showSnackbar(it) }
     }
     val backStack by controller.currentBackStackEntryAsState()

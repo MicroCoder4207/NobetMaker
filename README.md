@@ -16,6 +16,16 @@ Tıbbi mikrobiyoloji asistanları için aylık nöbet listesini otomatik ve adil
 ## Kurulum
 `app-release.apk` dosyasını telefona indirip açın. Android ilk kez sorduğunda dosyayı açan uygulamaya "bilinmeyen uygulamaları yükleme" izni verin.
 
+## Güncelleme ve veri güvenliği
+- Veri telefonda uygulamanın kendi klasöründe tek bir dosyada durur. Yeni sürüm eskisinin **üstüne kurulunca** veri olduğu gibi kalır; uygulamayı silmeyin (silmek veriyi de siler).
+- Üstüne kurulabilmesi için her sürüm aynı imza anahtarıyla imzalanmalı (bkz. İmza).
+- Uygulama içi önlemler:
+  - Değişikliklerden önce otomatik yedek: son 10 yedek ve son 30 günün her biri saklanır (Ayarlar → Otomatik yedekler).
+  - Yedekten dönme, yedek yükleme ve başlangıç verisine dönmeden önce her zaman yedek alınır.
+  - Yeni sürüm eski veriyi güncellemeden önce dosyanın kopyasını "kurtarma" klasörüne koyar.
+  - Dosya okunamazsa üstüne yazılmaz; kopyası saklanır, en yeni okunabilen yedek açılır.
+- Telefon kaybına ya da yanlışlıkla silmeye karşı: Ayarlar → **Yedeği dışa aktar** ile Drive'a/e-postaya yedek alın (özellikle her güncellemeden önce). Yeni telefonda **Yedekten geri yükle** ile her şey geri gelir.
+
 ## Geliştirme
 - Gereksinimler: JDK 17+, Android SDK (API 36).
 - Derleme: `./gradlew :app:assembleRelease`

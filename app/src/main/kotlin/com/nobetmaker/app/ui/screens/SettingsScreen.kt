@@ -131,7 +131,7 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
                 }
             }, Modifier.fillMaxWidth()) { Text("Başlangıç verisine dön") }
         }
-        Text("NöbetMaker 0.3.0", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("NöbetMaker 0.3.1", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.padding(16.dp))
     }
 
@@ -160,19 +160,32 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
     }
     if (showBackups) {
         val backups = remember { vm.repository.backups() }
+        val rescues = remember { vm.repository.rescueCopies() }
+        fun restore(f: File, label: String) {
+            showBackups = false
+            confirm = "$label geri yüklensin mi? Şu anki veri önce yedeklenir." to {
+                scope.launch(Dispatchers.IO) {
+                    vm.repository.restoreBackup(f).onSuccess { vm.toast("Geri yüklendi") }.onFailure { vm.toast("Bu dosya okunamadı") }
+                }
+            }
+        }
         AlertDialog(
             onDismissRequest = { showBackups = false },
             title = { Text("Otomatik yedekler") },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Text("Son 10 yedek ve son 30 günün her biri saklanır.", style = MaterialTheme.typography.bodySmall)
                     if (backups.isEmpty()) Text("Henüz otomatik yedek yok")
                     backups.forEach { f: File ->
-                        TextButton(onClick = {
-                            showBackups = false
-                            confirm = "${f.name} geri yüklensin mi?" to {
-                                scope.launch(Dispatchers.IO) { vm.repository.restoreBackup(f).onSuccess { vm.toast("Geri yüklendi") } }
-                            }
-                        }) { Text(f.name.removePrefix("yedek-").removeSuffix(".json")) }
+                        val label = f.name.removePrefix("yedek-").removeSuffix(".json")
+                        TextButton(onClick = { restore(f, label) }) { Text(label) }
+                    }
+                    if (rescues.isNotEmpty()) {
+                        Text("Sürüm güncellemesi öncesi / kurtarma", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+                        rescues.forEach { f: File ->
+                            val label = f.name.removeSuffix(".json")
+                            TextButton(onClick = { restore(f, label) }) { Text(label) }
+                        }
                     }
                 }
             },
