@@ -23,6 +23,8 @@ class Generation(
     val month: YearMonth,
     val seedOffset: Int,
     val running: Boolean,
+    /** Üretimin dayandığı veri; veri değiştiyse (ör. yeni istek) sonuç eskimiştir. */
+    val source: AppData? = null,
     val problem: MonthProblem? = null,
     val result: SolveResult? = null,
     val error: String? = null,
@@ -82,7 +84,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 val pr = ProblemBuilder.build(d, ym, DataOps.currentAssignments(d, ym), DataOps.quotaMap(d.month(ym)))
                 val result = Solver(pr).solve(seedOffset = seedOffset)
-                _generation.value = Generation(ym, seedOffset, running = false, problem = pr, result = result)
+                _generation.value = Generation(ym, seedOffset, running = false, source = d, problem = pr, result = result)
             } catch (e: Exception) {
                 _generation.value = Generation(ym, seedOffset, running = false, error = e.message ?: "Üretim başarısız")
             }
@@ -101,6 +103,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 .onFailure { messages.tryEmit(it.message ?: "Kaydedilemedi") }
         }
+    }
+
+    /** Bu ay için önceki üretim, verideki son değişiklikleri (istek, izin, kota…) içermiyorsa yeniden üretilmeli. */
+    fun generationStale(ym: YearMonth): Boolean {
+        val g = _generation.value ?: return true
+        if (g.month != ym) return true
+        if (g.running) return false
+        return g.result == null || g.source !== data.value
     }
 
     fun clearGeneration() {

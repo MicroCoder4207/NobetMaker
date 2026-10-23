@@ -55,8 +55,7 @@ import java.time.YearMonth
 fun GenerateScreen(vm: AppViewModel, nav: Nav, month: YearMonth) {
     val gen by vm.generation.collectAsStateWithLifecycle()
     LaunchedEffect(month) {
-        val g = vm.generation.value
-        if (g == null || g.month != month || (!g.running && g.result == null)) vm.generate(month)
+        if (vm.generationStale(month)) vm.generate(month)
     }
     Scaffold(
         topBar = {

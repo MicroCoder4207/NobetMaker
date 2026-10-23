@@ -11,6 +11,10 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.nobetmaker.app.export.Exporter
+import com.nobetmaker.core.model.DutyRequest
+import com.nobetmaker.core.model.Priority
+import com.nobetmaker.core.model.RequestType
+import com.nobetmaker.core.ops.DataOps
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -105,6 +109,29 @@ class ScreensTest {
         click("Bunu kullan")
         waitForText("Taslak")
         shot("09-kasim-taslak")
+
+        // Liste üretildikten sonra girilen kesin istek, yeniden üretimde uygulanmalı (önceki sonuç kullanılmamalı).
+        val kasim = YearMonth.of(2026, 11)
+        val range = kasim.atDay(4)..kasim.atDay(7)
+        rule.activityRule.scenario.onActivity { activity ->
+            (activity.application as NobetApp).repository.update {
+                DataOps.upsertRequest(
+                    it,
+                    DutyRequest("test-oguz", "oguz", RequestType.AVOID_RANGE, Priority.KESIN, rangeStart = range.start, rangeEnd = range.endInclusive),
+                )
+            }
+        }
+        // "Liste kaydedildi" bildirimi düğmenin üstünü kapatıyor; kapanmasını bekle.
+        rule.waitUntil(15_000) { rule.onAllNodesWithText("Liste kaydedildi").fetchSemanticsNodes().isEmpty() }
+        click("Liste üret")
+        waitForText("Seçenek 1", 120_000)
+        click("Bunu kullan")
+        waitForText("Taslak")
+        rule.activityRule.scenario.onActivity { activity ->
+            val plan = (activity.application as NobetApp).repository.data.value.month(kasim)!!
+            val oguz = plan.current!!.assignments.filter { it.personId == "oguz" }.map { it.date }
+            assertTrue("Oğuz kesin isteğe rağmen yazıldı: $oguz", oguz.none { it in range })
+        }
 
         rule.onNodeWithText("13").performClick()
         waitForText("Kim tutabilir?")
