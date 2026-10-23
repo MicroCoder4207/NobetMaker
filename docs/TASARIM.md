@@ -453,7 +453,7 @@ Bayramda kıdem önemlidir ama kesin bir kural yoktur. Bu yüzden bayram günler
 
 ## 13. Veri modeli
 
-Veriler telefonda SQLite (Room) ile tutulur. Temel tablolar:
+Veriler telefonda tek bir JSON belgesinde tutulur (bkz. 15). Belgenin temel bölümleri:
 
 | Tablo | Alanlar (özet) |
 |---|---|
@@ -510,13 +510,13 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 ## 15. Teknik mimari
 
 - **Dil ve arayüz:** Kotlin, Jetpack Compose, Material 3. Arayüz yalnızca Türkçe.
-- **Veri:** Room (SQLite) ve şema göçleri.
+- **Veri:** Tek bir JSON belgesi (kotlinx.serialization), atomik yazma ve son 10 sürümün otomatik yedeği. Veri küçük ve tek kullanıcılı olduğu için veritabanı yerine bu yol seçildi; yedekleme ve geri yükleme dosya kopyalamak kadar basit.
 - **Katmanlar:**
   - Arayüz.
   - Alan katmanı: kurallar, puan, kota, defter ve çözücü. Saf Kotlin ile yazılır, Android'den bağımsızdır ve birim testlerle sınanır.
   - Veri katmanı.
 - **Çözücü:** Saf Kotlin, harici kütüphane yok. Rastgelelik tohumludur, sonuçlar tekrarlanabilir.
-- **Excel:** Uygulama boyutunu şişirmeyen hafif bir .xlsx yazıcı. Kesin seçim kodlama aşamasında yapılacak.
+- **Excel:** Uygulamanın kendi küçük .xlsx yazıcısı; dış kütüphane yok.
 - **Görsel ve PDF:** Takvim görünümü bitmap'e çizilir. PDF için Android'in PdfDocument sınıfı kullanılır.
 - **Paylaşım:** Android paylaş menüsü (WhatsApp, Drive, e-posta).
 - **Yedekleme:** Android'in otomatik yedeği (Google hesabı) ve elle dışa/içe aktarma (tek dosya). Telefon değiştiğinde ya da kaybolduğunda geri yükleme bunlarla yapılır.
