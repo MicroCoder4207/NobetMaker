@@ -27,6 +27,10 @@ class SolverTest {
             assertTrue(pr.available[p][i], "${pr.persons[p].name} ${pr.days[i]} uygun değil: ${pr.hardReasons[p][i]}")
         }
         for (p in pr.persons.indices) {
+            for (dow in listOf(DayOfWeek.FRIDAY, DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)) {
+                val n = a.indices.count { a[it] == p && pr.days[it].dayOfWeek == dow }
+                assertTrue(n <= 1, "${pr.persons[p].name}: ayda $n $dow")
+            }
             assertEquals(pr.quotas[p], a.count { it == p }, "${pr.persons[p].name} kotası")
             val days = a.indices.filter { a[it] == p }
             days.zipWithNext().forEach { (x, y) -> assertTrue(y - x >= pr.minGap, "${pr.persons[p].name}: ${pr.days[x]} ve ${pr.days[y]}") }
@@ -39,6 +43,8 @@ class SolverTest {
         println("toplam ceza=${"%.1f".format(card.total)} karşılanmayan istek=${card.requestsUnmet} uzun tatil=${card.longHolidayHits}")
         card.perPerson.forEach { println("${it.person.name}: ${it.count}/${it.quota} nöbet, ${it.hours} saat, ${it.byCategory}") }
         println("3 gün aralık: ${card.tightGaps.size}, defter: ${card.memoryNotes}")
+        card.rotationSummary.forEach { println(it) }
+        println("sıra sapmaları: ${card.rotationMisses}")
     }
 
     @Test

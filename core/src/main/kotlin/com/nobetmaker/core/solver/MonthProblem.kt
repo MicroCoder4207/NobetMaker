@@ -50,9 +50,12 @@ class MonthProblem(
     val weekly: List<WeeklyReq>,
     /** [ext] → korunan tatil bloğunun ext dizinleri (Y1). */
     val longBlocks: Array<IntArray>,
-    val shortBase: Array<DoubleArray>,
-    val shortAvg: DoubleArray,
-    val shortIndex: IntArray,
+    /** [gün] → sıra grubu (RotationGroup.ordinal) ya da -1. */
+    val rotationIndex: IntArray,
+    /** [kişi][grup] → bu ay o gruptan tutması beklenen gün sayısı. */
+    val rotationTarget: Array<IntArray>,
+    /** Grup başına bu ayın sırası (kişi dizinleri). */
+    val rotationQueue: List<List<Int>>,
     val longBase: Array<DoubleArray>,
     val longIndex: IntArray,
     val weights: PenaltyWeights,
@@ -239,11 +242,19 @@ object ProblemBuilder {
         if (quotas.sum() != D) warnings += "Kotaların toplamı (${quotas.sum()}) ayın gün sayısına ($D) eşit değil"
 
         // Defter.
-        val short = ledger.shortMemory(persons, first.minusMonths(settings.shortMemoryMonths.toLong()), first, days)
+        val personPos = persons.withIndex().associate { (i, p) -> p.id to i }
+        fun dayIdx(d: LocalDate) = (d.toEpochDay() - first.toEpochDay()).toInt()
+        val rotation = ledger.rotation(
+            persons, first.minusMonths(settings.rotationMonths.toLong()), first, days,
+            availableInPlan = { p, d -> available[personPos.getValue(p.id)][dayIdx(d)] },
+            wants = { p, d -> wants.any { it.p == personPos.getValue(p.id) && it.day == dayIdx(d) } },
+            avoids = { p, d -> softAvoid[personPos.getValue(p.id)][dayIdx(d)] > 0.0 },
+        )
+        val rotationIndex = IntArray(D) { cal.rotationGroup(days[it], history = false)?.ordinal ?: -1 }
+        val rotationTarget = Array(P) { rotation.target.getValue(persons[it].id) }
+        val rotationQueue = rotation.queue.map { q -> q.map { personPos.getValue(it) } }
         val long = ledger.longMemory(persons, first, days, first)
-        val shortBase = Array(P) { short.base.getValue(persons[it].id) }
         val longBase = Array(P) { long.base.getValue(persons[it].id) }
-        val shortIndex = IntArray(D) { Category.SHORT_MEMORY.indexOf(category[it]) }
         val longIndex = IntArray(D) { Category.LONG_MEMORY.indexOf(category[it]) }
 
         return MonthProblem(
@@ -252,7 +263,7 @@ object ProblemBuilder {
             points = points, hours = hours, category = category, bayramKey = bayramKey, weekKey = weekKey,
             softAvoid = softAvoid, softAvoidLabel = softAvoidLabel, softAvoidRequest = softAvoidRequest,
             wants = wants, clusters = clusters, weekly = weekly, longBlocks = longBlocks,
-            shortBase = shortBase, shortAvg = short.average, shortIndex = shortIndex,
+            rotationIndex = rotationIndex, rotationTarget = rotationTarget, rotationQueue = rotationQueue,
             longBase = longBase, longIndex = longIndex,
             weights = w, minGap = settings.minGap, maxPerMonth = settings.maxPerMonth,
             quotaResult = quotaResult, softRequestIds = softRequestIds, warnings = warnings,

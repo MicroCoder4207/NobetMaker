@@ -21,7 +21,7 @@ object LocalDateSerializer : KSerializer<LocalDate> {
 /** Uygulamanın bütün verisi tek bir belgede tutulur (bkz. docs/TASARIM.md §13). */
 @Serializable
 data class AppData(
-    val schemaVersion: Int = 1,
+    val schemaVersion: Int = AppData.SCHEMA_VERSION,
     val persons: List<Person> = emptyList(),
     val dayOverrides: List<DayInfo> = emptyList(),
     val periods: List<Period> = emptyList(),
@@ -34,6 +34,10 @@ data class AppData(
 ) {
     fun person(id: String): Person? = persons.firstOrNull { it.id == id }
     fun month(ym: YearMonth): MonthPlan? = months.firstOrNull { it.year == ym.year && it.month == ym.monthValue }
+
+    companion object {
+        const val SCHEMA_VERSION = 2
+    }
 }
 
 // ---------------------------------------------------------------- Kişiler
@@ -299,11 +303,19 @@ data class PenaltyWeights(
     val longHolidayProtection: Double = 80.0,
     val requestMumkunse: Double = 60.0,
     val requestOnemsiz: Double = 10.0,
-    val shortMemory: Double = 20.0,
+    /** Vizit/Cuma/Pazar/Perşembe sırasından sapma (sapma² ile çarpılır). */
+    val rotation: Double = 60.0,
+    /** Pazartesi sırasından sapma (Salı dersini hep aynı kişi kaçırmasın); en kolay esneyen kural. */
+    val mondayRotation: Double = 3.0,
+    /** Aynı kişiye ayda 2. Cuma, Cumartesi ya da Pazar; neredeyse kesin kural. */
+    val weekendRepeat: Double = 400.0,
     val longMemory: Double = 30.0,
     val gap3: Double = 15.0,
     val gap4: Double = 5.0,
-    val sameWeekday: Double = 3.0,
+    /** Aynı kişiye ayda Pzt–Per'den aynı güne 2. kez. */
+    val weekdayRepeat: Double = 5.0,
+    /** Ard arda iki günün aynı ikiliyle (ör. Aslı → Oğuz) ayda bir kez daha dizilmesi. */
+    val sequenceRepeat: Double = 8.0,
     val sameBayram: Double = 40.0,
 )
 
@@ -314,7 +326,8 @@ data class Settings(
     val penalties: PenaltyWeights = PenaltyWeights(),
     val minGap: Int = 3,
     val maxPerMonth: Int = 6,
-    val shortMemoryMonths: Int = 6,
+    /** Vizit/Cuma/Pazar/Perşembe sırasının geriye baktığı ay sayısı. */
+    val rotationMonths: Int = 3,
     val longMemoryStart: LocalDate = LocalDate.of(2023, 1, 1),
     val excelTitle: String = "Tıbbi Mikrobiyoloji Asistan Nöbet Listesi",
 )

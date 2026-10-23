@@ -101,7 +101,7 @@ Varsayılanlar:
 - Sabit resmi tatiller uygulamada hazır gelir: 1 Ocak, 23 Nisan, 1 Mayıs, 19 Mayıs, 15 Temmuz, 30 Ağustos, 29 Ekim. 28 Ekim öğleden sonrası yarım gündür.
 - Ramazan ve Kurban bayramı tarihleri (arefe ve bayram günleri) yerleşik bir tablodan gelir ve elle düzeltilebilir. İdari izin ve köprü günleri elle eklenir.
 - Hafta içine veya Pazar'a denk gelen resmi tatil ve bayram günlerinde vizit varsayılan olarak **belirsiz**dir.
-- 1 Ocak: vizit varsayılan olarak **var** (genelde oluyor ama kesin değil).
+- 1 Ocak: vizit **var** (her yıl kesin oluyor; yine de gün bazında değiştirilebilir).
 - 31 Aralık: "Yılbaşı" özel günüdür, ek puanı +1.0.
 
 ### 3.2 Zorluk puanı formülü
@@ -144,9 +144,9 @@ Her gün tek bir kategoriye girer. Bir gün birden fazla kategoriye uyuyorsa şu
 
 | Grup | Kategoriler | Hafıza |
 |---|---|---|
-| Kısa hafızalı | Cumartesi, Pazar, Cuma, Perşembe | Son 6 ay |
+| Sıralı (bkz. 6.1) | Vizit (Cumartesi ve vizitli tatil), Cuma, Pazar, Perşembe, Pazartesi | Son 3 ay |
 | Uzun hafızalı | Bayram, Resmi tatil, Yılbaşı | 2023'ten beri |
-| Dengelenmeyen | Hafta içi (Pzt–Çar) | — (yalnızca kotayı doldurur) |
+| Dengelenmeyen | Salı, Çarşamba | — (yalnızca kotayı doldurur) |
 
 ### 3.4 Nöbet saati
 
@@ -200,14 +200,17 @@ Aşağıdaki ağırlıklar başlangıç değerleridir. Hepsi Ayarlar'dan değiş
 | Y1 | **Uzun tatil koruması** (genelleştirilmiş Perşembe kuralı). Nöbetin ertesi günü iş günüyse ve hemen arkasından tatil başlıyorsa, o kişiye o tatil bloğunda nöbet yazılmaz. Normal bir Perşembe için bu "aynı hafta Pazar yok" demektir, çünkü Cuma ve Cumartesi zaten S2/S3 ile kapalıdır. 29 Ekim gibi tatile denk gelen Perşembeler ve bayramdan önceki günler de kendiliğinden kapsanır. Kural ay geçişini de aşar: 29 Ekim'i tutan kişi 1 Kasım Pazar'a yazılmaz. | 80 |
 | Y2 | "Mümkünse" öncelikli istek karşılanmadı | 60 |
 | Y3 | "Sıkışırsa önemli değil" öncelikli istek karşılanmadı | 10 |
-| Y4 | Kısa hafızalı kategori dengesi (bkz. 6) | 20 × sapma² |
+| Y4 | Vizit, Cuma, Pazar ve Perşembe sırası (bkz. 6.1) | 60 × sapma² |
+| Y4a | Pazartesi sırası (Salı dersini hep aynı kişi kaçırmasın; en kolay esneyen kural) | 3 × sapma² |
 | Y5 | Uzun hafızalı kategori dengesi (bkz. 6) | 30 × sapma² |
 | Y6 | Yayılım: iki nöbet arasında 3 gün var | 15 |
 |  | Yayılım: iki nöbet arasında 4 gün var | 5 |
-| Y7 | Aynı kişi aynı ay içinde haftanın aynı gününe 3. kez yazıldı | 3 |
+| Y7 | Aynı kişi aynı ay içinde Pazartesi–Perşembe arasında aynı güne 2. kez yazıldı | 5 |
 | Y8 | Aynı kişi aynı bayramda 2. güne yazıldı | 40 |
+| Y9 | **Aynı kişiye ayda 2. Cuma, 2. Cumartesi ya da 2. Pazar.** Neredeyse sert kuraldır; yalnızca başka çıkış yoksa çiğnenir. | 400 (fazla gün başına) |
+| Y10 | Sıra tekrarı: ard arda iki gün, ay içinde aynı ikiliyle yeniden dizildi (ör. 2-3 ve 9-10'da Aslı → Oğuz). Liste haftadan haftaya aynı sırayla tekrar etmesin diye. | 8 (tekrar başına) |
 
-Y4 ve Y5'teki sapma, gün birimiyle ölçülür (bkz. 6).
+Y4'teki sapma, ayın sırasında beklenen gün sayısından fark; Y5'teki sapma gün birimiyle ölçülür (bkz. 6).
 
 ---
 
@@ -258,24 +261,39 @@ Her dönem kaydı **kesin** ya da **belirsiz** olarak işaretlenebilir (ör. tar
 Defter, her kişinin her kategoride ne kadar yük taşıdığını izler. Sonraki listelerde geride kalan kişiye öncelik verilmesini sağlar.
 
 - **Kaynak:** Defter yalnızca **resmi listeye** (en güncel resmi sürüme) ve geçmiş özel gün kayıtlarına bakar. Gayriresmi değişimler deftere girmez. Bunlar kişiler arasındaki anlaşmalardır ve sistemin bunları ayrıca telafi etmesi aynı şeyin iki kez hesaba girmesi olur.
-- **Ölçü (kısa hafızalı kategoriler):** Her kategoride kişinin topladığı **puan** (tutulan gün × gün puanı). Uzun hafızalı kategorilerin ölçüsü farklıdır, aşağıda anlatılıyor.
-- **Hedef (kısa hafızalı kategoriler):** Her günün puanı, o gün o kategori için **uygun** olan kişiler arasında zor gün katsayılarına göre paylaştırılır. Perşembe için herkesin payı eşittir. Kişinin hedefi bu payların toplamıdır.
+- **Sıralı günler** (Vizit, Cuma, Pazar, Perşembe, Pazartesi) için bkz. 6.1. Uzun hafızalı kategorilerin ölçüsü farklıdır, aşağıda anlatılıyor.
+- **Pay:** Her gün, o gün **uygun** olan kişiler arasında paylaştırılır.
   - Uygunluk şöyle belirlenir: kişi o gün ekipte olmalı, kalıcı bir kural (Yaren'in kuralı gibi) ya da **kotayı düşüren** bir dönem (halk sağlığı rotasyonu, doğum izni) yüzünden dışarıda kalmamalı.
   - Yıllık izin uygunluğu düşürmez, tıpkı kotayı düşürmediği gibi. Kişinin izindeyken kaçırdığı zor gün payı önce aynı ayın başka bir zor gününe verilir (elle hazırlanan listelerde de böyle oluyor). Sığmazsa defterde kalır ve sonraki listelerde telafi edilir.
   - Kişinin ekipte bulunmadığı dönemler hedefe girmez. Örneğin Aslı'dan 2023 bayramları için pay beklenmez. Burada bölüme katılış tarihi esas alınır; başka hastanede geçen süre sayılmaz.
 - **Sapma** = gerçekleşen − hedef. Kategorinin ortalama gün puanına bölünerek gün birimine çevrilir. Pozitif sapma kişinin fazla tuttuğunu, negatif sapma geride kaldığını gösterir.
 - **Hafıza süreleri:**
-  - Kısa hafıza (Cumartesi, Pazar, Cuma, Perşembe): son **6 ay**.
+  - Sıra hafızası (Vizit, Cuma, Pazar, Perşembe, Pazartesi): son **3 ay**.
   - Uzun hafıza (Bayram, Resmi tatil, Yılbaşı): **2023'ten beri** tüm geçmiş.
 - **Uzun hafızalı kategorilerde ölçü:** 2024–2025 bayram kayıtlarında yalnızca bugünkü ekibin kaç gün tuttuğu biliniyor. Kalan günleri o dönem nöbet tutan uzmanlar ya da sonradan ayrılan asistanlar tutmuş, kimin tuttuğu belli değil. Bu yüzden bu kategorilerde pay hesabı yerine **olay başına ortalama** kullanılır:
   - Kişinin değeri = ekipte bulunduğu bayramlarda tuttuğu toplam gün ÷ ekipte bulunduğu bayram sayısı ÷ zor gün katsayısı.
   - Değeri düşük olan öne geçer. Sapma, kişinin değerinin ekip ortalamasından farkıdır.
   - Eski kayıtlarda vizit bilgisi olmadığı için burada puan yerine gün sayısı kullanılır.
   - Yılbaşı ve resmi tatiller için de aynı yöntem kullanılır (ör. ekipte bulunduğu yılbaşı sayısı).
-- Hafta içi günleri (Pzt–Çar) dengelenmez. Toplam nöbet sayısı zaten kota ile dengelenir.
+- Salı ve Çarşamba dengelenmez. Toplam nöbet sayısı zaten kota ile dengelenir.
 - İstatistik ekranında ayrıca şunlar gösterilir: toplam nöbet (resmi ve gerçekte tutulan), toplam puan, istek karşılanma oranı.
 
 Defter ayrı bir tabloda saklanmaz. Her seferinde resmi atamalardan, geçmiş özel gün kayıtlarından ve takvimden yeniden hesaplanır. Böylece kayıtlarla defter arasında tutarsızlık oluşmaz.
+
+### 6.1 Sıra (vizit, Cuma, Pazar, Perşembe, Pazartesi)
+
+Elle hazırlanan listelerde zor günler sırayla döner. Örnek: Eylül 2026'da 4 Cumartesi vizitini Şule, Aslı, Betül ve Oğuz tuttu; Ekim'deki 6 viziti Yaren dışında herkes tuttu. Kasım'da 4 vizit var. Sıra, Eylül'de tutmayan Kenan ve Fatma'dandır; kalan iki vizit en uzun süredir tutmayanlara gider.
+
+- **Gruplar:**
+  - **Vizit:** Vizitli her gün; Cumartesi, 1 Ocak ve vizitli tatiller. Geçmişte yalnızca kesinleşmiş vizit sayılır, planlamada belirsiz vizit var kabul edilir. Herkese eşit döner.
+  - **Cuma** ve **Pazar** (vizitsiz): zor gün katsayısıyla döner (önce çömez).
+  - **Perşembe:** herkese eşit döner.
+  - **Pazartesi:** Salı günleri ders var ve Pazartesi nöbetçisi nöbet ertesi olduğu için dersi kaçırıyor. Herkese eşit döner. Salı tatilse o Pazartesi sıraya girmez. En kolay esneyen kuraldır (Y4a).
+- **Borç:** Son 3 ayda her kişi için beklenen − tutulan. Beklenen, her günün uygun kişiler arasındaki payının toplamıdır.
+- **Ayın sırası:** Ayın o gruptaki günleri sırayla dağıtılır. Her gün, borcu en büyük olana gider (borç yarım güne yuvarlanır); eşitlikte o günü en uzun süredir tutmayan, o da eşitse çömez seçilir.
+  - Aynı kişiye ayda o günden ikincisi verilmez (bkz. Y9).
+  - O günü isteyen biri varsa istek sıradan önce gelir. O günü istemeyen kişi mümkünse atlanır.
+- Ortaya çıkan sıra her kişi için bir hedef sayı verir (ör. "Vizit: Kenan 1, Aslı 1, Fatma 1, Oğuz 1"). Liste üretimi bu hedeften sapmayı cezalandırır (Y4). Sıra kurallarla tutmuyorsa esner ve skor kartında gösterilir.
 
 ---
 
@@ -333,8 +351,10 @@ Problem küçüktür (yaklaşık 7 kişi × 31 gün). Telefonda, çevrimdışı 
 
 ### 8.3 İyileştirme (yerel arama)
 
-- Sert kuralları ve kotaları bozmayan hamleler denenir. Örneğin iki günün nöbetçileri yer değiştirir (takas) ya da bir gün başka bir kişiye verilip ondan başka bir gün geri alınır.
+- Sert kuralları ve kotaları bozmayan hamleler denenir: iki günün nöbetçileri yer değiştirir (takas) ya da üç günün nöbetçileri döner (A'nın günü B'ye, B'ninki C'ye, C'ninki A'ya).
 - Hamle toplam cezayı düşürüyorsa kabul edilir. Yerel bir minimumda takılmamak için kontrollü rastgelelik kullanılır (benzetimli tavlama).
+- Sonunda bütün takas ve üçlü dönüşler tek tek denenir, iyileştiren kalmayana kadar uygulanır (cilalama).
+- Bu adımlar 32 farklı başlangıçla tekrarlanır.
 
 ### 8.4 Alternatifler
 
@@ -342,6 +362,9 @@ Farklı başlangıçlarla birden çok çözüm üretilir. Birbirinden yeterince 
 
 - Toplam ceza
 - Karşılanan ve karşılanmayan istekler (kim, hangisi)
+- Ayın sıraları (ör. "Vizit sırası: Kenan, Aslı, Fatma, Oğuz") ve sıradan sapmalar
+- Ayda 2. Cuma, Cumartesi ya da Pazar alan olursa uyarı
+- Sıra tekrarları (aynı ikilinin ard arda yeniden dizilmesi)
 - Uzun tatil koruması ihlalleri
 - En sıkışık aralık (kişi ve günler)
 - Defter dengesi (kategori bazında en büyük sapma)
@@ -577,13 +600,17 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 | K15 | Resmi liste Excel olarak hocaya gider; Excel formatının tasarımı uygulamaya bırakıldı. |
 | K16 | Adalet defteri yalnızca resmi listeye bakar. |
 | K17 | 31 Aralık kötü gün sayılır (yılbaşı); kimin tuttuğu ayrıca kaydedilir. |
-| K18 | 1 Ocak varsayılan olarak vizitlidir; değiştirilebilir. |
+| K18 | 1 Ocak her yıl vizitlidir; gün bazında yine de değiştirilebilir. |
 | K19 | Bayram ve yılbaşı uzun hafızalıdır (2023'ten beri). Bayramda kıdem etkilidir ama kesin kural yoktur; bu yüzden bayram planlama ekranı var. |
 | K20 | Şubat–Ekim 2026 kağıtlardan aktarılacak; 2023'ten bu yana özel günler elle girilecek. |
 | K21 | Kıdem sırası elle tutulur, tarihlerden türetilmez. Bölüme katılış tarihi yalnızca ekipte bulunulan dönemi belirler (Yaren geçişle sonradan katıldı ama kıdemde en önde). |
 | K22 | İzin zor gün payını azaltmaz. Kaçırılan pay önce aynı ayın başka bir zor gününe verilir; sığmazsa defterde kalır ve sonraki ay telafi edilir. |
 | K23 | Nöbet saati yalnızca bilgi içindir, adalet hesabına girmez. Uygulamada resmi listeye ve gerçekte tutulana göre ayrı ayrı gösterilir; hocaya giden Excel'in özetinde resmi saat yer alır. |
 | K24 | Yaren'in bundan sonra nöbet tutmama ihtimali var. Bunun için "nöbet muafiyeti" dönemi kullanılır: kişi ekipte kalır, listeye girmez, payı diğerlerine dağılır, borç yazılmaz. |
+| K25 | Aynı kişiye ayda 2 Cuma, 2 Cumartesi ya da 2 Pazar yazılmaz; aşırı sıkışık aylar dışında (Y9). |
+| K26 | Vizit, Cuma, Pazar ve Perşembe sırayla döner; son 3 ay hatırlanır (6.1). Sıra her ay sağlanamayabilir, sağlanabildiği aylarda sağlanır. |
+| K27 | Liste mümkün olduğunca karışık dizilir: aynı ikili ard arda tekrar etmez (Y10), aynı kişi Pzt–Per'de aynı güne ayda 2. kez yazılmaz (Y7). |
+| K28 | Salı dersi yüzünden Pazartesi de sırayla döner; bu en kolay esneyen kuraldır (Y4a). |
 
 ---
 
@@ -592,8 +619,8 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 Aşağıdakiler konuşmalarda açıkça kararlaştırılmadı. İtiraz gelmezse bu şekilde uygulanacak:
 
 - Arefe yarım tatil sayılır (puan bileşenleri yarıya iner).
-- Kısa hafıza süresi 6 aydır.
-- Resmi tatiller de bayram ve yılbaşı gibi uzun hafızaya girer, çünkü yılda bir geldikleri için 6 aylık hafıza onları görmez.
+- Sıra hafızası 3 aydır.
+- Resmi tatiller de bayram ve yılbaşı gibi uzun hafızaya girer, çünkü yılda bir geldikleri için 3 aylık sıra hafızası onları görmez.
 - Rapor kotayı düşürmez. Bu, kayıt bazında değiştirilebilir.
 - Belirsiz izin sert kural yerine "mümkünse" öncelikli bir istek gibi uygulanır.
 - Kenan'ın zor gün katsayısı, kıdem sırasına uygun olarak Fatma'nınkinin biraz altındadır (0.65 / 0.70).

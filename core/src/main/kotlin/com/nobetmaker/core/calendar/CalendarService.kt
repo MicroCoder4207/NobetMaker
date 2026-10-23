@@ -22,9 +22,6 @@ enum class Category(val label: String, val memory: Memory) {
     PERSEMBE("Perşembe", Memory.SHORT),
     HAFTA_ICI("Hafta içi", Memory.NONE);
 
-    /** Zor gün katsayısı yerine herkese eşit pay verilen kategoriler (iyi günler). */
-    val equalShare: Boolean get() = this == PERSEMBE
-
     val eventKind: EventKind?
         get() = when (this) {
             YILBASI -> EventKind.YILBASI
@@ -34,9 +31,21 @@ enum class Category(val label: String, val memory: Memory) {
         }
 
     companion object {
-        val SHORT_MEMORY = entries.filter { it.memory == Memory.SHORT }
         val LONG_MEMORY = entries.filter { it.memory == Memory.LONG }
     }
+}
+
+/**
+ * Sırayla dönen gün grupları (§6). Vizit = Cumartesi ve vizitli tatil; herkese eşit döner.
+ * Cuma ve Pazar zor gün katsayısıyla, Perşembe eşit döner. Pazartesi: ertesi gün Salı dersi var ve
+ * nöbetçi dersi kaçırıyor; herkese eşit döner ama en kolay esneyen sıradır.
+ */
+enum class RotationGroup(val label: String, val equalShare: Boolean) {
+    VIZIT("Vizit", true),
+    CUMA("Cuma", false),
+    PAZAR("Pazar", false),
+    PERSEMBE("Perşembe", true),
+    PAZARTESI("Pazartesi", true),
 }
 
 /** Takvimle ilgili bütün hesaplar: tatil, vizit, zorluk puanı, saat, kategori (§3). */
@@ -163,6 +172,20 @@ class CalendarService(overrides: List<DayInfo>, private val settings: Settings) 
             DayOfWeek.FRIDAY -> Category.CUMA
             DayOfWeek.THURSDAY -> Category.PERSEMBE
             else -> Category.HAFTA_ICI
+        }
+    }
+
+    /** Geçmişte yalnızca kesinleşmiş vizit sayılır; planlamada belirsiz vizit var kabul edilir. */
+    fun rotationGroup(date: LocalDate, history: Boolean): RotationGroup? {
+        val v = visit(date)
+        if (if (history) v == Visit.VAR else v != Visit.YOK) return RotationGroup.VIZIT
+        return when (category(date)) {
+            Category.CUMA -> RotationGroup.CUMA
+            Category.PAZAR -> RotationGroup.PAZAR
+            Category.PERSEMBE -> RotationGroup.PERSEMBE
+            // Salı tatilse ders yok, Pazartesi sıradan bir gündür.
+            Category.HAFTA_ICI -> if (date.dayOfWeek == DayOfWeek.MONDAY && holidayFraction(date.plusDays(1)) == 0.0) RotationGroup.PAZARTESI else null
+            else -> null
         }
     }
 

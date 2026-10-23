@@ -27,6 +27,19 @@ class OpsTest {
     }
 
     @Test
+    fun `eski surum verisi guncellenir`() {
+        val oct29 = LocalDate.of(2026, 10, 29)
+        val seed = SeedData.build()
+        val old = seed.copy(schemaVersion = 1, dayOverrides = seed.dayOverrides.filter { it.date != oct29 })
+        val migrated = AppJson.decode(AppJson.encode(old))
+        assertEquals(2, migrated.schemaVersion)
+        assertEquals(com.nobetmaker.core.model.Visit.VAR, migrated.dayOverrides.single { it.date == oct29 }.actualVisit)
+        // 0.1.0 ayarlarında olmayan alanlar varsayılan değerini alır, kaldırılan alanlar sorun çıkarmaz.
+        val legacy = AppJson.encode(old).replace("\"rotationMonths\": 3", "\"shortMemoryMonths\": 6")
+        assertEquals(3, AppJson.decode(legacy).settings.rotationMonths)
+    }
+
+    @Test
     fun `gercek gecmisle kasim 2026 uretilir ve yayinlanir`() {
         val ym = YearMonth.of(2026, 11)
         var data = DataOps.ensureMonth(SeedData.build(), ym)
@@ -39,6 +52,24 @@ class OpsTest {
         val card = Explainer(pr).scoreCard(best)
         card.perPerson.forEach { println("${it.person.name}: ${it.count}, ${it.hours} saat, ${it.byCategory}") }
         println("defter: ${card.memoryNotes}; uzun tatil: ${card.longHolidayHits}")
+        card.rotationSummary.forEach { println(it) }
+        println("sıra sapmaları: ${card.rotationMisses}; hafta sonu tekrarı: ${card.weekendRepeats}; ikili tekrarı: ${card.sequenceRepeats}")
+        for (i in best.indices) println("${pr.days[i]} ${pr.days[i].dayOfWeek.toString().take(3)} ${pr.persons[best[i]].name}")
+        com.nobetmaker.core.solver.Objective(pr).penalties(best).forEach { println("ceza ${it.kind} ${"%.1f".format(it.amount)} ${it.text}") }
+        println("toplam: ${result.solutions.map { "%.1f".format(it.cost) }}")
+
+        // Ayda en fazla 1 Cuma, 1 Cumartesi, 1 Pazar; vizitler sıradaki kişilere.
+        assertTrue(card.weekendRepeats.isEmpty(), "hafta sonu tekrarı: ${card.weekendRepeats}")
+        val vizitQueue = pr.rotationQueue[com.nobetmaker.core.calendar.RotationGroup.VIZIT.ordinal].map { pr.persons[it].name }.sorted()
+        val vizitHolders = best.indices.filter { pr.rotationIndex[it] == com.nobetmaker.core.calendar.RotationGroup.VIZIT.ordinal }
+            .map { pr.persons[best[it]].name }.sorted()
+        assertEquals(vizitQueue, vizitHolders, "vizitler sıraya göre dağılmalı")
+        assertTrue("Kenan" in vizitHolders && "Fatma" in vizitHolders, "Eylül'de vizit tutmayan Kenan ve Fatma Kasım'da sırada olmalı")
+        // Liste haftadan haftaya aynı sırayla tekrar etmemeli (ör. 2-3-4 ve 9-10-11 Aslı-Oğuz-Şule).
+        val triples = (0 until best.size - 2).map { Triple(best[it], best[it + 1], best[it + 2]) }
+        assertEquals(triples.size, triples.distinct().size, "üçlü sıra tekrarı var")
+        val mondays = best.indices.filter { pr.days[it].dayOfWeek == java.time.DayOfWeek.MONDAY }.map { best[it] }
+        assertEquals(mondays.size, mondays.distinct().size, "aynı kişiye iki Pazartesi")
 
         // 29 Ekim'i (Perşembe) tutan Fatma, uzun tatil koruması gereği 1 Kasım Pazar'a yazılmamalı.
         assertNotEquals(pr.personIndex("fatma"), best[0], "Fatma 1 Kasım'a yazıldı")
@@ -78,7 +109,7 @@ class OpsTest {
         stats.forEach {
             println(
                 "${it.person.name}: resmi ${it.officialCount} (${it.officialHours} sa), gerçek ${it.actualCount}, " +
-                    "kısa=${it.shortDeviation.mapValues { (_, v) -> "%.1f".format(v) }}, " +
+                    "sıra=${it.rotationCount.entries.joinToString { (g, n) -> "${g.label} $n (${"%+.1f".format(it.rotationBalance[g])})" }}, " +
                     "bayram ${it.longDays.entries.joinToString { (k, v) -> "${k.label}=$v/${it.longPresent[k]}" }}",
             )
         }

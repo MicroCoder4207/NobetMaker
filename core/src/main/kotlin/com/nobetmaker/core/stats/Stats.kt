@@ -2,6 +2,7 @@ package com.nobetmaker.core.stats
 
 import com.nobetmaker.core.calendar.CalendarService
 import com.nobetmaker.core.calendar.Category
+import com.nobetmaker.core.calendar.RotationGroup
 import com.nobetmaker.core.ledger.Ledger
 import com.nobetmaker.core.model.AppData
 import com.nobetmaker.core.model.Person
@@ -22,8 +23,10 @@ class PersonStats(
     val officialHours: Int,
     val actualHours: Int,
     val officialByCategory: Map<Category, Int>,
-    /** Kısa hafıza sapması (gün); pozitif = önde. */
-    val shortDeviation: Map<Category, Double>,
+    /** Sıra hafızasında (son aylar) tutulan gün sayısı. */
+    val rotationCount: Map<RotationGroup, Int>,
+    /** Tutulan − beklenen; pozitif = payından fazla tutmuş. */
+    val rotationBalance: Map<RotationGroup, Double>,
     val longDays: Map<Category, Int>,
     val longPresent: Map<Category, Int>,
     /** Uzun hafıza sapması (gün). */
@@ -46,7 +49,7 @@ object StatsService {
             p.leaveDate == null || !p.leaveDate.isBefore(start)
         }.sortedBy { it.seniority }
 
-        val short = ledger.shortMemory(persons, endExclusive.minusMonths(data.settings.shortMemoryMonths.toLong()), endExclusive, emptyList())
+        val rotation = ledger.rotation(persons, endExclusive.minusMonths(data.settings.rotationMonths.toLong()), endExclusive, emptyList(), availableInPlan = { _, _ -> true })
         val long = ledger.longMemory(persons, endExclusive, emptyList(), endExclusive.minusDays(1))
 
         fun inRange(d: LocalDate) = !d.isBefore(start) && d.isBefore(endExclusive)
@@ -79,7 +82,8 @@ object StatsService {
                 officialHours = off.sumOf { cal.hours(it) },
                 actualHours = act.sumOf { cal.hours(it) },
                 officialByCategory = off.groupingBy { cal.category(it) }.eachCount(),
-                shortDeviation = short.categories.withIndex().associate { (i, c) -> c to short.base.getValue(p.id)[i] },
+                rotationCount = RotationGroup.entries.associateWith { rotation.count.getValue(p.id)[it.ordinal] },
+                rotationBalance = RotationGroup.entries.associateWith { -rotation.debt.getValue(p.id)[it.ordinal] },
                 longDays = long.categories.withIndex().associate { (i, c) -> c to long.days.getValue(p.id)[i] },
                 longPresent = long.categories.withIndex().associate { (i, c) -> c to long.presentEvents.getValue(p.id)[i] },
                 longDeviation = long.categories.withIndex().associate { (i, c) -> c to long.base.getValue(p.id)[i] },

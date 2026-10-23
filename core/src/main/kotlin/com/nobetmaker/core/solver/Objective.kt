@@ -1,10 +1,11 @@
 package com.nobetmaker.core.solver
 
 import com.nobetmaker.core.calendar.Category
+import com.nobetmaker.core.calendar.RotationGroup
 import java.util.Locale
 import kotlin.math.abs
 
-enum class PenaltyKind { REQUEST, LONG_HOLIDAY, GAP, SAME_WEEKDAY, SAME_BAYRAM, SHORT_MEMORY, LONG_MEMORY, CONFLICT }
+enum class PenaltyKind { REQUEST, LONG_HOLIDAY, GAP, SAME_WEEKDAY, WEEKEND_REPEAT, SAME_BAYRAM, ROTATION, LONG_MEMORY, SEQUENCE, CONFLICT }
 
 class Penalty(
     val kind: PenaltyKind,
@@ -16,14 +17,17 @@ class Penalty(
     val requestId: String? = null,
 ) {
     /** Aynı cezanın iki durumda karşılaştırılabilmesi için anahtar. */
-    val key: String get() = "$kind|$person|$day|${if (kind == PenaltyKind.SHORT_MEMORY || kind == PenaltyKind.LONG_MEMORY) text.substringBefore(':') else text}"
+    val key: String get() = "$kind|$person|$day|${if (kind == PenaltyKind.ROTATION || kind == PenaltyKind.LONG_MEMORY) text.substringBefore(':') else text}"
 }
 
 private fun fmt(v: Double) = String.format(Locale.ROOT, "%.1f", v)
+private val weekdayNames = arrayOf("Pazartesi", "Salı", "Çarşamba", "Perşembe")
+private val weekendNames = arrayOf("Cuma", "Cumartesi", "Pazar")
 
 /**
- * Toplam ceza kişi başı maliyetlerin toplamıdır; her kişinin maliyeti yalnızca kendi nöbet günlerine bağlıdır.
- * Bu sayede iki kişinin günlerini değiştiren bir hamle yalnızca o iki kişinin maliyetini değiştirir.
+ * Toplam ceza, kişi başı maliyetlerle sıra tekrarı cezasının toplamıdır. Kişinin maliyeti yalnızca kendi nöbet
+ * günlerine bağlıdır; bu sayede iki kişinin günlerini değiştiren bir hamle yalnızca o iki kişinin maliyetini
+ * değiştirir. Sıra tekrarı ise yalnızca hamlenin dokunduğu komşu günlere bakılarak güncellenir.
  */
 class Objective(private val pr: MonthProblem) {
 
@@ -31,7 +35,10 @@ class Objective(private val pr: MonthProblem) {
     private val clustersByPerson = Array(pr.personCount) { p -> pr.clusters.filter { it.p == p } }
     private val weeklyByPerson = Array(pr.personCount) { p -> pr.weekly.filter { it.p == p } }
     private val dow = IntArray(pr.dayCount) { pr.days[it].dayOfWeek.value - 1 }
-    private val shortCats = Category.SHORT_MEMORY
+    private val groups = RotationGroup.entries
+    private val groupWeight = DoubleArray(groups.size) {
+        if (groups[it] == RotationGroup.PAZARTESI) pr.weights.mondayRotation else pr.weights.rotation
+    }
     private val longCats = Category.LONG_MEMORY
 
     fun personCost(p: Int, has: BooleanArray, collect: ((Penalty) -> Unit)? = null): Double {
@@ -125,14 +132,14 @@ class Objective(private val pr: MonthProblem) {
 
         // Haftanın aynı günü, aynı bayram, defter.
         val weekday = IntArray(7)
-        val shortPts = DoubleArray(shortCats.size)
+        val rotation = IntArray(groups.size)
         val longDays = IntArray(longCats.size)
         var bayramKeys: MutableMap<String, Int>? = null
         for (i in 0 until D) {
             if (!has[i + pad]) continue
             weekday[dow[i]]++
-            val si = pr.shortIndex[i]
-            if (si >= 0) shortPts[si] += pr.points[i]
+            val ri = pr.rotationIndex[i]
+            if (ri >= 0) rotation[ri]++
             val li = pr.longIndex[i]
             if (li >= 0) longDays[li]++
             val bk = pr.bayramKey[i]
@@ -141,11 +148,19 @@ class Objective(private val pr: MonthProblem) {
                 bayramKeys[bk] = (bayramKeys[bk] ?: 0) + 1
             }
         }
-        for (d in 0 until 7) {
-            if (weekday[d] > 2) {
-                val v = (weekday[d] - 2) * w.sameWeekday
+        // Aynı kişiye ayda en fazla 1 Cuma, 1 Cumartesi, 1 Pazar.
+        for (d in 4..6) {
+            if (weekday[d] > 1) {
+                val v = (weekday[d] - 1) * w.weekendRepeat
                 cost += v
-                collect?.invoke(Penalty(PenaltyKind.SAME_WEEKDAY, p, -1, v, "$name: aynı gün ${weekday[d]} kez"))
+                collect?.invoke(Penalty(PenaltyKind.WEEKEND_REPEAT, p, -1, v, "$name: ayda ${weekday[d]} ${weekendNames[d - 4]}"))
+            }
+        }
+        for (d in 0 until 4) {
+            if (weekday[d] > 1) {
+                val v = (weekday[d] - 1) * w.weekdayRepeat
+                cost += v
+                collect?.invoke(Penalty(PenaltyKind.SAME_WEEKDAY, p, -1, v, "$name: ayda ${weekday[d]} ${weekdayNames[d]}"))
             }
         }
         bayramKeys?.forEach { (_, count) ->
@@ -155,13 +170,15 @@ class Objective(private val pr: MonthProblem) {
                 collect?.invoke(Penalty(PenaltyKind.SAME_BAYRAM, p, -1, v, "$name: aynı bayramda $count gün"))
             }
         }
-        for (ci in shortCats.indices) {
-            val dev = pr.shortBase[p][ci] + shortPts[ci] / pr.shortAvg[ci]
-            val v = w.shortMemory * dev * dev
+        for (g in groups.indices) {
+            val target = pr.rotationTarget[p][g]
+            val diff = rotation[g] - target
+            if (diff == 0) continue
+            val v = groupWeight[g] * diff * diff
             cost += v
-            if (collect != null && abs(dev) >= 0.5) {
-                val side = if (dev > 0) "önde" else "geride"
-                collect(Penalty(PenaltyKind.SHORT_MEMORY, p, -1, v, "${shortCats[ci].label} dengesi: $name ${fmt(abs(dev))} gün $side"))
+            if (collect != null) {
+                val what = if (diff > 0) "sırası değil" else "sırası geldi"
+                collect(Penalty(PenaltyKind.ROTATION, p, -1, v, "${groups[g].label} sırası: $name $what (bu ay $target bekleniyor, ${rotation[g]} yazıldı)"))
             }
         }
         for (gi in longCats.indices) {
@@ -190,15 +207,44 @@ class Objective(private val pr: MonthProblem) {
         return has
     }
 
+    /**
+     * Aynı ikilinin ay içinde ard arda iki güne yeniden dizilmesi (ör. 2-3 ve 9-10'da Aslı → Oğuz).
+     * Listenin her hafta aynı sırayla tekrar etmesini önler.
+     */
+    fun sequenceCost(assignment: IntArray, collect: ((Penalty) -> Unit)? = null): Double {
+        val w = pr.weights.sequenceRepeat
+        if (w <= 0.0) return 0.0
+        val P = pr.personCount
+        val seen = HashMap<Int, MutableList<Int>>()
+        for (i in 0 until pr.dayCount - 1) {
+            val u = assignment[i]
+            val v = assignment[i + 1]
+            if (u >= 0 && v >= 0) seen.getOrPut(u * P + v) { ArrayList() } += i
+        }
+        var cost = 0.0
+        for ((key, days) in seen) {
+            if (days.size < 2) continue
+            val v = (days.size - 1) * w
+            cost += v
+            if (collect != null) {
+                val names = "${pr.persons[key / P].name} → ${pr.persons[key % P].name}"
+                val dates = days.joinToString(", ") { "${pr.days[it].dayOfMonth}-${pr.days[it + 1].dayOfMonth}" }
+                collect(Penalty(PenaltyKind.SEQUENCE, key / P, days[1], v, "Sıra tekrarı: $names ($dates)"))
+            }
+        }
+        return cost
+    }
+
     fun total(assignment: IntArray): Double {
         val has = buildHas(assignment)
-        return (0 until pr.personCount).sumOf { personCost(it, has[it]) }
+        return (0 until pr.personCount).sumOf { personCost(it, has[it]) } + sequenceCost(assignment)
     }
 
     fun penalties(assignment: IntArray): List<Penalty> {
         val has = buildHas(assignment)
         val list = ArrayList<Penalty>()
         for (p in 0 until pr.personCount) personCost(p, has[p]) { list += it }
+        sequenceCost(assignment) { list += it }
         return list
     }
 }

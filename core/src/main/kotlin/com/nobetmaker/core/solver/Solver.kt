@@ -115,60 +115,188 @@ class Solver(private val pr: MonthProblem) {
         return if (dfs()) a else null
     }
 
-    /** Kotaları koruyan takaslarla iyileştirme. */
-    fun anneal(start: IntArray, rng: Random, iterations: Int): IntArray {
+    /**
+     * Kotaları koruyan hamlelerle iyileştirme: iki günün nöbetçilerini değiştirme ya da üç günün
+     * nöbetçilerini döndürme (A→B→C→A). Üçlü döndürme, ikili takasla çıkılamayan yerel çukurlardan kurtarır.
+     */
+    fun anneal(start: IntArray, rng: Random, iterations: Int, t0: Double = 10.0, t1: Double = 0.2): IntArray {
         val a = start.copyOf()
         val has = obj.buildHas(a)
         val costs = DoubleArray(P) { obj.personCost(it, has[it]) }
-        var total = costs.sum()
+        var total = costs.sum() + obj.sequenceCost(a)
         var best = a.copyOf()
         var bestTotal = total
         val movable = (0 until D).filter { pr.locked[it] == -1 }
         if (movable.size < 2) return a
-        val t0 = 40.0
-        val t1 = 0.2
-        for (k in 0 until iterations) {
-            val temp = t0 * (t1 / t0).pow(k.toDouble() / iterations)
-            val i = movable[rng.nextInt(movable.size)]
-            val j = movable[rng.nextInt(movable.size)]
-            if (i == j) continue
-            val p = a[i]
-            val q = a[j]
-            if (p == q) continue
-            val xi = pr.ext(i)
-            val xj = pr.ext(j)
 
-            has[q][xj] = false
-            val okQ = canPlace(q, i, has[q])
-            has[q][xj] = true
-            if (!okQ) continue
-            has[p][xi] = false
-            val okP = canPlace(p, j, has[p])
-            has[p][xi] = true
-            if (!okP) continue
+        // Sıra tekrarı: ard arda günlerdeki (u, v) ikililerinin sayısı. Bir hamle en fazla 6 komşuluğa dokunur.
+        val seqW = pr.weights.sequenceRepeat
+        val pairs = IntArray(P * P)
+        fun pairAt(k: Int): Int {
+            val u = a[k]
+            val v = a[k + 1]
+            return if (u >= 0 && v >= 0) u * P + v else -1
+        }
+        for (k in 0 until D - 1) pairAt(k).let { if (it >= 0) pairs[it]++ }
+        val touched = IntArray(6)
+        var touchedCount = 0
+        fun touch(k: Int) {
+            if (k < 0 || k >= D - 1) return
+            for (t in 0 until touchedCount) if (touched[t] == k) return
+            touched[touchedCount++] = k
+        }
+        /** Komşulukları sayaçtan düşer ya da ekler; sıra cezasındaki değişimi döner. */
+        fun shiftPairs(add: Boolean): Double {
+            var change = 0.0
+            for (t in 0 until touchedCount) {
+                val key = pairAt(touched[t])
+                if (key < 0) continue
+                if (add) {
+                    if (pairs[key] >= 1) change += seqW
+                    pairs[key]++
+                } else {
+                    if (pairs[key] >= 2) change -= seqW
+                    pairs[key]--
+                }
+            }
+            return change
+        }
 
-            has[p][xi] = false; has[p][xj] = true
-            has[q][xj] = false; has[q][xi] = true
-            val cp = obj.personCost(p, has[p])
-            val cq = obj.personCost(q, has[q])
-            val delta = cp + cq - costs[p] - costs[q]
-            if (delta <= 0.0 || rng.nextDouble() < exp(-delta / temp)) {
-                a[i] = q; a[j] = p
-                costs[p] = cp; costs[q] = cq
+        // Hamle: days[t] gününün nöbetçisi who[t], yeni nöbetçisi who[(t + 1) % n]; yani who[t], days[t - 1] gününe geçer.
+        val days = IntArray(3)
+        val who = IntArray(3)
+        val newCost = DoubleArray(3)
+
+        /** days[0 until n] için hamleyi dener; accept kabul ederse uygular. */
+        fun attempt(n: Int, accept: (Double) -> Boolean): Boolean {
+            for (t in 0 until n) {
+                who[t] = a[days[t]]
+                for (u in 0 until t) if (days[u] == days[t] || who[u] == who[t]) return false
+            }
+            for (t in 0 until n) {
+                val p = who[t]
+                val from = pr.ext(days[t])
+                has[p][from] = false
+                val ok = canPlace(p, days[(t + n - 1) % n], has[p])
+                has[p][from] = true
+                if (!ok) return false
+            }
+            var oldCost = 0.0
+            for (t in 0 until n) {
+                val p = who[t]
+                has[p][pr.ext(days[t])] = false
+                has[p][pr.ext(days[(t + n - 1) % n])] = true
+                newCost[t] = obj.personCost(p, has[p])
+                oldCost += costs[p]
+            }
+            var delta = -oldCost
+            for (t in 0 until n) delta += newCost[t]
+            touchedCount = 0
+            if (seqW > 0.0) {
+                for (t in 0 until n) { touch(days[t] - 1); touch(days[t]) }
+                delta += shiftPairs(add = false)
+            }
+            for (t in 0 until n) a[days[t]] = who[(t + 1) % n]
+            if (seqW > 0.0) delta += shiftPairs(add = true)
+            if (accept(delta)) {
+                for (t in 0 until n) costs[who[t]] = newCost[t]
                 total += delta
                 if (total < bestTotal - 1e-9) {
                     bestTotal = total
                     best = a.copyOf()
                 }
-            } else {
-                has[p][xj] = false; has[p][xi] = true
-                has[q][xi] = false; has[q][xj] = true
+                return true
             }
+            if (seqW > 0.0) shiftPairs(add = false)
+            for (t in 0 until n) a[days[t]] = who[t]
+            if (seqW > 0.0) shiftPairs(add = true)
+            for (t in 0 until n) {
+                val p = who[t]
+                has[p][pr.ext(days[(t + n - 1) % n])] = false
+                has[p][pr.ext(days[t])] = true
+            }
+            return false
         }
-        return best
+
+        for (k in 0 until iterations) {
+            val temp = t0 * (t1 / t0).pow(k.toDouble() / iterations)
+            val n = if (movable.size >= 3 && rng.nextInt(4) == 0) 3 else 2
+            for (t in 0 until n) days[t] = movable[rng.nextInt(movable.size)]
+            attempt(n) { delta -> delta <= 0.0 || rng.nextDouble() < exp(-delta / temp) }
+        }
+
+        // Cilalama: en iyi listeden başlayıp iyileştiren bütün ikili takas ve üçlü döndürmeleri uygula.
+        return polish(best)
     }
 
-    fun solve(alternatives: Int = 3, seeds: Int = 8, iterations: Int = 30_000, seedOffset: Int = 0): SolveResult {
+    /** Yerel en iyiye kadar iyileştiren ikili takas ve üçlü döndürmeler (rastgelelik yok). */
+    fun polish(start: IntArray, maxPasses: Int = 6): IntArray {
+        val a = start.copyOf()
+        val has = obj.buildHas(a)
+        val costs = DoubleArray(P) { obj.personCost(it, has[it]) }
+        val movable = (0 until D).filter { pr.locked[it] == -1 }
+        val seqW = pr.weights.sequenceRepeat
+        var seq = obj.sequenceCost(a)
+        val days = IntArray(3)
+        val who = IntArray(3)
+        val newCost = DoubleArray(3)
+
+        fun tryMove(n: Int): Boolean {
+            for (t in 0 until n) {
+                who[t] = a[days[t]]
+                for (u in 0 until t) if (who[u] == who[t]) return false
+            }
+            for (t in 0 until n) {
+                val p = who[t]
+                val from = pr.ext(days[t])
+                has[p][from] = false
+                val ok = canPlace(p, days[(t + n - 1) % n], has[p])
+                has[p][from] = true
+                if (!ok) return false
+            }
+            var delta = 0.0
+            for (t in 0 until n) {
+                val p = who[t]
+                has[p][pr.ext(days[t])] = false
+                has[p][pr.ext(days[(t + n - 1) % n])] = true
+                newCost[t] = obj.personCost(p, has[p])
+                delta += newCost[t] - costs[p]
+            }
+            for (t in 0 until n) a[days[t]] = who[(t + 1) % n]
+            val newSeq = if (seqW > 0.0) obj.sequenceCost(a) else 0.0
+            delta += newSeq - seq
+            if (delta < -1e-9) {
+                for (t in 0 until n) costs[who[t]] = newCost[t]
+                seq = newSeq
+                return true
+            }
+            for (t in 0 until n) a[days[t]] = who[t]
+            for (t in 0 until n) {
+                val p = who[t]
+                has[p][pr.ext(days[(t + n - 1) % n])] = false
+                has[p][pr.ext(days[t])] = true
+            }
+            return false
+        }
+
+        repeat(maxPasses) {
+            var improved = false
+            for (x in movable.indices) for (y in x + 1 until movable.size) {
+                days[0] = movable[x]; days[1] = movable[y]
+                if (tryMove(2)) improved = true
+            }
+            for (x in movable.indices) for (y in x + 1 until movable.size) for (z in y + 1 until movable.size) {
+                days[0] = movable[x]; days[1] = movable[y]; days[2] = movable[z]
+                if (tryMove(3)) { improved = true; continue }
+                days[1] = movable[z]; days[2] = movable[y]
+                if (tryMove(3)) improved = true
+            }
+            if (!improved) return a
+        }
+        return a
+    }
+
+    fun solve(alternatives: Int = 3, seeds: Int = 32, iterations: Int = 15_000, seedOffset: Int = 0): SolveResult {
         val found = ArrayList<Solution>()
         for (s in 0 until seeds) {
             val rng = Random(seedOffset * 1000 + s)

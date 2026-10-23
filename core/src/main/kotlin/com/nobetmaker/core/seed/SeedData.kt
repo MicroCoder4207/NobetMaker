@@ -15,6 +15,7 @@ import com.nobetmaker.core.model.Person
 import com.nobetmaker.core.model.PersonRule
 import com.nobetmaker.core.model.RosterVersion
 import com.nobetmaker.core.model.RuleType
+import com.nobetmaker.core.model.Visit
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -109,6 +110,8 @@ object SeedData {
     fun dayOverrides(): List<DayInfo> = listOf(
         DayInfo(LocalDate.of(2026, 5, 25), DayKind.IDARI_IZIN, "Kurban Bayramı idari izin", eventId = "2026-kurban"),
         DayInfo(LocalDate.of(2026, 5, 26), DayKind.IDARI_IZIN, "Kurban Bayramı arifesi (idari izin)", eventId = "2026-kurban"),
+        // Ekim'de 6 vizit vardı: 5 Cumartesi ve 29 Ekim.
+        DayInfo(LocalDate.of(2026, 10, 29), DayKind.RESMI_TATIL, "Cumhuriyet Bayramı", eventId = "2026-10-29", actualVisit = Visit.VAR),
     )
 
     /** Bayram sayfasından: yalnızca bugünkü ekibin günleri (kalanları uzmanlar ya da ayrılanlar tuttu). */

@@ -61,7 +61,7 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
         }
         Text("${from.title()} – ${last.title()} · resmi listeye göre", style = MaterialTheme.typography.bodySmall)
         Text(
-            "Denge: + önde (payından fazla tutmuş), − geride. Kısa hafıza son 6 ay; bayram, yılbaşı ve resmi tatil 2023'ten beri.",
+            "Denge: + önde (payından fazla tutmuş), − geride. Sıralar (vizit, Cuma, Pazar, Perşembe, Pazartesi) son ${data.settings.rotationMonths} ay; bayram, yılbaşı ve resmi tatil 2023'ten beri.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
@@ -83,7 +83,7 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
                     style = MaterialTheme.typography.bodySmall,
                 )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    s.shortDeviation.forEach { (cat, v) -> BalanceChip(cat.label, v) }
+                    s.rotationCount.forEach { (g, n) -> BalanceChip("${g.label} $n", s.rotationBalance[g] ?: 0.0) }
                 }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     s.longDeviation.forEach { (cat, v) ->

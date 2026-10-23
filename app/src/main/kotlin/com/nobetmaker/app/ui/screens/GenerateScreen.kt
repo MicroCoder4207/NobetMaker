@@ -120,8 +120,17 @@ private fun AlternativeCard(vm: AppViewModel, pr: MonthProblem, solution: Soluti
         if (index > 0) Text("Seçenek 1'e göre ${"%.0f".format(extraPenalty)} ceza puanı fazla", style = MaterialTheme.typography.bodySmall)
         if (card.requestsTotal > 0) Text("İstekler: $met / ${card.requestsTotal} karşılandı") else Text("Bu ay istek yok", style = MaterialTheme.typography.bodySmall)
         card.requestsUnmet.forEach { Text("✗ $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-        if (card.longHolidayHits.isNotEmpty()) card.longHolidayHits.forEach { Text("⚠ $it", style = MaterialTheme.typography.bodySmall) }
+        card.weekendRepeats.forEach { Text("⚠ $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+        card.longHolidayHits.forEach { Text("⚠ $it", style = MaterialTheme.typography.bodySmall) }
         Text("3 gün aralıklı nöbet: ${card.tightGaps.size}", style = MaterialTheme.typography.bodySmall)
+        card.rotationSummary.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
+        card.rotationMisses.forEach { Text("↺ $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (card.sequenceRepeats.isNotEmpty()) {
+            Text(
+                "↻ Tekrarlanan ikili: " + card.sequenceRepeats.joinToString("; ") { it.removePrefix("Sıra tekrarı: ") },
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         card.memoryNotes.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             card.perPerson.filter { it.count > 0 }.forEach { line ->

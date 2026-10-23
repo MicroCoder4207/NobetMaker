@@ -5,6 +5,7 @@ import com.nobetmaker.core.model.Assignment
 import com.nobetmaker.core.model.AssignmentSource
 import com.nobetmaker.core.model.ChangeLogEntry
 import com.nobetmaker.core.model.DayInfo
+import com.nobetmaker.core.model.DayKind
 import com.nobetmaker.core.model.DutyRequest
 import com.nobetmaker.core.model.HistoryEvent
 import com.nobetmaker.core.model.InformalChange
@@ -15,6 +16,7 @@ import com.nobetmaker.core.model.Person
 import com.nobetmaker.core.model.QuotaEntry
 import com.nobetmaker.core.model.RosterVersion
 import com.nobetmaker.core.model.Settings
+import com.nobetmaker.core.model.Visit
 import com.nobetmaker.core.solver.MonthProblem
 import com.nobetmaker.core.solver.ProblemBuilder
 import kotlinx.serialization.json.Json
@@ -32,7 +34,20 @@ object AppJson {
     }
 
     fun encode(data: AppData): String = json.encodeToString(AppData.serializer(), data)
-    fun decode(text: String): AppData = json.decodeFromString(AppData.serializer(), text)
+    fun decode(text: String): AppData = migrate(json.decodeFromString(AppData.serializer(), text))
+
+    /** Eski sürümlerin kaydettiği veriyi günceller. */
+    fun migrate(data: AppData): AppData {
+        var d = data
+        if (d.schemaVersion < 2) {
+            // 0.2.0: Ekim 2026'daki 29 Ekim vizitliydi; sıra hesabı bunu bilmeli.
+            val oct29 = LocalDate.of(2026, 10, 29)
+            if (d.dayOverrides.none { it.date == oct29 }) {
+                d = d.copy(dayOverrides = d.dayOverrides + DayInfo(oct29, DayKind.RESMI_TATIL, "Cumhuriyet Bayramı", eventId = "2026-10-29", actualVisit = Visit.VAR))
+            }
+        }
+        return if (d.schemaVersion == AppData.SCHEMA_VERSION) d else d.copy(schemaVersion = AppData.SCHEMA_VERSION)
+    }
 }
 
 /** Veri üzerindeki bütün değişiklikler; hepsi saf fonksiyon (eski veri değişmez). */

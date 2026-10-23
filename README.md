@@ -4,7 +4,8 @@ Tıbbi mikrobiyoloji asistanları için aylık nöbet listesini otomatik ve adil
 
 ## Neler yapıyor
 - **Liste üretimi:** art arda ve günaşırı yasağı, izinler, kişiye özel kurallar ve kesin istekler hiçbir zaman çiğnenmez. "Mümkünse" istekler, uzun tatil koruması (Perşembe kuralı) ve zor günlerin adil dağılımı ceza puanıyla dengelenir. Her seferinde 3 alternatif liste sunulur.
-- **Adalet defteri:** Cumartesi, Pazar, Cuma ve Perşembe için son 6 ay; bayram, yılbaşı ve resmi tatiller için 2023'ten beri. Kıdem katsayılarıyla ağırlıklandırılır.
+- **Sıra:** vizit (Cumartesi ve vizitli tatiller), Cuma, Pazar, Perşembe ve Pazartesi (Salı dersi) sırayla döner; son 3 ay hatırlanır. Aynı kişiye ayda 2 Cuma, 2 Cumartesi ya da 2 Pazar yazılmaz. Liste haftadan haftaya aynı sırayla tekrar etmez.
+- **Adalet defteri:** bayram, yılbaşı ve resmi tatiller için 2023'ten beri. Kıdem katsayılarıyla ağırlıklandırılır.
 - **Kota:** kıdem katsayısı, küsurat devri, aylık üst sınır; izin kotayı düşürmez.
 - **Resmi / gayriresmi liste:** yayınlanan listede değişiklik yeni sürüm açar; aranızdaki değişimler ayrıca kaydedilir. Değişim asistanı kurallara uyan takasları önerir.
 - **Çıktılar:** hocaya Excel (Takvim, Liste, Özet), WhatsApp için görsel, çıktı için PDF.

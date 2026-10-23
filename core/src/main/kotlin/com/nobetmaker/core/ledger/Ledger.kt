@@ -2,6 +2,7 @@ package com.nobetmaker.core.ledger
 
 import com.nobetmaker.core.calendar.CalendarService
 import com.nobetmaker.core.calendar.Category
+import com.nobetmaker.core.calendar.RotationGroup
 import com.nobetmaker.core.model.AppData
 import com.nobetmaker.core.model.EventKind
 import com.nobetmaker.core.model.Person
@@ -9,15 +10,16 @@ import com.nobetmaker.core.rules.Availability
 import com.nobetmaker.core.rules.RosterIndex
 import java.time.LocalDate
 
-/** Kısa hafızalı kategorilerin (Cumartesi, Pazar, Cuma, Perşembe) durumu; dizi sırası [Category.SHORT_MEMORY]. */
-class ShortMemoryState(
-    val categories: List<Category>,
-    /** Gerçekleşen − hedef, gün biriminde; plan günleri hedefe dahil, gerçekleşene dahil değil. */
-    val base: Map<String, DoubleArray>,
-    val average: DoubleArray,
-    val actualPoints: Map<String, DoubleArray>,
-    val targetPoints: Map<String, DoubleArray>,
-    val counts: Map<String, IntArray>,
+/** Sıra durumu (§6); diziler [RotationGroup.entries] sırasındadır. */
+class RotationState(
+    /** Beklenen − tutulan; pozitif = sırası gelmiş. */
+    val debt: Map<String, DoubleArray>,
+    val count: Map<String, IntArray>,
+    val last: Map<String, Array<LocalDate?>>,
+    /** Planlanan ayda kişinin bu gruptan tutması beklenen gün sayısı. */
+    val target: Map<String, IntArray>,
+    /** Planlanan ayın sırası: grup başına, günlere sırayla verilecek kişi id'leri. */
+    val queue: List<List<String>>,
 )
 
 /** Uzun hafızalı kategorilerin (Yılbaşı, Bayram, Resmi tatil) durumu; dizi sırası [Category.LONG_MEMORY]. */
@@ -38,55 +40,79 @@ class Ledger(
     private val roster: RosterIndex,
 ) {
 
-    fun shortMemory(
+    /**
+     * Vizit, Cuma, Pazar ve Perşembe sırası. Geçmişte payından az tutan önce gelir; eşitlikte en uzun
+     * süredir tutmayan, o da eşitse çömez. Planlanan ayın günleri bu sırayla dağıtılır.
+     */
+    fun rotation(
         persons: List<Person>,
         windowStart: LocalDate,
         historyEnd: LocalDate,
         planDays: List<LocalDate>,
-    ): ShortMemoryState {
-        val cats = Category.SHORT_MEMORY
-        val k = cats.size
-        val actual = persons.associate { it.id to DoubleArray(k) }
-        val target = persons.associate { it.id to DoubleArray(k) }
-        val counts = persons.associate { it.id to IntArray(k) }
-        val sum = DoubleArray(k)
-        val n = IntArray(k)
+        availableInPlan: (Person, LocalDate) -> Boolean,
+        wants: (Person, LocalDate) -> Boolean = { _, _ -> false },
+        avoids: (Person, LocalDate) -> Boolean = { _, _ -> false },
+    ): RotationState {
+        val groups = RotationGroup.entries
+        val k = groups.size
+        val expected = persons.associate { it.id to DoubleArray(k) }
+        val count = persons.associate { it.id to IntArray(k) }
+        val last = persons.associate { it.id to arrayOfNulls<LocalDate>(k) }
 
-        fun share(date: LocalDate, ci: Int, cat: Category, pts: Double) {
-            val weights = persons.mapNotNull { p ->
+        fun shares(date: LocalDate, group: RotationGroup, among: Collection<Person>): List<Pair<String, Double>> {
+            val weights = among.mapNotNull { p ->
                 if (!availability.eligibleForShare(p, date)) null
-                else p.id to (if (cat.equalShare) 1.0 else p.coefficientOn(date).hardDay)
+                else p.id to (if (group.equalShare) 1.0 else p.coefficientOn(date).hardDay)
             }.filter { it.second > 0.0 }
             val total = weights.sumOf { it.second }
-            if (total <= 0.0) return
-            for ((id, w) in weights) target.getValue(id)[ci] += pts * w / total
-            sum[ci] += pts
-            n[ci]++
+            return if (total <= 0.0) emptyList() else weights.map { (id, w) -> id to w / total }
         }
 
         var d = windowStart
         while (d.isBefore(historyEnd)) {
-            val cat = cal.category(d)
-            val ci = cats.indexOf(cat)
             val who = roster.official[d]
-            if (ci >= 0 && who != null) {
-                val pts = cal.points(d)
-                share(d, ci, cat, pts)
-                actual[who]?.let { it[ci] += pts; counts.getValue(who)[ci]++ }
+            val group = if (who != null) cal.rotationGroup(d, history = true) else null
+            if (group != null) {
+                for ((id, share) in shares(d, group, persons)) expected.getValue(id)[group.ordinal] += share
+                count[who]?.let { it[group.ordinal]++ }
+                last[who]?.set(group.ordinal, d)
             }
             d = d.plusDays(1)
         }
-        for (day in planDays) {
-            val cat = cal.category(day)
-            val ci = cats.indexOf(cat)
-            if (ci >= 0) share(day, ci, cat, cal.points(day))
-        }
+        val debt = persons.associate { p -> p.id to DoubleArray(k) { expected.getValue(p.id)[it] - count.getValue(p.id)[it] } }
 
-        val avg = DoubleArray(k) { if (n[it] > 0) sum[it] / n[it] else 1.0 }
-        val base = persons.associate { p ->
-            p.id to DoubleArray(k) { (actual.getValue(p.id)[it] - target.getValue(p.id)[it]) / avg[it] }
+        val target = persons.associate { it.id to IntArray(k) }
+        val queue = groups.map { group ->
+            val days = planDays.filter { cal.rotationGroup(it, history = false) == group }
+            val candidates = persons.filter { p -> days.any { availableInPlan(p, it) && availability.eligibleForShare(p, it) } }
+            if (days.isEmpty() || candidates.isEmpty()) return@map emptyList()
+            val work = candidates.associate { it.id to debt.getValue(it.id)[group.ordinal] }.toMutableMap()
+            val lastWork = candidates.associate { it.id to last.getValue(it.id)[group.ordinal] }.toMutableMap()
+            val usedWeekdays = HashMap<String, MutableSet<java.time.DayOfWeek>>()
+            days.map { day ->
+                for ((id, share) in shares(day, group, candidates)) work[id] = work.getValue(id) + share
+                // İstek sıradan önce gelir. Aynı kişiye ayda haftanın aynı gününden ikincisi verilmez;
+                // mümkün değilse kural esner.
+                val wanting = candidates.filter { wants(it, day) && availableInPlan(it, day) }
+                val fresh = candidates.filter { day.dayOfWeek !in usedWeekdays[it.id].orEmpty() }
+                val pool = wanting
+                    .ifEmpty { fresh.filter { availableInPlan(it, day) && !avoids(it, day) } }
+                    .ifEmpty { fresh.filter { availableInPlan(it, day) } }
+                    .ifEmpty { fresh }
+                    .ifEmpty { candidates }
+                val pick = pool.sortedWith(
+                    compareByDescending<Person> { Math.round(work.getValue(it.id) * 2) / 2.0 }
+                        .thenBy { lastWork[it.id] ?: LocalDate.MIN }
+                        .thenByDescending { it.seniority },
+                ).first()
+                target.getValue(pick.id)[group.ordinal]++
+                usedWeekdays.getOrPut(pick.id) { HashSet() } += day.dayOfWeek
+                work[pick.id] = work.getValue(pick.id) - 1.0
+                lastWork[pick.id] = day
+                pick.id
+            }
         }
-        return ShortMemoryState(cats, base, avg, actual, target, counts)
+        return RotationState(debt, count, last, target, queue)
     }
 
     private class Event(val kind: EventKind, val start: LocalDate?, val dates: List<LocalDate>, val days: Map<String, Int>, val manual: Boolean)

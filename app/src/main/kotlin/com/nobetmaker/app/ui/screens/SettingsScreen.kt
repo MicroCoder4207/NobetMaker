@@ -75,7 +75,7 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
             Stepper("İki nöbet arası en az gün", s.minGap.toDouble(), 1.0, 2.0, 6.0, int) { v -> set { it.copy(minGap = v.toInt()) } }
             Text("3 = art arda ve günaşırı yasak", style = MaterialTheme.typography.bodySmall)
             Stepper("Aylık en fazla nöbet", s.maxPerMonth.toDouble(), 1.0, 3.0, 10.0, int) { v -> set { it.copy(maxPerMonth = v.toInt()) } }
-            Stepper("Kısa hafıza (ay)", s.shortMemoryMonths.toDouble(), 1.0, 1.0, 24.0, int) { v -> set { it.copy(shortMemoryMonths = v.toInt()) } }
+            Stepper("Sıra hafızası (ay)", s.rotationMonths.toDouble(), 1.0, 1.0, 12.0, int) { v -> set { it.copy(rotationMonths = v.toInt()) } }
             DateField("Uzun hafıza başlangıcı", s.longMemoryStart, { d -> d?.let { date -> set { it.copy(longMemoryStart = date) } } }, Modifier.fillMaxWidth())
             var title by remember(s.excelTitle) { mutableStateOf(s.excelTitle) }
             OutlinedTextField(
@@ -106,11 +106,14 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
             Stepper("Uzun tatil koruması", w.longHolidayProtection, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(longHolidayProtection = v)) } }
             Stepper("\"Mümkünse\" istek", w.requestMumkunse, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(requestMumkunse = v)) } }
             Stepper("\"Önemsiz\" istek", w.requestOnemsiz, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(requestOnemsiz = v)) } }
-            Stepper("Kısa hafıza dengesi", w.shortMemory, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(shortMemory = v)) } }
+            Stepper("Ayda 2. Cuma/Cumartesi/Pazar", w.weekendRepeat, 25.0, 0.0, 2000.0, int) { v -> set { it.copy(penalties = w.copy(weekendRepeat = v)) } }
+            Stepper("Vizit/Cuma/Pazar/Perşembe sırası", w.rotation, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(rotation = v)) } }
+            Stepper("Pazartesi sırası (Salı dersi)", w.mondayRotation, 1.0, 0.0, 100.0, int) { v -> set { it.copy(penalties = w.copy(mondayRotation = v)) } }
             Stepper("Uzun hafıza dengesi", w.longMemory, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(longMemory = v)) } }
             Stepper("3 gün aralık", w.gap3, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(gap3 = v)) } }
             Stepper("4 gün aralık", w.gap4, 1.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(gap4 = v)) } }
-            Stepper("Haftanın aynı günü", w.sameWeekday, 1.0, 0.0, 100.0, int) { v -> set { it.copy(penalties = w.copy(sameWeekday = v)) } }
+            Stepper("Pzt–Per aynı güne 2. kez", w.weekdayRepeat, 1.0, 0.0, 100.0, int) { v -> set { it.copy(penalties = w.copy(weekdayRepeat = v)) } }
+            Stepper("Aynı ikili sıranın tekrarı", w.sequenceRepeat, 1.0, 0.0, 100.0, int) { v -> set { it.copy(penalties = w.copy(sequenceRepeat = v)) } }
             Stepper("Aynı bayramda 2. gün", w.sameBayram, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(sameBayram = v)) } }
             TextButton(onClick = { set { it.copy(points = Settings().points, hours = Settings().hours, penalties = Settings().penalties) } }) {
                 Text("Puan, saat ve cezaları varsayılana döndür")
@@ -128,7 +131,7 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
                 }
             }, Modifier.fillMaxWidth()) { Text("Başlangıç verisine dön") }
         }
-        Text("NöbetMaker 0.1.0", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("NöbetMaker 0.2.0", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.padding(16.dp))
     }
 
