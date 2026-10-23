@@ -37,11 +37,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nobetmaker.app.ui.AppViewModel
+import com.nobetmaker.app.ui.ChoiceField
 import com.nobetmaker.app.ui.PersonDot
 import com.nobetmaker.app.ui.rememberData
 import com.nobetmaker.core.calendar.CalendarService
+import com.nobetmaker.core.calendar.Category
 import com.nobetmaker.core.calendar.trFormat
 import com.nobetmaker.core.calendar.trName
+import com.nobetmaker.core.model.DayKind
 import com.nobetmaker.core.model.MonthStatus
 import com.nobetmaker.core.model.Visit
 import com.nobetmaker.core.ops.DataOps
@@ -66,7 +69,10 @@ fun DaySheet(vm: AppViewModel, date: LocalDate, candidates: List<CandidateInfo>?
     val actual = roster.actual[date]?.let { data.person(it) }
     val locked = plan?.current?.assignments?.firstOrNull { it.date == date }?.locked == true
     var choice by remember { mutableStateOf<CandidateInfo?>(null) }
+    var override by remember { mutableStateOf<CandidateInfo?>(null) }
+    var specialistAsk by remember { mutableStateOf(false) }
     var swapOpen by remember { mutableStateOf(false) }
+    val builtInKind = cal.builtInDay(date).kind
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
@@ -99,6 +105,14 @@ fun DaySheet(vm: AppViewModel, date: LocalDate, candidates: List<CandidateInfo>?
             if (pastDay && cal.day(date).actualVisit == null && cal.visit(date) == Visit.BELIRSIZ) {
                 Text("Gün geçti: vizit olup olmadığını işaretlerseniz defter düzelir.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
             }
+            // Takvimdeki tatil yanlışsa (ör. idari izin, arefe) elle düzeltilir; bayram dengesi buna göre yeniden hesaplanır.
+            ChoiceField("Gün türü", DayKind.entries, info.kind, { it.label }, { k ->
+                // Bayrama bitişik hafta sonunun türü zaten "normal"dir; yine de seçilince olaydan çıkarılır.
+                if (k != info.kind || cal.category(date) in Category.LONG_MEMORY) vm.update("Gün türü: ${k.label}") { DataOps.setDayKind(it, date, k) }
+            }, Modifier.fillMaxWidth())
+            if (info.kind != builtInKind) {
+                Text("Takvimde \"${builtInKind.label}\" görünüyordu; elle değiştirildi.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+            }
 
             HorizontalDivider()
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -106,7 +120,7 @@ fun DaySheet(vm: AppViewModel, date: LocalDate, candidates: List<CandidateInfo>?
                     Text("Resmi: ${official?.name ?: "—"}", fontWeight = FontWeight.SemiBold)
                     if (actual != null && actual.id != official?.id) Text("Gerçekte tutan: ${actual.name}", color = MaterialTheme.colorScheme.secondary)
                 }
-                if (actual != null && actual.id != official?.id && status != MonthStatus.KAPANDI) {
+                if (actual != null && actual.id != official?.id) {
                     TextButton(onClick = { vm.update("Resmi kişiye döndü") { DataOps.revertInformal(it, date) } }) { Text("Resmiye döndür") }
                 }
             }
@@ -125,50 +139,107 @@ fun DaySheet(vm: AppViewModel, date: LocalDate, candidates: List<CandidateInfo>?
             if (list == null) {
                 CircularProgressIndicator(Modifier.padding(8.dp))
             } else {
+                if (status == MonthStatus.KAPANDI) {
+                    Text(
+                        "Ay kapandı; yine de düzeltebilirsiniz. Kişiye dokunun: resmi kaydı düzeltin ya da gerçekte tutanı yazın.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 list.forEach { c ->
                     CandidateRow(c) {
                         when (status) {
-                            MonthStatus.KAPANDI -> vm.toast("Kapanmış ay değiştirilemez")
-                            null, MonthStatus.TASLAK -> if (c.status == CandidateStatus.HARD) vm.toast(c.hardReasons.joinToString("; "))
-                            else if (c.status != CandidateStatus.SELECTED) vm.update("${c.person.name} yazıldı") { DataOps.assign(it, ym, date, c.person.id) }
-                            MonthStatus.YAYINLANDI -> if (c.status != CandidateStatus.SELECTED || actual?.id != c.person.id) choice = c
+                            MonthStatus.KAPANDI, MonthStatus.YAYINLANDI -> if (c.status != CandidateStatus.SELECTED || actual?.id != c.person.id) choice = c
+                            null, MonthStatus.TASLAK -> when (c.status) {
+                                CandidateStatus.SELECTED -> {}
+                                CandidateStatus.HARD -> override = c
+                                else -> vm.update("${c.person.name} yazıldı") { DataOps.assign(it, ym, date, c.person.id) }
+                            }
                         }
                     }
                 }
+            }
+            // Aday listesi yüklenirken de görünür.
+            SpecialistRow(selected = official == null && plan?.current != null) {
+                if (official == null) return@SpecialistRow
+                if (status == null || status == MonthStatus.TASLAK) vm.update("Uzman yazıldı") { DataOps.assign(it, ym, date, null) }
+                else specialistAsk = true
             }
             Spacer(Modifier.height(8.dp))
         }
     }
 
     choice?.let { c ->
+        val closed = status == MonthStatus.KAPANDI
         AlertDialog(
             onDismissRequest = { choice = null },
             title = { Text("${c.person.name} için") },
             text = {
                 Text(
-                    "Liste yayınlandı. Resmi listeyi mi değiştirmek istiyorsunuz (yeni sürüm açılır), yoksa yalnızca gerçekte kimin tuttuğunu mu kaydediyorsunuz?" +
-                        if (c.status == CandidateStatus.HARD) "\n\nResmi listede bu seçim kurallara aykırı: ${c.hardReasons.joinToString("; ")}" else "",
+                    (if (closed) "Ay kapandı. " else "Liste yayınlandı. ") +
+                        "Resmi kaydı mı değiştiriyorsunuz (bayram ve sıra hesabına girer, yeni sürüm açılır), yoksa yalnızca gerçekte kimin tuttuğunu mu " +
+                        "kaydediyorsunuz (takas, hesabı değiştirmez)?" +
+                        if (c.status == CandidateStatus.HARD) "\n\nUyarı, kurala aykırı: ${c.hardReasons.joinToString("; ")}" else "",
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
-                    val off = official?.id
-                    if (off != null) vm.update("Gayriresmi değişim kaydedildi") { DataOps.addInformal(it, date, off, c.person.id, null, null) }
+                TextButton(enabled = official != null, onClick = {
+                    vm.update("Gerçekte tutan kaydedildi") { DataOps.recordActual(it, date, c.person.id) }
                     choice = null
                 }) { Text("Gerçekte tutan") }
             },
             dismissButton = {
-                TextButton(
-                    enabled = c.status != CandidateStatus.HARD,
-                    onClick = {
-                        vm.update("Resmi liste güncellendi (yeni sürüm)") { DataOps.assign(it, ym, date, c.person.id) }
-                        choice = null
-                    },
-                ) { Text("Resmi değişiklik") }
+                TextButton(onClick = {
+                    vm.update(if (closed) "Resmi kayıt düzeltildi" else "Resmi liste güncellendi (yeni sürüm)") {
+                        if (closed) DataOps.correctDay(it, date, c.person.id) else DataOps.assign(it, ym, date, c.person.id)
+                    }
+                    choice = null
+                }) { Text("Resmi kayıt") }
             },
         )
     }
+    override?.let { c ->
+        AlertDialog(
+            onDismissRequest = { override = null },
+            title = { Text("Kurala aykırı") },
+            text = { Text("${c.person.name}: ${c.hardReasons.joinToString("; ")}\n\nYine de yazılsın mı?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.update("${c.person.name} yazıldı (kural dışı)") { DataOps.assign(it, ym, date, c.person.id) }
+                    override = null
+                }) { Text("Yine de yaz") }
+            },
+            dismissButton = { TextButton(onClick = { override = null }) { Text("Vazgeç") } },
+        )
+    }
+    if (specialistAsk) {
+        AlertDialog(
+            onDismissRequest = { specialistAsk = false },
+            title = { Text("Uzman tuttu") },
+            text = { Text("Bu günün resmi kaydı \"uzman\" olarak düzeltilsin mi? Asistanların bayram ve sıra hesabından düşer.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.update("Uzman olarak düzeltildi") {
+                        if (status == MonthStatus.KAPANDI) DataOps.correctDay(it, date, null) else DataOps.assign(it, ym, date, null)
+                    }
+                    specialistAsk = false
+                }) { Text("Düzelt") }
+            },
+            dismissButton = { TextButton(onClick = { specialistAsk = false }) { Text("Vazgeç") } },
+        )
+    }
     if (swapOpen && actual != null) SwapSheet(vm, actual.id, date, onDismiss = { swapOpen = false })
+}
+
+/** Günü uzman tuttu: resmi kayıtta asistan yok. */
+@Composable
+private fun SpecialistRow(selected: Boolean, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick), shape = MaterialTheme.shapes.medium, color = scheme.surfaceContainer) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Uzman tuttu (asistan yok)", Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+            if (selected) Text("Yazılı", color = scheme.primary, style = MaterialTheme.typography.labelLarge)
+        }
+    }
 }
 
 @Composable

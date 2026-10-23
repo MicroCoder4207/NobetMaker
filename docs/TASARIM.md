@@ -62,13 +62,13 @@ Katsayılar 0.4.0'dan itibaren **kıdem eğrisinden** gelir (2.3): asistanlık b
 |---|---|---|---|---|---|---|
 | 1 | Yaren | 2021 (başka hastane; ay tahmini Nisan), bölüme Aralık 2023 | uzatma | 0.50 | — | Cumartesi, Pazar, resmi tatil, bayram ve arefe yok |
 | 2 | Kenan | Ağustos 2023 (bölümün ilk asistanı) | 4. yıl 4. ay | 0.81 | 0.66 | — |
-| 3 | Fatma | Eylül 2023 | 4. yıl 3. ay | 0.81 | 0.66 | — |
+| 3 | Fatma | Ekim 2023 | 4. yıl 2. ay | 0.82 | 0.67 | — |
 | 4 | Betül | Aralık 2023 | 3. yıl 12. ay | 0.97 | 0.94 | — |
 | 5 | Şule | Ağustos 2024 | 3. yıl 4. ay | 0.98 | 0.96 | — |
 | 6 | Oğuz | Aralık 2024 | 2. yıl 12. ay | 0.98 | 0.97 | — |
 | 7 | Aslı | Ocak 2026 | 1. yıl 11. ay | 1.00 | 0.99 | — |
 
-Eğri bulunmadan önce elle girilen değerler (Kenan 0.80/0.65, Fatma 0.90/0.70, Betül 0.97/0.94, Şule 0.98/0.96, Oğuz 0.99/0.98, Aslı 1.00) zaten asistanlık yılına göre gidiyordu; eğri bunu kurala bağladı. Fatma Kenan'dan bir ay çömez olduğu için katsayısı çok az yüksektir.
+Eğri bulunmadan önce elle girilen değerler (Kenan 0.80/0.65, Fatma 0.90/0.70, Betül 0.97/0.94, Şule 0.98/0.96, Oğuz 0.99/0.98, Aslı 1.00) zaten asistanlık yılına göre gidiyordu; eğri bunu kurala bağladı. Fatma Kenan'dan iki ay çömez olduğu için katsayısı çok az yüksektir (başlangıcı 0.4.1'de Eylül'den Ekim 2023'e düzeltildi).
 
 - Betül, Şule, Oğuz ve Aslı arasındaki fark bilerek çok küçük tutuldu. Yıllık etkisi kabaca şu: Aslı, Betül'den 2 nöbet ve 1-2 zor gün fazla tutar.
 - İyi günler (Perşembe) kıdeme bakılmadan, uygun olan herkese eşit dağıtılır.
@@ -308,18 +308,32 @@ Defter, her kişinin her kategoride ne kadar yük taşıdığını izler. Sonrak
 
 Defter ayrı bir tabloda saklanmaz. Her seferinde resmi atamalardan, geçmiş özel gün kayıtlarından ve takvimden yeniden hesaplanır. Böylece kayıtlarla defter arasında tutarsızlık oluşmaz.
 
+### 6.2 Bayram ve tatil kayıtları
+
+Eski kağıt ve Excel listeleri bazı bayramlarda birbirini tutmuyor; vizit de çoğu zaman bilinmiyor. Bu yüzden bayram dengesinin dayandığı her gün görünür ve elle düzeltilebilir (İstatistik → "Bayram ve tatil kayıtları").
+
+- **Denge tablosu:** Bugünkü ekip için Yılbaşı, Bayram ve Resmi tatil: durum ("dengede", "1 gün geride") ve altında tutulan / payı (gün). Tatil tutmayanlar (Yaren) "—".
+- **Olaylar:** Yeniden eskiye her olay (ör. "Kurban Bayramı 2026 · 9 gün") ve günleri: gün türü, yarım gün, vizit, resmi kişi (ya da Uzman), takasla gerçekte tutan, türü elle değiştiyse işareti.
+- **Bir güne dokununca:** resmi kayıt (hesaba girer; kapanmış ayda yeni sürüm), gerçekte tutan (takas; hesaba girmez), gün türü (normal, bayram, arefe, idari izin, resmi tatil, yılbaşı) ve vizit düzeltilir. Denge hemen yeniden hesaplanır.
+- Gün türü değişince bayram günleri yakındaki bayramın olayına bağlanır; takvimdeki türe dönülünce elle kayıt kalkar (vizit işareti korunur).
+
 ### 6.1 Sıra (vizit, Cuma, Pazar, Perşembe, Pazartesi)
 
-Elle hazırlanan listelerde zor günler sırayla döner. Örnek: Eylül 2026'da 4 Cumartesi vizitini Şule, Aslı, Betül ve Oğuz tuttu; Ekim'deki 6 viziti Yaren dışında herkes tuttu. Kasım'da 4 vizit var. Sıra, Eylül'de tutmayan Kenan ve Fatma'dandır; kalan iki vizit en uzun süredir tutmayanlara gider.
+Elle hazırlanan listelerde zor günler sırayla döner. Cumartesi Ağustos 2026'dan beri kıdem sırasıyla gidiyor: Ağustos'ta (5 cumartesi) Oğuz, Betül, Şule, Fatma (o zaman 3. yılda) ve artan biri Kenan; Eylül'de (4) Şule, Aslı, Betül, Oğuz; Ekim'de (5) dört çömez ve artan biri Kenan. 0.4.1'den itibaren program da böyle dağıtır (K43).
 
 - **Gruplar:**
-  - **Vizit:** Tatil olmayan vizitli gün (Cumartesi). Tatil günleri vizitli olsa da yalnızca kendi kategorisinde sayılır (6). Geçmişte yalnızca kesinleşmiş vizit sayılır, planlamada belirsiz vizit var kabul edilir. Cuma ve Pazar gibi **zor gün katsayısıyla** döner; eşitlikte önce çömez gelir (alışılmış "önce çömezi yaz" düzeni).
+  - **Vizit (Cumartesi):** Tatil olmayan vizitli gün. Tatil günleri vizitli olsa da yalnızca kendi kategorisinde sayılır (6). Geçmişte yalnızca kesinleşmiş vizit sayılır, planlamada belirsiz vizit var kabul edilir. **Kıdem sırasıyla** gider:
+    - Son yıla girmemiş herkes ayda bir cumartesi tutar. Cumartesi sayısı bunlara yetmezse aralarında son 6 aya göre borç sırası işler (eşitlikte önce çömez).
+    - Artan cumartesiler son yıldakilere **sırayla** gider: en uzun süredir cumartesi tutmayan önce. Son yıla giren kişi, son tuttuğu cumartesiye göre sıranın sonuna geçer; böylece geçiş yumuşaktır, kimseye geçmişten borç yazılmaz.
+    - Son yıldakine aynı ay hem cumartesi hem pazar yazılmaz (sıkışırsa esner).
+    - Cumartesi sırası en zor esneyen sıradır (ceza ağırlığı 150; Cuma/Pazar/Perşembe 60).
+    - Neden: oransal paylaşımda (kıdemli 0,65) çömezler de 4 ayda bir boş kalıyor, kıdemliler 2 ayda bir tutuyordu; Kasım 2026'da Kenan ve Fatma'ya cumartesi + pazar, Şule ve Oğuz'a yalnızca pazar düşüyordu. Kıdem sırası hem bölümün alışkanlığıdır hem de herkes aynı aşamalardan geçtiği için adildir.
   - **İlk ay:** Nöbete yeni başlayana (ve uzun izinden dönene) ilk ayında vizit yazılmaz; o ayın vizitleri ona borç da yazmaz.
   - **Cuma** ve **Pazar** (vizitsiz): zor gün katsayısıyla döner (önce çömez).
   - **Perşembe:** herkese eşit döner.
   - **Pazartesi:** Salı günleri ders var ve Pazartesi nöbetçisi nöbet ertesi olduğu için dersi kaçırıyor. Herkese eşit döner. Salı tatilse o Pazartesi sıraya girmez. En kolay esneyen kuraldır (Y4a).
 - **Borç:** Son 6 ayda her kişi için beklenen − tutulan. Beklenen, her günün uygun kişiler arasındaki payının toplamıdır.
-- **Ayın sırası:** Ayın o gruptaki günleri sırayla dağıtılır. Her gün, borcu en büyük olana gider (borç yarım güne yuvarlanır); eşitlikte o günü en uzun süredir tutmayan, o da eşitse çömez seçilir. Vizitte eşitlikte önce çömez, sonra en uzun süredir tutmayan gelir.
+- **Ayın sırası:** Ayın o gruptaki günleri sırayla dağıtılır. Her gün, borcu en büyük olana gider (borç yarım güne yuvarlanır); eşitlikte o günü en uzun süredir tutmayan, o da eşitse çömez seçilir. Vizitte önce son yıla girmemişler (aralarında borç, eşitlikte çömez), sonra son yıldakiler (en uzun süredir tutmayan önce).
   - Aynı kişiye ayda o günden ikincisi verilmez (bkz. Y9).
   - O günü isteyen biri varsa istek sıradan önce gelir. O günü istemeyen kişi mümkünse atlanır.
 - Ortaya çıkan sıra her kişi için bir hedef sayı verir (ör. "Vizit: Kenan 1, Aslı 1, Fatma 1, Oğuz 1"). Liste üretimi bu hedeften sapmayı cezalandırır (Y4). Sıra kurallarla tutmuyorsa esner ve skor kartında gösterilir.
@@ -425,7 +439,8 @@ Uygulama "çözülemedi" deyip bırakmaz:
 
 - Algoritma üretir, liste yapan düzeltir. S1–S9'dan herhangi biri ihlal edildiği sürece kaydedilemez.
 - Sürümlüdür, her revizyon yeni bir sürüm oluşturur. Hocaya giden Excel en güncel sürümden üretilir. Adalet defteri de en güncel resmi sürüme bakar.
-- Durumları: **Taslak → Yayınlandı → Kapandı**. Kapanan ay değiştirilemez, böylece geçmiş korunur.
+- Durumları: **Taslak → Yayınlandı → Kapandı**. Kapanan ay yeniden üretilmez; ama her şey elle düzeltilebilir (K45): gün ekranında ya da bayram kayıtlarında bir günün resmi kaydı düzeltilince yeni sürüm açılır, eski hali sürümlerde kalır, ay kapalı kalır.
+- Elle düzeltmede kurallar engel olmaz, yalnızca uyarır (taslakta "Kurala aykırı — yine de yaz"). Bir gün "Uzman tuttu (asistan yok)" diye işaretlenebilir; o gün asistanların bayram ve sıra hesabından düşer.
 
 ### 9.2 Gayriresmi liste
 
@@ -498,7 +513,7 @@ Bayramda kıdem önemlidir ama kesin bir kural yoktur. Bu yüzden bayram günler
    - İstek karşılanma oranı.
    - Resmi liste ile gerçekte tutulanın karşılaştırması.
    - Aylık nöbet saatleri (resmi ve gerçekte tutulan).
-9. **Geçmiş özel günler:** 2023'ten beri bayram, yılbaşı ve resmi tatil kayıtlarının elle girildiği ekran. Kayıtlar iki şekilde girilebilir: gün gün (tarih, tür, vizit var/yok/bilinmiyor, tutan kişi, not) ya da tarihi bilinmeyen eski olaylar için toplu olarak (ör. "2024 Ramazan Bayramı, 10 gün: Yaren 2, Fatma 1").
+9. **Bayram ve tatil kayıtları (6.2):** İlk listeden bu yana her bayram, resmi tatil ve yılbaşı günü; kimin tuttuğu, bugünkü ekibin dengesi ve her günün elle düzeltilmesi. Liste öncesi dönemler için toplu kayıt ekranı ("2024 Ramazan Bayramı, 10 gün: Yaren 2, Fatma 1") buradan açılır.
 10. **Ayarlar:** Puan bileşenleri, saat bileşenleri, ceza ağırlıkları, nöbetler arası en az gün (3), aylık üst sınır (6), hafıza süreleri, Excel başlığı, yedekleme ve geri yükleme.
 
 ---
@@ -559,10 +574,10 @@ Sade, modern bir takvim:
 
 Resmi listenin görseline (takvimin altına), PDF'ine (ikinci sayfa) ve Excel'ine ("Döküm" sayfası) herkesin bu ayki durumu ve nedeni eklenir. Amaç "neden bana bu kadar" sorusunu kuralı göstererek cevaplamak. Ayarlar'dan kapatılabilir; gerçekleşen listeye eklenmez.
 
-- Kişi başına bir satır: asistanlık yılı, nöbet ve hafta sonu katsayısı, nöbet sayısı ve saat, bu ay tuttuğu Cuma/Cumartesi/Pazar, son 6 aydaki vizit sayısı, bayram ve resmi tatil dengesi (tam gün olarak: "dengede", "1 gün geride", "2 gün önde"; yarım günler gösterilmez).
+- Kişi başına bir satır: asistanlık yılı, nöbet ve zor gün katsayısı, nöbet sayısı ve saat, bu ay tuttuğu Cuma/Cumartesi/Pazar, cumartesi durumu ("ayda bir" ve son 6 aydaki sayısı; son yıldakilerde "sırayla · sırada 1. · son 22 Ağu"; son yıla giren için "sıraya giriyor"), bayram ve resmi tatil dengesi (tam gün olarak: "dengede", "1 gün geride", "2 gün önde"; yarım günler gösterilmez).
 - Elle ya da kuralla sabitlenen sayılar yıldızla işaretlenir ve notlarda yazar.
-- Kıdem eğrisi grafiği: herkes aynı çizgi üzerinde, adıyla bir nokta.
-- "Nasıl hesaplandı" notları: kıdem eğrisi değerleri, sıra kuralı, bu ay cumartesi tutmayanların gelecek ay önce yazılacağı, bayram/tatil dengesinin ilk listeden beri sayıldığı, ilk ay kuralı, takasların hesaba girmediği.
+- Kıdem eğrisi grafiği: herkes aynı çizgi üzerinde, adıyla bir nokta (isimler birbirine ve noktalara çarpmayacak yere yazılır).
+- "Nasıl hesaplandı" notları: kıdem eğrisi değerleri; cumartesi kuralı ve gelecek ayın artan cumartesi sırası (ör. "Artan cumartesi sırası (Aralık 2026): Fatma → Kenan → Betül."), son yıla girenler; son yıldakine aynı ay cumartesi ve pazar yazılmadığı; Cuma/Pazar/Pazartesi/Perşembe sırası; bu ay cumartesi tutmayan çömezin gelecek ay önce yazılacağı; bayram/tatil dengesinin ilk listeden beri sayıldığı; ilk ay kuralı; takasların hesaba girmediği.
 - İstek karşılanma oranları görsele konmaz ("onunki karşılandı benimki karşılanmadı" tartışması çıkmasın).
 - Liste elle değiştirilse de döküm yayınlanan listeden çizilir; denge her seferinde resmi listeden yeniden hesaplandığı için elle değişiklik sonraki aylarda kendiliğinden telafi edilir.
 
@@ -677,6 +692,11 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 | K40 | Adalet hesabı nöbete katılıştan (yoksa ilk kayıtlı nöbetten) başlar; kaydı olmayan borçsuz başlar. Bölüme katılış tek başına yetmez (2.2). |
 | K41 | Hocalar sayı söylerse o ay sabitlenir ya da kişiye "ayda sabit sayı" kuralı girilir; düşen nöbet hafta içinden gelir. Yayınlanmış ayda "Kalan günleri yeniden üret" bugüne kadarki günleri kilitler. Sınav için dönem türü var. |
 | K42 | Resmi listeye nöbet dökümü eklenir (14.3). |
+| K43 | Cumartesi kıdem sırasıyla gider: son yıla girmemiş herkes ayda bir, artanlar son yıldakilere sırayla (en uzun süredir tutmayan önce). Son yıla giren sıranın sonuna geçer; geçmişten borç yazılmaz. K36'nın vizit kısmının yerini alır. |
+| K44 | Son yıldakine aynı ay hem cumartesi hem pazar yazılmaz (sıkışırsa esner). Cumartesi sırası en zor esneyen sıradır. |
+| K45 | Her şey elle düzeltilebilir: kapanmış ay dahil herhangi bir günün resmi kaydı (yeni sürüm), gerçekte tutan, "Uzman tuttu", gün türü ve vizit. Kurallar elle düzeltmede uyarır, engellemez. |
+| K46 | Bayram ve tatil kayıtları ekranı (6.2): her tatil günü, kim tuttu ve denge şeffaf; oradan gün gün düzeltilir. |
+| K47 | Fatma'nın asistanlık başlangıcı Ekim 2023'tür (Eylül değil). |
 
 ---
 

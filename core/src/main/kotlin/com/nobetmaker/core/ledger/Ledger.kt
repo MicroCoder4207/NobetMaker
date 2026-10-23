@@ -43,7 +43,9 @@ class Ledger(
 
     /**
      * Vizit, Cuma, Pazar, Perşembe ve Pazartesi sırası. Geçmişte payından az tutan önce gelir; eşitlikte en uzun
-     * süredir tutmayan, o da eşitse çömez. Vizitte eşitlikte önce çömez gelir (alışılmış düzen).
+     * süredir tutmayan, o da eşitse çömez. Vizit (cumartesi) kıdem sırasıyla gider: son yıla girmemiş herkes ayda
+     * birer tutar (aralarında borç, eşitlikte çömez önce); artan cumartesiler son yıldakilere sırayla, en uzun
+     * süredir cumartesi tutmayan önce. Son yıldakine aynı ay hem cumartesi hem pazar verilmez (sıkışırsa esner).
      * Planlanan ayın günleri bu sırayla dağıtılır.
      */
     fun rotation(
@@ -100,14 +102,32 @@ class Ledger(
                 // mümkün değilse kural esner.
                 val wanting = candidates.filter { wants(it, day) && availableInPlan(it, day) }
                 val fresh = candidates.filter { day.dayOfWeek !in usedWeekdays[it.id].orEmpty() }
+                // Son yıldakine aynı ay hem cumartesi hem pazar verilmez; sıkışırsa esner.
+                val doubleWeekend = { p: Person ->
+                    group == RotationGroup.PAZAR && availability.coefficients.isSenior(p, day) &&
+                        target.getValue(p.id)[RotationGroup.VIZIT.ordinal] > 0
+                }
                 val pool = wanting
+                    .ifEmpty { fresh.filter { availableInPlan(it, day) && !avoids(it, day) && !doubleWeekend(it) } }
                     .ifEmpty { fresh.filter { availableInPlan(it, day) && !avoids(it, day) } }
                     .ifEmpty { fresh.filter { availableInPlan(it, day) } }
                     .ifEmpty { fresh }
                     .ifEmpty { candidates }
                 val byDebt = compareByDescending<Person> { Math.round(work.getValue(it.id) * 2) / 2.0 }
                 val order = if (group == RotationGroup.VIZIT) {
-                    byDebt.thenByDescending { it.seniority }.thenBy { lastWork[it.id] ?: LocalDate.MIN }
+                    // Cumartesi önce son yıla girmemişlere: onlar borca göre; son yıldakiler kalanları sırayla
+                    // (en uzun süredir tutmayan önce).
+                    val juniors = byDebt.thenByDescending<Person> { it.seniority }.thenBy { lastWork[it.id] ?: LocalDate.MIN }
+                    val seniors = compareBy<Person> { lastWork[it.id] ?: LocalDate.MIN }.thenByDescending { it.seniority }
+                    Comparator<Person> { a, b ->
+                        val sa = availability.coefficients.isSenior(a, day)
+                        val sb = availability.coefficients.isSenior(b, day)
+                        when {
+                            sa != sb -> sa.compareTo(sb)
+                            sa -> seniors.compare(a, b)
+                            else -> juniors.compare(a, b)
+                        }
+                    }
                 } else {
                     byDebt.thenBy { lastWork[it.id] ?: LocalDate.MIN }.thenByDescending { it.seniority }
                 }

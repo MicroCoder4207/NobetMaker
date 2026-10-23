@@ -131,7 +131,8 @@ private fun PersonCard(p: Person, coef: Coefficients, onClick: () -> Unit, onUp:
                 val lastYear = coef.dateAtMonths(p, coef.lastYearStart)?.takeIf { auto && it.isAfter(today) && it.isBefore(today.plusMonths(6)) }
                 val fourYears = coef.dateAtMonths(p, coef.totalMonths)?.takeIf { it.isAfter(today) }
                 val extra = listOfNotNull(
-                    lastYear?.let { "Son yıla giriş: ${monthYear(it)} (nöbet ${fmt2(coef.curveAt(coef.lastYearStart.toDouble()).first)})" },
+                    if (coef.isSenior(p, today) && !coef.inExtension(p, today)) "Cumartesi: son yılda, artanları sırayla tutar" else null,
+                    lastYear?.let { "Son yıla giriş: ${monthYear(it)} (nöbet ${fmt2(coef.curveAt(coef.lastYearStart.toDouble()).first)}; cumartesi sırasına geçer)" },
                     fourYears?.let { "${coef.totalMonths / 12} yıl doluyor: ${monthYear(it)} (uzatma olursa ayrılışı sonra girin)" },
                     p.dutyStart?.let { "Nöbete katılış ${it.trFormat()}" },
                     p.leaveDate?.let { "Ayrılış ${it.trFormat()}" },

@@ -214,13 +214,13 @@ object RosterExcel {
         sheet.showGridLines = false
         sheet.frozenRows = 1
         val heads = listOf(
-            "Kişi", "Asistanlık", "Nöbet katsayısı", "Hafta sonu katsayısı", "Nöbet", "Saat",
-            "Cuma", "Cumartesi", "Pazar", "Vizit (son ${dokum.rotationMonths} ay)", "Bayram", "Resmi tatil",
+            "Kişi", "Asistanlık", "Nöbet katsayısı", "Zor gün katsayısı", "Nöbet", "Saat",
+            "Cuma", "Cumartesi", "Pazar", "Cumartesi (son ${dokum.rotationMonths} ay)", "Cumartesi sırası", "Bayram", "Resmi tatil",
         )
         heads.forEachIndexed { c, h -> sheet.set(0, c, h, if (c <= 1) headerLeft else header) }
         sheet.rowHeight(0, 24.0)
         sheet.columnWidth(0, 16.0); sheet.columnWidth(1, 16.0)
-        for (c in 2..11) sheet.columnWidth(c, if (c >= 10) 16.0 else 13.0)
+        for (c in 2..12) sheet.columnWidth(c, if (c >= 10) 18.0 else 13.0)
         val num = tableCell.copy(hAlign = "center")
         dokum.rows.forEachIndexed { i, r ->
             val row = i + 1
@@ -232,8 +232,9 @@ object RosterExcel {
             sheet.set(row, 5, r.hours, num)
             listOf(r.friday, r.saturday, r.sunday).forEachIndexed { k, has -> sheet.set(row, 6 + k, if (has) "✓" else "", num) }
             sheet.set(row, 9, r.visits?.toString() ?: "—", num)
-            sheet.set(row, 10, Dokum.balanceText(r.bayram), num)
-            sheet.set(row, 11, Dokum.balanceText(r.resmi), num)
+            sheet.set(row, 10, Dokum.saturdayMain(r) + (r.turn?.let { " · sırada $it." } ?: ""), num)
+            sheet.set(row, 11, Dokum.balanceText(r.bayram), num)
+            sheet.set(row, 12, Dokum.balanceText(r.resmi), num)
             sheet.rowHeight(row, 20.0)
         }
         var row = dokum.rows.size + 2

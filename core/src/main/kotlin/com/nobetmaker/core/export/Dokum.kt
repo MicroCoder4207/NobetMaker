@@ -33,6 +33,12 @@ class DokumRow(
     val sunday: Boolean,
     /** Son [Dokum.rotationMonths] ayda tuttuğu vizit; hafta sonu tutmuyorsa null. */
     val visits: Int?,
+    /** Son yılda (cumartesiyi artanlardan, sırayla tutar). */
+    val senior: Boolean,
+    /** Son [Dokum.rotationMonths] aydaki son cumartesisi. */
+    val lastSaturday: LocalDate?,
+    /** Gelecek ayın artan cumartesi sırasındaki yeri (1'den); son yılda değilse null. */
+    val turn: Int?,
     /** Tutulan − payı (gün); tatil tutmuyorsa null. */
     val bayram: Double?,
     val resmi: Double?,
@@ -63,6 +69,23 @@ class Dokum(
         }
 
         fun coef(v: Double): String = String.format(Locale.ROOT, "%.2f", v).replace('.', ',')
+
+        /** Cumartesi sütunu: "ayda bir", "sırayla", "sıraya giriyor" ya da hafta sonu tutmuyorsa "—". */
+        fun saturdayMain(r: DokumRow): String = when {
+            r.noWeekend -> "—"
+            r.senior -> "sırayla"
+            r.turn != null -> "sıraya giriyor"
+            else -> "ayda bir"
+        }
+
+        fun saturdaySub(r: DokumRow, months: Int): String = when {
+            r.noWeekend -> "hafta sonu yok"
+            r.turn != null -> "sırada ${r.turn}." + (r.lastSaturday?.let { " · son ${shortDate(it)}" } ?: "")
+            r.visits != null -> "son $months ay: ${r.visits}"
+            else -> ""
+        }
+
+        fun shortDate(d: LocalDate): String = "${d.dayOfMonth} ${monthNameTr(d.monthValue).take(3)}"
     }
 }
 
@@ -94,6 +117,25 @@ object DokumBuilder {
         }.toMap()
 
         val visitFrom = month.minusMonths((months - 1).toLong()).atDay(1)
+        fun isVisit(d: LocalDate) = cal.rotationGroup(d, history = d.isBefore(first)) == RotationGroup.VIZIT
+        // Gelecek ayın artan cumartesi sırası: son yıldakiler, en uzun süredir cumartesi tutmayan önce (Ledger ile aynı).
+        val next = month.plusMonths(1)
+        val nextFirst = next.atDay(1)
+        val queueFrom = next.minusMonths(months.toLong()).atDay(1)
+        fun lastVisit(p: Person, from: LocalDate): LocalDate? {
+            var d = last
+            while (!d.isBefore(from)) {
+                if (roster.official[d] == p.id && isVisit(d)) return d
+                d = d.minusDays(1)
+            }
+            return null
+        }
+        val nextSat = nextSaturday(nextFirst)
+        val seniorQueue = data.persons
+            .filter { p ->
+                p.isActiveOn(nextFirst) && coef.isSenior(p, nextFirst) && avail.ruleBlock(p, nextSat) == null
+            }
+            .sortedWith(compareBy<Person> { lastVisit(it, queueFrom) ?: LocalDate.MIN }.thenByDescending { it.seniority })
         val rows = persons.map { p ->
             val mine = days.filter { roster.official[it] == p.id }
             fun has(dow: DayOfWeek) = mine.any { it.dayOfWeek == dow && cal.category(it).memory != com.nobetmaker.core.calendar.Memory.LONG }
@@ -102,7 +144,7 @@ object DokumBuilder {
             var visits = 0
             var d = visitFrom
             while (!d.isAfter(last)) {
-                if (roster.official[d] == p.id && cal.rotationGroup(d, history = d.isBefore(first)) == RotationGroup.VIZIT) visits++
+                if (roster.official[d] == p.id && isVisit(d)) visits++
                 d = d.plusDays(1)
             }
             val c = coef.on(p, mid)
@@ -118,6 +160,9 @@ object DokumBuilder {
                 saturday = has(DayOfWeek.SATURDAY),
                 sunday = has(DayOfWeek.SUNDAY),
                 visits = if (noWeekend) null else visits,
+                senior = coef.isSenior(p, mid) && !noWeekend,
+                lastSaturday = lastVisit(p, queueFrom),
+                turn = seniorQueue.indexOfFirst { it.id == p.id }.takeIf { it >= 0 && !noWeekend }?.plus(1),
                 bayram = if (noHoliday) null else long.base.getValue(p.id)[bayramIdx],
                 resmi = if (noHoliday) null else long.base.getValue(p.id)[resmiIdx],
                 fixedCount = manual[p.id] ?: ruled[p.id],
@@ -134,14 +179,21 @@ object DokumBuilder {
         } else {
             notes += "Nöbet sayısı herkesin katsayısına göre dağıtılır."
         }
-        notes += "Cuma, cumartesi, pazar ve pazartesi son $months aya bakılarak sırayla verilir; kişi başı ayda en fazla birer."
+        notes += "Cumartesi: son yıla girmemiş herkes ayda bir tutar; artanlar son yıldakilere sırayla gider."
+        if (seniorQueue.isNotEmpty()) {
+            notes += "Artan cumartesi sırası (${monthNameTr(next.monthValue)} ${next.year}): " + seniorQueue.joinToString(" → ") { it.name } + "."
+            val joining = seniorQueue.filter { !coef.isSenior(it, mid) }.sortedBy { it.seniority }
+            if (joining.isNotEmpty()) notes += "${joinNames(joining.map { it.name })} son yıla giriyor; cumartesi sırasına katılır."
+        }
+        notes += "Son yıldakine aynı ay hem cumartesi hem pazar yazılmaz."
+        notes += "Cuma ve pazar son $months aya göre (kıdemliye seyrek), pazartesi ve perşembe eşit sırayla."
         val satDays = days.filter { it.dayOfWeek == DayOfWeek.SATURDAY && cal.rotationGroup(it, history = false) == RotationGroup.VIZIT }
         if (satDays.isNotEmpty() && plan?.current != null) {
             val without = rows.filter { r ->
-                !r.noWeekend && !r.saturday && satDays.any { avail.hardReasons(r.person, it).isEmpty() || roster.official[it] == r.person.id }
+                !r.noWeekend && !r.senior && !r.saturday && satDays.any { avail.hardReasons(r.person, it).isEmpty() || roster.official[it] == r.person.id }
             }.sortedBy { it.person.seniority }
             if (without.isNotEmpty()) {
-                notes += "Bu ay cumartesi tutmayanlar (${joinNames(without.map { it.person.name })}) gelecek ay önce yazılır."
+                notes += "Bu ay cumartesi tutmayan ${joinNames(without.map { it.person.name })} gelecek ay önce yazılır."
             }
         }
         val since = maxOf(roster.official.keys.minOrNull() ?: data.settings.longMemoryStart, data.settings.longMemoryStart)

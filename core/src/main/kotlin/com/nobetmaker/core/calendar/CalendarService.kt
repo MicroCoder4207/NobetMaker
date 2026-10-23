@@ -38,12 +38,13 @@ enum class Category(val label: String, val memory: Memory) {
 /**
  * Sırayla dönen gün grupları (§6). Tatil günleri (bayram, resmi tatil, yılbaşı) hiçbir gruba girmez; yalnızca
  * kendi uzun hafızasında sayılır, böylece tatilde vizit olup olmadığının bilinmemesi hesabı etkilemez.
- * Vizit = tatil olmayan vizitli gün (cumartesi); Cuma ve Pazar gibi zor gün katsayısıyla döner, eşitlikte
- * çömez önce gelir. Perşembe eşit döner. Pazartesi: ertesi gün Salı dersi var ve nöbetçi dersi kaçırıyor;
- * herkese eşit döner ama en kolay esneyen sıradır.
+ * Vizit = tatil olmayan vizitli gün (cumartesi); kıdem sırasıyla gider: son yıla girmemiş herkes ayda birer,
+ * artanlar son yıldakilere sırayla (Ledger.rotation). Cuma ve Pazar zor gün katsayısıyla döner. Perşembe eşit
+ * döner. Pazartesi: ertesi gün Salı dersi var ve nöbetçi dersi kaçırıyor; herkese eşit döner ama en kolay
+ * esneyen sıradır.
  */
 enum class RotationGroup(val label: String, val equalShare: Boolean) {
-    VIZIT("Vizit", false),
+    VIZIT("Vizit", true),
     CUMA("Cuma", false),
     PAZAR("Pazar", false),
     PERSEMBE("Perşembe", true),
@@ -62,7 +63,7 @@ class CalendarService(overrides: List<DayInfo>, private val settings: Settings) 
     }
 
     private fun registerEventKind(day: DayInfo) {
-        val id = day.eventId ?: return
+        val id = day.eventId?.takeIf { it.isNotEmpty() } ?: return
         val kind = when (day.kind) {
             DayKind.BAYRAM -> EventKind.BAYRAM
             DayKind.YILBASI -> EventKind.YILBASI
@@ -79,7 +80,8 @@ class CalendarService(overrides: List<DayInfo>, private val settings: Settings) 
 
     fun builtInDay(date: LocalDate): DayInfo = builtIn(date) ?: DayInfo(date)
 
-    fun day(date: LocalDate): DayInfo = overrideMap[date] ?: builtIn(date) ?: DayInfo(date)
+    // Takvimdeki tatiller her zaman önce yüklenir: elle değiştirilmiş bir gün bayramın olayına bağlıysa olayın türü bilinsin.
+    fun day(date: LocalDate): DayInfo = builtIn(date).let { b -> overrideMap[date] ?: b ?: DayInfo(date) }
 
     fun isOverridden(date: LocalDate): Boolean = overrideMap.containsKey(date)
 
@@ -146,9 +148,12 @@ class CalendarService(overrides: List<DayInfo>, private val settings: Settings) 
 
     fun eventKind(eventId: String): EventKind? = eventKinds[eventId]
 
-    /** Günün bağlı olduğu tatil olayı. Bayrama bitişik hafta sonu ve idari izin günleri bayrama dahildir. */
+    /**
+     * Günün bağlı olduğu tatil olayı. Bayrama bitişik hafta sonu ve idari izin günleri bayrama dahildir.
+     * Boş olay kimliği, günün elle olaydan çıkarıldığını gösterir.
+     */
     fun eventId(date: LocalDate): String? {
-        day(date).eventId?.let { return it }
+        day(date).eventId?.let { return it.ifEmpty { null } }
         if (holidayFraction(date) < 1.0) return null
         for (dir in longArrayOf(-1, 1)) {
             var d = date

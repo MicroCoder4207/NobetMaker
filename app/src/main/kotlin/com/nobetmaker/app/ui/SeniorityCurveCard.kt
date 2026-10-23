@@ -9,6 +9,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -70,18 +72,30 @@ fun SeniorityCurveCard(data: AppData, today: LocalDate = LocalDate.now()) {
                 }
                 drawPath(path, line, style = Stroke(width = 3.dp.toPx()))
                 val points = persons.map { p -> p to minOf(coef.residencyMonths(p, today) ?: 0.0, maxM - 3) }.sortedBy { it.second }
-                var lastX = -1000f
-                var up = true
-                for ((p, mm) in points) {
-                    val c = personColor(p.color)
+                val centers = points.map { (p, mm) ->
                     val center = Offset(gx(mm), gy(coef.curveAt(mm).first))
                     drawCircle(Color.White, 8.dp.toPx(), center)
-                    drawCircle(c, 6.dp.toPx(), center)
-                    up = if (center.x - lastX < 40.dp.toPx()) !up else true
-                    val t = measurer.measure(p.name, TextStyle(fontSize = 11.sp, color = c, fontWeight = FontWeight.Bold))
-                    val y = if (up) center.y - t.size.height - 8.dp.toPx() else center.y + 8.dp.toPx()
-                    drawText(t, topLeft = Offset(center.x - t.size.width / 2, y))
-                    lastX = center.x
+                    drawCircle(personColor(p.color), 6.dp.toPx(), center)
+                    center
+                }
+                // İsimler üst üste binmesin: her isim, önceki isimlere ve noktalara çarpmayan ilk yere yazılır.
+                val dot = 9.dp.toPx()
+                val gap = 6.dp.toPx()
+                val placed = centers.map { Rect(it.x - dot, it.y - dot, it.x + dot, it.y + dot) }.toMutableList()
+                points.forEachIndexed { i, (p, _) ->
+                    val center = centers[i]
+                    val t = measurer.measure(p.name, TextStyle(fontSize = 11.sp, color = personColor(p.color), fontWeight = FontWeight.Bold))
+                    val tw = t.size.width.toFloat()
+                    val th = t.size.height.toFloat()
+                    val options = listOf(
+                        Offset(center.x - tw / 2, center.y - th - gap - dot / 2), Offset(center.x - tw / 2, center.y + gap + dot / 2),
+                        Offset(center.x + dot + gap / 2, center.y + gap / 2), Offset(center.x - dot - gap / 2 - tw, center.y + gap / 2),
+                        Offset(center.x + dot + gap / 2, center.y - th - gap / 2), Offset(center.x - dot - gap / 2 - tw, center.y - th - gap / 2),
+                        Offset(center.x - tw / 2, center.y + th + 2 * gap), Offset(center.x - tw / 2, center.y - 2 * th - 2 * gap),
+                    ).map { Rect(it, Size(tw, th)) }
+                    val box = options.firstOrNull { o -> o.left >= 0f && o.right <= size.width && placed.none { it.overlaps(o) } } ?: options[0]
+                    placed += box
+                    drawText(t, topLeft = box.topLeft)
                 }
             }
         }

@@ -76,6 +76,13 @@ class Coefficients(private val data: AppData) {
     fun inExtension(person: Person, date: LocalDate): Boolean =
         usesCurve(person) && (residencyMonths(person, date) ?: 0.0) >= totalMonths
 
+    /** Son yılda (ya da uzatmada) mı; eğri kullanılmıyorsa elle girilen zor gün katsayısı 0,80'in altındaysa kıdemli sayılır. */
+    fun isSenior(person: Person, date: LocalDate): Boolean {
+        if (!usesCurve(person)) return person.coefficientOn(date).hardDay < 0.80
+        val m = residencyMonths(person, date) ?: return false
+        return m >= lastYearStart
+    }
+
     /** "3. yıl 11. ay" ya da "uzatma"; başlangıç bilinmiyorsa null. */
     fun stageText(person: Person, date: LocalDate): String? {
         val m = residencyMonths(person, date) ?: return null

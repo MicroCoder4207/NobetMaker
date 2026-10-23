@@ -37,7 +37,11 @@ class Objective(private val pr: MonthProblem) {
     private val dow = IntArray(pr.dayCount) { pr.days[it].dayOfWeek.value - 1 }
     private val groups = RotationGroup.entries
     private val groupWeight = DoubleArray(groups.size) {
-        if (groups[it] == RotationGroup.PAZARTESI) pr.weights.mondayRotation else pr.weights.rotation
+        when (groups[it]) {
+            RotationGroup.PAZARTESI -> pr.weights.mondayRotation
+            RotationGroup.VIZIT -> pr.weights.visitRotation
+            else -> pr.weights.rotation
+        }
     }
     private val longCats = Category.LONG_MEMORY
 

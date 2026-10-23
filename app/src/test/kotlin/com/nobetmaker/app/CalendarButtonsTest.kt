@@ -93,6 +93,58 @@ class CalendarButtonsTest : AppUiTest() {
     }
 
     @Test
+    fun taslakAydaKuralaAykiriYineDeYaz() {
+        draftMonth(kasim)
+        goToMonth(kasim)
+        val day = kasim.atDay(7) // Cumartesi: Yaren'e kural gereği yazılmaz
+        val before = official(day)
+        click("7")
+        waitForText("Kim tutabilir?")
+        rule.waitUntil(30_000) { exists("Uygun değil") }
+        click("Uygun değil")
+        waitForText("Kurala aykırı")
+        click("Vazgeç")
+        assertEquals(before, official(day))
+        click("Uygun değil")
+        waitForText("Kurala aykırı")
+        click("Yine de yaz")
+        waitForData(what = "kural dışı atama") { official(day) != before }
+    }
+
+    @Test
+    fun kapanmisAydaDuzeltmeUzmanVeGunTuru() {
+        val eylul = YearMonth.of(2026, 9)
+        val day = eylul.atDay(15)
+        assertEquals(MonthStatus.KAPANDI, data().month(eylul)!!.status)
+        val versions = data().month(eylul)!!.versions.size
+        val before = official(day)
+        goToMonth(eylul)
+        click("15")
+        waitForText("Ay kapandı; yine de düzeltebilirsiniz")
+        clickCandidate()
+        waitForText("Ay kapandı.")
+        click("Resmi kayıt")
+        waitForData(what = "kapanmış ayda düzeltme") { d ->
+            d.month(eylul)!!.versions.size == versions + 1 && d.month(eylul)!!.status == MonthStatus.KAPANDI
+        }
+        assertNotEquals(before, official(day))
+        waitSnackbarGone()
+
+        // Uzman tuttu: resmi kayıtta asistan kalmaz.
+        click("Uzman tuttu (asistan yok)")
+        waitForText("Asistanların bayram ve sıra hesabından düşer")
+        click("Düzelt")
+        waitForData(what = "uzman") { official(day) == null }
+        waitSnackbarGone()
+
+        // Gün türü elle değişir.
+        click("Gün türü: Normal")
+        pickFromMenu("Resmi tatil")
+        waitForData(what = "gün türü") { d -> d.dayOverrides.any { it.date == day && it.kind == com.nobetmaker.core.model.DayKind.RESMI_TATIL } }
+        shot("t-kapanmis-ay-duzeltme")
+    }
+
+    @Test
     fun ikiGunuDegistirVeVazgec() {
         draftMonth(kasim)
         goToMonth(kasim)
@@ -189,7 +241,7 @@ class CalendarButtonsTest : AppUiTest() {
         waitForText("Kim tutabilir?")
         clickCandidate()
         waitForText("Liste yayınlandı")
-        click("Resmi değişiklik")
+        click("Resmi kayıt")
         waitForData(what = "resmi değişiklik") { d -> d.month(ekim)!!.versions.size == versions + 1 }
         assertNotEquals(off, official(day))
     }

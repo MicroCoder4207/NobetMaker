@@ -48,7 +48,7 @@ object SeedData {
         ),
         Person(
             "fatma", "Fatma", 3, PersonPalette.colors[2],
-            joinDate = LocalDate.of(2023, 9, 1), residencyStart = LocalDate.of(2023, 9, 1),
+            joinDate = LocalDate.of(2023, 10, 1), residencyStart = LocalDate.of(2023, 10, 1),
             coefficients = listOf(CoefficientPeriod(duty = 0.90, hardDay = 0.70)),
         ),
         Person(

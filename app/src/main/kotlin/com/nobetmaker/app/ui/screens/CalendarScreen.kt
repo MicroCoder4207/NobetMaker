@@ -150,7 +150,7 @@ fun CalendarScreen(vm: AppViewModel, nav: Nav) {
                     }
                 }) { Icon(Icons.Default.Check, null); Spacer(Modifier.width(6.dp)); Text("Yayınla") }
                 MonthStatus.YAYINLANDI -> OutlinedButton(onClick = {
-                    confirm = "${month.title()} kapatılsın mı? Kapanan ay değiştirilemez; belirsiz vizitleri önce işaretleyin." to {
+                    confirm = "${month.title()} kapatılsın mı? Kapanan ay yeniden üretilmez; yanlış bir gün olursa gün ekranından elle düzeltilir. Belirsiz vizitleri önce işaretleyin." to {
                         vm.update("Ay kapatıldı") { DataOps.setStatus(it, month, MonthStatus.KAPANDI) }
                     }
                 }) { Text("Ayı kapat") }

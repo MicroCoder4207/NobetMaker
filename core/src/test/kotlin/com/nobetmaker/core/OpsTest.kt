@@ -83,6 +83,20 @@ class OpsTest {
         assertEquals(6, m.settings.rotationMonths)
         // Uzman günleri boş kalır.
         assertEquals(5, m.month(YearMonth.of(2024, 4))!!.current!!.assignments.size)
+        assertEquals(LocalDate.of(2023, 10, 1), m.person("fatma")!!.residencyStart)
+    }
+
+    @Test
+    fun `0_4_0 verisinde Fatma Ekim 2023 olur`() {
+        val seed = SeedData.build()
+        val sep = LocalDate.of(2023, 9, 1)
+        val v4 = seed.copy(schemaVersion = 4, persons = seed.persons.map { if (it.id == "fatma") it.copy(residencyStart = sep, joinDate = sep) else it })
+        val m = AppJson.decode(AppJson.encode(v4))
+        assertEquals(LocalDate.of(2023, 10, 1), m.person("fatma")!!.residencyStart)
+        assertEquals(LocalDate.of(2023, 10, 1), m.person("fatma")!!.joinDate)
+        // Elle girilmiş başka bir tarih korunur.
+        val own = seed.copy(schemaVersion = 4, persons = seed.persons.map { if (it.id == "fatma") it.copy(residencyStart = LocalDate.of(2023, 11, 1)) else it })
+        assertEquals(LocalDate.of(2023, 11, 1), AppJson.decode(AppJson.encode(own)).person("fatma")!!.residencyStart)
     }
 
     @Test
@@ -110,7 +124,11 @@ class OpsTest {
         val vizitHolders = best.indices.filter { pr.rotationIndex[it] == com.nobetmaker.core.calendar.RotationGroup.VIZIT.ordinal }
             .map { pr.persons[best[it]].name }.sorted()
         assertEquals(vizitQueue, vizitHolders, "vizitler sıraya göre dağılmalı")
-        assertTrue("Kenan" in vizitHolders && "Fatma" in vizitHolders, "Eylül'de vizit tutmayan Kenan ve Fatma Kasım'da sırada olmalı")
+        // Son yıla girmemiş dört kişi (Betül, Şule, Oğuz, Aslı) dört cumartesiyi tutar; Kenan ve Fatma artan olmadığı için tutmaz.
+        assertEquals(listOf("Aslı", "Betül", "Oğuz", "Şule"), vizitHolders)
+        // Kıdemliler bu ay birer pazar tutar, cumartesi tutan çömezler ikişer hafta sonu günü.
+        val weekend = best.indices.filter { pr.days[it].dayOfWeek.value >= 6 && pr.rotationIndex[it] >= 0 }.groupingBy { pr.persons[best[it]].name }.eachCount()
+        assertTrue((weekend["Kenan"] ?: 0) <= 1 && (weekend["Fatma"] ?: 0) <= 1, "kıdemliye en fazla bir hafta sonu günü: $weekend")
         // Liste haftadan haftaya aynı sırayla tekrar etmemeli (ör. 2-3-4 ve 9-10-11 Aslı-Oğuz-Şule).
         val triples = (0 until best.size - 2).map { Triple(best[it], best[it + 1], best[it + 2]) }
         assertEquals(triples.size, triples.distinct().size, "üçlü sıra tekrarı var")
@@ -140,7 +158,15 @@ class OpsTest {
         assertEquals("4. yıl 4. ay", dokum.rows.single { it.person.id == "kenan" }.stage)
         assertTrue(dokum.rows.single { it.person.id == "fatma" }.duty > dokum.rows.single { it.person.id == "kenan" }.duty, "Fatma Kenan'dan çok az çömez")
         assertEquals(null, dokum.rows.single { it.person.id == "yaren" }.visits, "Yaren hafta sonu tutmuyor")
-        assertTrue(dokum.notes.any { it.startsWith("Bu ay cumartesi tutmayanlar") })
+        // Cumartesi şeffaf: kural, gelecek ayın kıdemli sırası ve son yıla giren yazılır.
+        assertTrue("Artan cumartesi sırası (Aralık 2026): Fatma → Kenan → Betül." in dokum.notes, "notlar: ${dokum.notes}")
+        assertTrue("Betül son yıla giriyor; cumartesi sırasına katılır." in dokum.notes)
+        assertTrue(dokum.notes.none { it.startsWith("Bu ay cumartesi tutmayan") }, "çömezlerin hepsi cumartesi tuttu")
+        val row = { id: String -> dokum.rows.single { it.person.id == id } }
+        assertEquals(listOf(true, true, false, false), listOf("fatma", "kenan", "betul", "sule").map { row(it).senior })
+        assertEquals(listOf(1, 2, 3, null), listOf("fatma", "kenan", "betul", "sule").map { row(it).turn })
+        assertEquals("sırada 1. · son 22 Ağu", com.nobetmaker.core.export.Dokum.saturdaySub(row("fatma"), 6))
+        assertEquals("sıraya giriyor", com.nobetmaker.core.export.Dokum.saturdayMain(row("betul")))
         val previews = java.io.File("build/previews").apply { mkdirs() }
         val view = com.nobetmaker.core.export.MonthViewBuilder.build(data, ym, showActual = false)
         AwtRenderer.render(com.nobetmaker.core.export.RosterSheet.layout(view, LocalDate.of(2026, 10, 26), dokum), java.io.File(previews, "kasim-2026-dokum.png"))
@@ -151,6 +177,79 @@ class OpsTest {
         val someone = data.persons.first { it.id != data.month(ym)!!.current!!.personOn(d5) }.id
         data = DataOps.assign(data, ym, d5, someone)
         assertEquals(2, data.month(ym)!!.versions.size, "yayınlanmış ayda değişiklik yeni sürüm açmalı")
+    }
+
+    @Test
+    fun `kapanmis aydaki bayram gunu elle duzeltilir ve denge degisir`() {
+        val seed = SeedData.build()
+        val may30 = LocalDate.of(2026, 5, 30)
+        val report = com.nobetmaker.core.ledger.HolidayReportBuilder.build(seed, LocalDate.of(2026, 10, 23))
+        val kurban = report.events.single { it.name == "Kurban Bayramı 2026" }
+        assertEquals((23..31).map { LocalDate.of(2026, 5, it) }, kurban.days.map { it.date })
+        assertEquals("fatma", kurban.days.single { it.date == may30 }.official)
+        assertEquals("Ramazan Bayramı 2025", report.events.single { it.days.any { d -> d.date == LocalDate.of(2025, 4, 1) } }.name)
+        assertTrue(report.events.zipWithNext().all { (a, b) -> !a.start.isBefore(b.start) }, "yeniden eskiye")
+        val before = report.balances.getValue("kenan").getValue(com.nobetmaker.core.calendar.Category.BAYRAM)
+
+        // Kapanmış ay: resmi kayıt düzeltilir, yeni sürüm açılır, ay kapalı kalır, denge değişir.
+        val versions = seed.month(YearMonth.of(2026, 5))!!.versions.size
+        val fixed = DataOps.correctDay(seed, may30, "kenan")
+        val plan = fixed.month(YearMonth.of(2026, 5))!!
+        assertEquals(MonthStatus.KAPANDI, plan.status)
+        assertEquals(versions + 1, plan.versions.size)
+        assertEquals("kenan", plan.current!!.personOn(may30))
+        val after = com.nobetmaker.core.ledger.HolidayReportBuilder.build(fixed, LocalDate.of(2026, 10, 23))
+            .balances.getValue("kenan").getValue(com.nobetmaker.core.calendar.Category.BAYRAM)
+        assertEquals(before.held + 1.0, after.held, 1e-9)
+        // Uzman: gün asistan hesabından düşer.
+        val uzman = DataOps.correctDay(fixed, may30, null)
+        assertEquals(null, uzman.month(YearMonth.of(2026, 5))!!.current!!.personOn(may30))
+        assertEquals(null, com.nobetmaker.core.ledger.HolidayReportBuilder.build(uzman, LocalDate.of(2026, 10, 23)).events.flatMap { it.days }.single { it.date == may30 }.official)
+
+        // Gerçekte tutan: hesap değişmez, kayıt görünür; resmi kişi seçilince kalkar.
+        val swapped = DataOps.recordActual(seed, may30, "sule")
+        val day = com.nobetmaker.core.ledger.HolidayReportBuilder.build(swapped, LocalDate.of(2026, 10, 23)).events.flatMap { it.days }.single { it.date == may30 }
+        assertEquals("fatma" to "sule", day.official to day.actual)
+        assertEquals(seed.informalChanges.filterNot { it.date == may30 }, DataOps.recordActual(swapped, may30, "fatma").informalChanges.filterNot { it.date == may30 })
+        assertTrue(DataOps.recordActual(swapped, may30, "fatma").informalChanges.none { it.date == may30 })
+        // Gün uzmana çevrilince ya da gerçekte tutan resmi yapılınca takas kaydı kalkar.
+        assertTrue(DataOps.correctDay(swapped, may30, null).informalChanges.none { it.date == may30 })
+        assertTrue(DataOps.correctDay(swapped, may30, "sule").informalChanges.none { it.date == may30 })
+        assertTrue(DataOps.correctDay(swapped, may30, "kenan").informalChanges.any { it.date == may30 })
+    }
+
+    @Test
+    fun `gun turu elle degisir ve takvimdekine donulur`() {
+        val seed = SeedData.build()
+        val apr2 = LocalDate.of(2025, 4, 2) // Ramazan Bayramı 2025 idari izni
+        val cal = { d: com.nobetmaker.core.model.AppData -> com.nobetmaker.core.calendar.CalendarService(d.dayOverrides, d.settings) }
+        assertEquals(com.nobetmaker.core.calendar.Category.BAYRAM, cal(seed).category(apr2))
+        val normal = DataOps.setDayKind(seed, apr2, com.nobetmaker.core.model.DayKind.NORMAL)
+        assertEquals(com.nobetmaker.core.calendar.Category.HAFTA_ICI, cal(normal).category(apr2))
+        // Komşu günler bayramda kalır.
+        assertEquals(com.nobetmaker.core.calendar.Category.BAYRAM, cal(normal).category(LocalDate.of(2025, 4, 3)))
+        val back = DataOps.setDayKind(normal, apr2, com.nobetmaker.core.model.DayKind.IDARI_IZIN)
+        assertTrue(back.dayOverrides.none { it.date == apr2 }, "takvimdeki türe dönünce elle kayıt kalkmalı")
+        // Normal bir günü bayrama bağlamak: yakındaki bayramın olayına katılır.
+        val apr7 = LocalDate.of(2025, 4, 7)
+        val linked = DataOps.setDayKind(seed, apr7, com.nobetmaker.core.model.DayKind.IDARI_IZIN)
+        assertEquals("2025-ramazan", cal(linked).eventId(apr7))
+        assertEquals(com.nobetmaker.core.calendar.Category.BAYRAM, cal(linked).category(apr7))
+        // Bayrama bitişik hafta sonu (türü zaten normal) "normal" denince bayramdan çıkar; "bayram" denince geri girer.
+        val may23 = LocalDate.of(2026, 5, 23)
+        assertEquals(com.nobetmaker.core.calendar.Category.BAYRAM, cal(seed).category(may23))
+        val out = DataOps.setDayKind(seed, may23, com.nobetmaker.core.model.DayKind.NORMAL)
+        assertEquals(com.nobetmaker.core.calendar.Category.CUMARTESI, cal(out).category(may23))
+        assertEquals(com.nobetmaker.core.calendar.Category.BAYRAM, cal(out).category(LocalDate.of(2026, 5, 25)))
+        assertEquals(com.nobetmaker.core.calendar.Category.BAYRAM, cal(DataOps.setDayKind(out, may23, com.nobetmaker.core.model.DayKind.BAYRAM)).category(may23))
+        // Takvimde bayram olan cumartesi "normal" olur, "bayram" denince elle kayıt kalkar.
+        val may30 = LocalDate.of(2026, 5, 30)
+        val sat = DataOps.setDayKind(seed, may30, com.nobetmaker.core.model.DayKind.NORMAL)
+        assertEquals(com.nobetmaker.core.calendar.Category.CUMARTESI, cal(sat).category(may30))
+        assertTrue(DataOps.setDayKind(sat, may30, com.nobetmaker.core.model.DayKind.BAYRAM).dayOverrides.none { it.date == may30 })
+        // Tek başına resmi tatil.
+        val oct = LocalDate.of(2025, 10, 30)
+        assertEquals(com.nobetmaker.core.calendar.Category.RESMI_TATIL, cal(DataOps.setDayKind(seed, oct, com.nobetmaker.core.model.DayKind.RESMI_TATIL)).category(oct))
     }
 
     @Test

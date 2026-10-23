@@ -28,9 +28,9 @@ object DokumSheet {
 
         class Col(val title: String, val x: Float, val w: Float)
         val cols = listOf(
-            Col("", M, 300f), Col("ASİSTANLIK", M + 300f, 230f), Col("KATSAYI", M + 530f, 250f), Col("NÖBET", M + 780f, 170f),
-            Col("BU AY HAFTA SONU", M + 950f, 300f), Col("VİZİT · SON ${dokum.rotationMonths} AY", M + 1250f, 200f),
-            Col("BAYRAM", M + 1450f, 210f), Col("RESMİ TATİL", M + 1660f, w - 2 * M - 1660f),
+            Col("", M, 260f), Col("ASİSTANLIK", M + 260f, 200f), Col("KATSAYI", M + 460f, 220f), Col("NÖBET", M + 680f, 150f),
+            Col("BU AY HAFTA SONU", M + 830f, 290f), Col("CUMARTESİ", M + 1120f, 310f),
+            Col("BAYRAM", M + 1430f, 190f), Col("RESMİ TATİL", M + 1620f, w - 2 * M - 1620f),
         )
         val headY = top + 46f
         cols.forEach { c -> ops += DrawOp.Text(c.x + 4f, headY, c.w - 8f, 28f, c.title, 16f, Colors.MUTED, align = Align.LEFT, weight = 700, tracking = 0.1f) }
@@ -53,7 +53,7 @@ object DokumSheet {
             }
 
             ops += DrawOp.Text(cols[2].x + 4f, y + 8f, cols[2].w, 30f, Dokum.coef(r.duty), 25f, Colors.INK, align = Align.LEFT, weight = 600)
-            val hardText = if (r.noWeekend) "hafta sonu yok" else "hafta sonu ${Dokum.coef(r.hard)}"
+            val hardText = if (r.noWeekend) "hafta sonu yok" else "zor gün ${Dokum.coef(r.hard)}"
             ops += DrawOp.Text(cols[2].x + 4f, y + 36f, cols[2].w, 24f, hardText, 18f, Colors.MUTED, align = Align.LEFT, weight = 500)
 
             val count = if (r.fixedCount != null) "${r.count} *" else "${r.count}"
@@ -72,11 +72,9 @@ object DokumSheet {
                 }
             }
 
-            val visits = r.visits
-            ops += DrawOp.Text(
-                cols[5].x + 4f, y, cols[5].w, ROW_H, visits?.toString() ?: "—", 25f,
-                if (visits == null) Colors.FAINT else Colors.INK, align = Align.LEFT, weight = 600,
-            )
+            val satMain = Dokum.saturdayMain(r)
+            ops += DrawOp.Text(cols[5].x + 4f, y + 8f, cols[5].w, 30f, satMain, 25f, if (r.noWeekend) Colors.FAINT else Colors.INK, align = Align.LEFT, weight = 600)
+            ops += DrawOp.Text(cols[5].x + 4f, y + 36f, cols[5].w, 24f, Dokum.saturdaySub(r, dokum.rotationMonths), 18f, Colors.MUTED, align = Align.LEFT, weight = 500)
             balance(ops, r.bayram, cols[6].x + 4f, y, cols[6].w)
             balance(ops, r.resmi, cols[7].x + 4f, y, cols[7].w)
         }
@@ -136,38 +134,33 @@ object DokumSheet {
             prev = m
             m += 0.25
         }
-        // İsimler üst üste binmesin: çok yakın iki nokta (ör. Kenan–Fatma) altta sola ve sağa, yakın olanlar
-        // sırayla üste ve alta yazılır.
+        // İsimler üst üste binmesin: her isim, önceki isimlere ve noktalara çarpmayan ilk yere (üst, alt, yanlar) yazılır.
         val points = dokum.rows.mapNotNull { r -> r.curveMonths?.let { r to minOf(it, maxM - 3) } }.sortedBy { it.second }
-        fun dot(r: DokumRow, mm: Double): Pair<Float, Float> {
+        // Kutu alanları dıştaki x/y/w/h ile karışmasın diye ayrı adlı.
+        class Box(val left: Float, val top: Float, val bw: Float, val bh: Float) {
+            fun hits(o: Box) = left < o.left + o.bw && o.left < left + bw && top < o.top + o.bh && o.top < top + bh
+        }
+        val centers = points.map { (r, mm) ->
             val color = Colors.parse(r.person.color)
             val cx = gx(mm)
             val cy = gy(dokum.curveAt(mm))
             ops += DrawOp.Rect(cx - 11f, cy - 11f, 22f, 22f, fill = color, stroke = Colors.WHITE, strokeWidth = 3f, radius = 11f)
-            return cx to cy
+            cx to cy
         }
-        fun ink(r: DokumRow) = Colors.shade(Colors.parse(r.person.color), 0.8f)
-        var lastX = -1000f
-        var up = true
-        var i = 0
-        while (i < points.size) {
-            val (r, mm) = points[i]
-            val next = points.getOrNull(i + 1)
-            if (next != null && gx(next.second) - gx(mm) < 30f) {
-                val (ax, ay) = dot(r, mm)
-                val (bx, by) = dot(next.first, next.second)
-                ops += DrawOp.Text(ax - 118f, ay + 12f, 110f, 26f, r.person.name, 18f, ink(r), align = Align.RIGHT, weight = 700)
-                ops += DrawOp.Text(bx + 8f, by + 12f, 120f, 26f, next.first.person.name, 18f, ink(next.first), align = Align.LEFT, weight = 700)
-                lastX = bx
-                up = true
-                i += 2
-                continue
-            }
-            val (cx, cy) = dot(r, mm)
-            up = if (cx - lastX < 70f) !up else true
-            ops += DrawOp.Text(cx - 60f, if (up) cy - 42f else cy + 14f, 120f, 26f, r.person.name, 18f, ink(r), weight = 700)
-            lastX = cx
-            i++
+        val placed = centers.map { (cx, cy) -> Box(cx - 13f, cy - 13f, 26f, 26f) }.toMutableList()
+        points.forEachIndexed { i, (r, _) ->
+            val (cx, cy) = centers[i]
+            val tw = r.person.name.length * 11f + 10f
+            val th = 26f
+            val options = listOf(
+                Box(cx - tw / 2, cy - 42f, tw, th), Box(cx - tw / 2, cy + 14f, tw, th),
+                Box(cx + 14f, cy + 6f, tw, th), Box(cx - 14f - tw, cy + 6f, tw, th),
+                Box(cx + 14f, cy - 34f, tw, th), Box(cx - 14f - tw, cy - 34f, tw, th),
+                Box(cx - tw / 2, cy + 40f, tw, th), Box(cx - tw / 2, cy - 68f, tw, th),
+            )
+            val box = options.firstOrNull { o -> o.left >= x + 4f && o.left + o.bw <= x + w - 4f && placed.none { it.hits(o) } } ?: options[0]
+            placed += box
+            ops += DrawOp.Text(box.left, box.top, box.bw, box.bh, r.person.name, 18f, Colors.shade(Colors.parse(r.person.color), 0.8f), weight = 700)
         }
     }
 

@@ -133,7 +133,8 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
             Stepper("\"Mümkünse\" istek", w.requestMumkunse, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(requestMumkunse = v)) } }
             Stepper("\"Önemsiz\" istek", w.requestOnemsiz, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(requestOnemsiz = v)) } }
             Stepper("Ayda 2. Cuma/Cumartesi/Pazar", w.weekendRepeat, 25.0, 0.0, 2000.0, int) { v -> set { it.copy(penalties = w.copy(weekendRepeat = v)) } }
-            Stepper("Vizit/Cuma/Pazar/Perşembe sırası", w.rotation, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(rotation = v)) } }
+            Stepper("Cumartesi (vizit) sırası", w.visitRotation, 5.0, 0.0, 500.0, int) { v -> set { it.copy(penalties = w.copy(visitRotation = v)) } }
+            Stepper("Cuma/Pazar/Perşembe sırası", w.rotation, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(rotation = v)) } }
             Stepper("Pazartesi sırası (Salı dersi)", w.mondayRotation, 1.0, 0.0, 100.0, int) { v -> set { it.copy(penalties = w.copy(mondayRotation = v)) } }
             Stepper("Uzun hafıza dengesi", w.longMemory, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(longMemory = v)) } }
             Stepper("3 gün aralık", w.gap3, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(gap3 = v)) } }
@@ -157,7 +158,7 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
                 }
             }, Modifier.fillMaxWidth()) { Text("Başlangıç verisine dön") }
         }
-        Text("NöbetMaker 0.4.0", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("NöbetMaker 0.4.1", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.padding(16.dp))
     }
 

@@ -36,7 +36,7 @@ data class AppData(
     fun month(ym: YearMonth): MonthPlan? = months.firstOrNull { it.year == ym.year && it.month == ym.monthValue }
 
     companion object {
-        const val SCHEMA_VERSION = 4
+        const val SCHEMA_VERSION = 5
     }
 }
 
@@ -324,8 +324,10 @@ data class PenaltyWeights(
     val longHolidayProtection: Double = 80.0,
     val requestMumkunse: Double = 60.0,
     val requestOnemsiz: Double = 10.0,
-    /** Vizit/Cuma/Pazar/Perşembe sırasından sapma (sapma² ile çarpılır). */
+    /** Cuma/Pazar/Perşembe sırasından sapma (sapma² ile çarpılır). */
     val rotation: Double = 60.0,
+    /** Cumartesi (vizit) sırasından sapma; en çok tartışma çıkaran gün olduğu için zor esner. */
+    val visitRotation: Double = 150.0,
     /** Pazartesi sırasından sapma (Salı dersini hep aynı kişi kaçırmasın); en kolay esneyen kural. */
     val mondayRotation: Double = 3.0,
     /** Aynı kişiye ayda 2. Cuma, Cumartesi ya da Pazar; neredeyse kesin kural. */

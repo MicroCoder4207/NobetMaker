@@ -27,7 +27,7 @@ class SettingsButtonsTest : AppUiTest() {
         "Temel", "Nöbet günü tatil", "Vizit", "Ertesi gün tatil", "Uzun hafta sonu indirimi",
         "İş günü nöbeti", "Tatil günü nöbeti", "Arefe nöbeti", "Nöbet ertesi düşüm",
         "Uzun tatil koruması", "\"Mümkünse\" istek", "\"Önemsiz\" istek", "Ayda 2. Cuma/Cumartesi/Pazar",
-        "Vizit/Cuma/Pazar/Perşembe sırası", "Pazartesi sırası (Salı dersi)", "Uzun hafıza dengesi",
+        "Cumartesi (vizit) sırası", "Cuma/Pazar/Perşembe sırası", "Pazartesi sırası (Salı dersi)", "Uzun hafıza dengesi",
         "3 gün aralık", "4 gün aralık", "Pzt–Per aynı güne 2. kez", "Aynı ikili sıranın tekrarı", "Aynı bayramda 2. gün",
     )
 

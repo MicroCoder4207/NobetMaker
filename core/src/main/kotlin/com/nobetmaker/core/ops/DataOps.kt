@@ -1,5 +1,6 @@
 package com.nobetmaker.core.ops
 
+import com.nobetmaker.core.calendar.CalendarService
 import com.nobetmaker.core.model.AppData
 import com.nobetmaker.core.model.Assignment
 import com.nobetmaker.core.model.AssignmentSource
@@ -7,6 +8,7 @@ import com.nobetmaker.core.model.ChangeLogEntry
 import com.nobetmaker.core.model.DayInfo
 import com.nobetmaker.core.model.DayKind
 import com.nobetmaker.core.model.DutyRequest
+import com.nobetmaker.core.model.EventKind
 import com.nobetmaker.core.model.HistoryEvent
 import com.nobetmaker.core.model.InformalChange
 import com.nobetmaker.core.model.MonthPlan
@@ -18,6 +20,7 @@ import com.nobetmaker.core.model.QuotaEntry
 import com.nobetmaker.core.model.RosterVersion
 import com.nobetmaker.core.model.Settings
 import com.nobetmaker.core.model.Visit
+import com.nobetmaker.core.rules.RosterIndex
 import com.nobetmaker.core.seed.SeedData
 import com.nobetmaker.core.solver.MonthProblem
 import com.nobetmaker.core.solver.ProblemBuilder
@@ -86,6 +89,20 @@ object AppJson {
                 },
                 historyEvents = d.historyEvents.filterNot { it.id in SeedData.legacyHistoryIds },
                 settings = if (d.settings.rotationMonths == 3) d.settings.copy(rotationMonths = 6) else d.settings,
+            )
+        }
+        if (d.schemaVersion < 5) {
+            // 0.4.1: Fatma asistanlığa Eylül değil Ekim 2023'te başlamış; elle değiştirilmişse dokunulmaz.
+            val old = LocalDate.of(2023, 9, 1)
+            val new = LocalDate.of(2023, 10, 1)
+            d = d.copy(
+                persons = d.persons.map { p ->
+                    if (p.id != "fatma") p
+                    else p.copy(
+                        residencyStart = if (p.residencyStart == old) new else p.residencyStart,
+                        joinDate = if (p.joinDate == old) new else p.joinDate,
+                    )
+                },
             )
         }
         return if (d.schemaVersion == AppData.SCHEMA_VERSION) d else d.copy(schemaVersion = AppData.SCHEMA_VERSION)
@@ -195,6 +212,79 @@ object DataOps {
             }
         }
         return setAssignments(data, ym, list, "${d1.dayOfMonth} ↔ ${d2.dayOfMonth} takas")
+    }
+
+    /**
+     * Herhangi bir günün resmi kaydını elle düzeltir: geçmiş ve kapanmış aylar dahil, kurallara bakılmaz, ayın
+     * durumu değişmez. Taslakta geçerli sürüm güncellenir; diğerlerinde yeni sürüm açılır, eski hali sürümlerde
+     * kalır. [personId] null ise o günü uzman tutmuş sayılır (asistan yok).
+     */
+    fun correctDay(data: AppData, date: LocalDate, personId: String?): AppData {
+        val ym = YearMonth.from(date)
+        val base = if (data.month(ym) != null) data
+        else replaceMonth(data, MonthPlan(ym.year, ym.monthValue, if (ym < YearMonth.now()) MonthStatus.KAPANDI else MonthStatus.TASLAK))
+        val plan = base.month(ym)!!
+        val kept = plan.current?.assignments.orEmpty().filterNot { it.date == date }
+        val list = (if (personId == null) kept else kept + Assignment(date, personId, locked = true, source = AssignmentSource.ELLE)).sortedBy { it.date }
+        val name = personId?.let { data.person(it)?.name ?: it } ?: "uzman"
+        val note = "${date.dayOfMonth}. gün elle düzeltildi: $name"
+        val versions = when {
+            plan.versions.isEmpty() -> listOf(RosterVersion(1, now(), note, list))
+            plan.status == MonthStatus.TASLAK -> plan.versions.dropLast(1) + plan.current!!.copy(createdAt = now(), note = note, assignments = list)
+            else -> plan.versions + RosterVersion(plan.current!!.number + 1, now(), note, list)
+        }
+        // Uzman yazıldıysa ya da gerçekte tutan artık resmi kişiyse o günün takas kaydı anlamını yitirir.
+        val informal = base.informalChanges.filterNot { it.date == date && (personId == null || it.actualPersonId == personId) }
+        return log(replaceMonth(base.copy(informalChanges = informal), plan.copy(versions = versions)), "Elle düzeltme", "$date: $name")
+    }
+
+    /**
+     * Günü gerçekte kimin tuttuğunu kaydeder (takas; hesap resmi listeden yapılır). Kapanmış aylarda da çalışır.
+     * Resmi kişi seçilirse gayriresmi kayıt kalkar. Resmi kaydı olmayan (uzman) günde değişiklik yapmaz.
+     */
+    fun recordActual(data: AppData, date: LocalDate, actualId: String): AppData {
+        val official = RosterIndex(data).official[date] ?: return data
+        val cleared = data.copy(informalChanges = data.informalChanges.filterNot { it.date == date })
+        return if (actualId == official) log(cleared, "Gayriresmi değişim geri alındı", date.toString())
+        else addInformal(cleared, date, official, actualId, null, null)
+    }
+
+    /**
+     * Günün türünü elle değiştirir (bayram, arefe, idari izin, resmi tatil, yılbaşı ya da normal). Bayram türleri
+     * yakınındaki bayrama bağlanır; takvimdeki türe dönülünce elle kayıt kalkar, vizit işareti korunur.
+     */
+    fun setDayKind(data: AppData, date: LocalDate, kind: DayKind): AppData {
+        val cal = CalendarService(data.dayOverrides, data.settings)
+        val current = cal.day(date)
+        val builtIn = cal.builtInDay(date)
+        fun restored() = builtIn.copy(plannedVisit = current.plannedVisit, actualVisit = current.actualVisit, extraPoints = current.extraPoints, note = current.note)
+        val updated = if (kind == DayKind.NORMAL) {
+            // Bayrama bitişik hafta sonu kendiliğinden bayram sayılır; "normal" denince olaydan açıkça çıkarılır.
+            val plain = current.copy(kind = kind, eventId = null, name = null)
+            val linked = CalendarService(data.dayOverrides.filterNot { it.date == date } + plain, data.settings).eventId(date) != null
+            when {
+                linked -> plain.copy(eventId = "")
+                builtIn.kind == DayKind.NORMAL -> restored()
+                else -> plain
+            }
+        } else if (kind == builtIn.kind) {
+            restored()
+        } else {
+            fun bayram(id: String?) = id != null && cal.eventKind(id) == EventKind.BAYRAM
+            val near = (1..10L).flatMap { listOf(date.minusDays(it), date.plusDays(it)) }.map { cal.day(it) }.firstOrNull { bayram(it.eventId) }
+            when (kind) {
+                DayKind.YILBASI -> current.copy(kind = kind, eventId = "${date.year}-yilbasi", name = current.name ?: kind.label)
+                DayKind.RESMI_TATIL -> current.copy(kind = kind, eventId = current.eventId?.takeIf { it.isNotEmpty() && !bayram(it) } ?: date.toString(), name = current.name ?: kind.label)
+                else -> {
+                    // Bayram, arefe, idari izin: yakındaki bayrama bağlanır.
+                    val link = if (bayram(current.eventId)) current else near
+                    current.copy(kind = kind, eventId = link?.eventId ?: "elle-$date", name = current.name ?: link?.name ?: kind.label)
+                }
+            }
+        }
+        val rest = data.dayOverrides.filterNot { it.date == date }
+        val list = if (updated == builtIn) rest else rest + updated
+        return log(data.copy(dayOverrides = list.sortedBy { it.date }), "Gün türü", "$date: ${kind.label}")
     }
 
     fun setLock(data: AppData, ym: YearMonth, date: LocalDate, locked: Boolean): AppData {

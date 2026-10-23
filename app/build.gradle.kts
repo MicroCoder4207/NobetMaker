@@ -14,8 +14,8 @@ android {
         applicationId = "com.nobetmaker"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "0.4.0"
+        versionCode = 8
+        versionName = "0.4.1"
     }
 
     // Sabit imza: yeni sürümler eskisinin üstüne veriler silinmeden kurulabilsin.

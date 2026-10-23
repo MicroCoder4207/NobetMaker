@@ -5,11 +5,15 @@ import com.nobetmaker.core.calendar.Category
 import com.nobetmaker.core.calendar.RotationGroup
 import com.nobetmaker.core.ledger.Ledger
 import com.nobetmaker.core.model.AppData
+import com.nobetmaker.core.model.Assignment
 import com.nobetmaker.core.model.CoefficientPeriod
+import com.nobetmaker.core.model.MonthPlan
+import com.nobetmaker.core.model.MonthStatus
 import com.nobetmaker.core.model.Period
 import com.nobetmaker.core.model.PeriodType
 import com.nobetmaker.core.model.Person
 import com.nobetmaker.core.model.PersonRule
+import com.nobetmaker.core.model.RosterVersion
 import com.nobetmaker.core.model.RuleType
 import com.nobetmaker.core.ops.DataOps
 import com.nobetmaker.core.rules.Availability
@@ -40,7 +44,7 @@ class CurveTest {
         val p = { id: String -> seed.person(id)!! }
         near(0.808, coef.on(p("kenan"), nov15).duty)
         near(0.658, coef.on(p("kenan"), nov15).hardDay)
-        assertTrue(coef.on(p("fatma"), nov15).duty > coef.on(p("kenan"), nov15).duty, "Fatma bir ay çömez, çok az yüksek")
+        assertTrue(coef.on(p("fatma"), nov15).duty > coef.on(p("kenan"), nov15).duty, "Fatma iki ay çömez, çok az yüksek")
         assertTrue(coef.on(p("fatma"), nov15).duty - coef.on(p("kenan"), nov15).duty < 0.01)
         near(0.971, coef.on(p("betul"), nov15).duty, 0.002)
         // Betül Aralık'ta son yılına giriyor.
@@ -139,6 +143,42 @@ class CurveTest {
         val days = (1..ym.lengthOfMonth()).map { ym.atDay(it) }
         val state = Ledger(data, cal, avail, RosterIndex(data)).rotation(team, ym.minusMonths(6).atDay(1), ym.atDay(1), days, { _, _ -> true })
         assertEquals(listOf("p6", "p5", "p4", "p3"), state.queue[RotationGroup.VIZIT.ordinal])
+    }
+
+    @Test
+    fun `cumartesi once son yila girmeyenlere kalanlar kidemlilerde sirayla`() {
+        fun person(id: String, seniority: Int, start: LocalDate) =
+            Person(id, id, seniority, "#343A40", residencyStart = start, dutyStart = LocalDate.of(2025, 9, 1))
+        val team = listOf(
+            person("k1", 1, LocalDate.of(2023, 7, 1)),
+            person("k2", 2, LocalDate.of(2023, 8, 1)),
+            person("c1", 3, LocalDate.of(2024, 6, 1)),
+            person("c2", 4, LocalDate.of(2024, 9, 1)),
+            person("c3", 5, LocalDate.of(2025, 1, 1)),
+            person("c4", 6, LocalDate.of(2025, 3, 1)),
+        )
+        fun month(ym: YearMonth, vararg days: Pair<Int, String>) = MonthPlan(
+            ym.year, ym.monthValue, MonthStatus.KAPANDI,
+            versions = listOf(RosterVersion(1, "", null, days.map { (d, id) -> Assignment(ym.atDay(d), id) })),
+        )
+        // k1 en son 17 Ekim'de, k2 22 Ağustos'ta cumartesi tuttu; ikisi de son yılda.
+        val data = AppData(persons = team, months = listOf(month(YearMonth.of(2026, 8), 22 to "k2"), month(YearMonth.of(2026, 10), 17 to "k1")))
+        val cal = CalendarService(data.dayOverrides, data.settings)
+        val avail = Availability(data, cal)
+        assertTrue(avail.coefficients.isSenior(team[0], LocalDate.of(2027, 1, 2)))
+        assertFalse(avail.coefficients.isSenior(team[2], LocalDate.of(2027, 1, 2)))
+        val ledger = Ledger(data, cal, avail, RosterIndex(data))
+        fun state(ym: YearMonth) = ledger.rotation(team, ym.minusMonths(6).atDay(1), ym.atDay(1), (1..ym.lengthOfMonth()).map { ym.atDay(it) }, { _, _ -> true })
+
+        // Şubat 2027: 4 cumartesi, 4 çömez; kıdemliye cumartesi düşmez.
+        assertEquals(listOf("c4", "c3", "c2", "c1"), state(YearMonth.of(2027, 2)).queue[RotationGroup.VIZIT.ordinal])
+        // Ocak 2027: 5 cumartesi; artan biri en uzun süredir tutmayan kıdemliye (k2) gider.
+        val jan = state(YearMonth.of(2027, 1))
+        assertEquals(listOf("c4", "c3", "c2", "c1", "k2"), jan.queue[RotationGroup.VIZIT.ordinal])
+        // Cumartesi tutan kıdemliye aynı ay pazar verilmez; kalan pazar diğer kıdemliye gider.
+        val sundays = jan.queue[RotationGroup.PAZAR.ordinal]
+        assertFalse("k2" in sundays, "k2 aynı ay hem cumartesi hem pazar: $sundays")
+        assertTrue("k1" in sundays, "pazarlar: $sundays")
     }
 
     @Test

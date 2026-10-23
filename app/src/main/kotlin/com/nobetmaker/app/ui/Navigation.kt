@@ -47,6 +47,7 @@ import androidx.navigation.compose.rememberNavController
 import com.nobetmaker.app.ui.screens.CalendarScreen
 import com.nobetmaker.app.ui.screens.GenerateScreen
 import com.nobetmaker.app.ui.screens.HistoryScreen
+import com.nobetmaker.app.ui.screens.HolidayScreen
 import com.nobetmaker.app.ui.screens.PeopleScreen
 import com.nobetmaker.app.ui.screens.PersonEditScreen
 import com.nobetmaker.app.ui.screens.PrepareScreen
@@ -70,6 +71,7 @@ class Nav(private val controller: NavHostController) {
     fun generate(ym: YearMonth) = controller.navigate("generate/$ym")
     fun person(id: String?) = controller.navigate("person/${id ?: "new"}")
     fun history() = controller.navigate("history")
+    fun holidays() = controller.navigate("holidays")
     fun calendar() = controller.navigate("calendar") {
         popUpTo(controller.graph.findStartDestination().id) { inclusive = false }
         launchSingleTop = true
@@ -146,6 +148,7 @@ fun NobetNavHost() {
                     Pane { PersonEditScreen(vm, nav, entry.arguments?.getString("id")?.takeIf { it != "new" }) }
                 }
                 composable("history") { Pane { HistoryScreen(vm, nav) } }
+                composable("holidays") { Pane(960.dp) { HolidayScreen(vm, nav) } }
             }
         }
     }

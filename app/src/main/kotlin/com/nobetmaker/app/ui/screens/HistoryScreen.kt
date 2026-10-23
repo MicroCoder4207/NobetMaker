@@ -54,7 +54,7 @@ fun HistoryScreen(vm: AppViewModel, nav: Nav) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Geçmiş özel günler") },
+                title = { Text("Liste öncesi toplu kayıtlar") },
                 navigationIcon = { IconButton(onClick = { nav.back() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Geri") } },
             )
         },
@@ -64,7 +64,8 @@ fun HistoryScreen(vm: AppViewModel, nav: Nav) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
-                "Tam listesi olmayan dönemlerin (2023 – Ekim 2025) bayram, yılbaşı ve resmi tatil nöbetleri. Yalnızca bugünkü ekibin günlerini girin; kalanları uzmanlar ya da ayrılanlar tutmuş olabilir.",
+                "Gün gün listesi olmayan dönemlerin (ilk listeden önce) bayram, yılbaşı ve resmi tatil nöbetleri, toplu olarak. Listesi olan günler " +
+                    "\"Bayram ve tatil kayıtları\" ekranından gün gün düzeltilir. Uzun hafıza başlangıcı (Ayarlar) bu dönemi kapsamıyorsa kayıtlar hesaba girmez.",
                 style = MaterialTheme.typography.bodySmall,
             )
             OutlinedButton(onClick = { creating = true }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("Kayıt ekle") }
