@@ -3,6 +3,8 @@ package com.nobetmaker.core.stats
 import com.nobetmaker.core.calendar.CalendarService
 import com.nobetmaker.core.calendar.Category
 import com.nobetmaker.core.calendar.RotationGroup
+import com.nobetmaker.core.ledger.CountBalance
+import com.nobetmaker.core.ledger.CountLedger
 import com.nobetmaker.core.ledger.Ledger
 import com.nobetmaker.core.model.AppData
 import com.nobetmaker.core.model.Person
@@ -33,6 +35,12 @@ class PersonStats(
     val longDeviation: Map<Category, Double>,
     val requestsTotal: Int,
     val requestsMet: Int,
+    /** Zor günler (cuma, cumartesi, pazar) toplamı, sıra hafızası içinde. */
+    val hardCount: Int = 0,
+    /** Zor gün toplamında tutulan − payı; pozitif = payından fazla. */
+    val hardBalance: Double = 0.0,
+    /** Nöbet sayısı dengesi (sayı dengesi başlangıcından ya da aralığın başından itibaren, hoca kararları hariç). */
+    val countBalance: CountBalance? = null,
 )
 
 /** İstatistik ekranı (§12-8). */
@@ -49,6 +57,8 @@ object StatsService {
             p.leaveDate == null || !p.leaveDate.isBefore(start)
         }.sortedBy { it.seniority }
 
+        val countFrom = maxOf(from, YearMonth.from(data.settings.countBalanceStart))
+        val counts = if (countFrom > to) emptyMap() else CountLedger(data, avail, roster).balance(countFrom, to.plusMonths(1))
         val rotation = ledger.rotation(persons, endExclusive.minusMonths(data.settings.rotationMonths.toLong()), endExclusive, emptyList(), availableInPlan = { _, _ -> true })
         val long = ledger.longMemory(persons, endExclusive, emptyList())
 
@@ -89,6 +99,9 @@ object StatsService {
                 longDeviation = long.categories.withIndex().associate { (i, c) -> c to long.base.getValue(p.id)[i] },
                 requestsTotal = total,
                 requestsMet = met,
+                hardCount = rotation.hardCount[p.id] ?: 0,
+                hardBalance = -(rotation.hardDebt[p.id] ?: 0.0),
+                countBalance = counts[p.id],
             )
         }
     }

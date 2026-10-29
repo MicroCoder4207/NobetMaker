@@ -186,7 +186,9 @@ object DokumBuilder {
             if (joining.isNotEmpty()) notes += "${joinNames(joining.map { it.name })} son yıla giriyor; cumartesi sırasına katılır."
         }
         notes += "Son yıldakine aynı ay hem cumartesi hem pazar yazılmaz."
-        notes += "Cuma ve pazar son $months aya göre (kıdemliye seyrek), pazartesi ve perşembe eşit sırayla."
+        notes += "Zor günler (cuma, cumartesi, pazar) birlikte sayılır; kıdemlinin payı kıdem eğrisinden."
+        notes += "Cumartesi tutmayan kıdemli cuma ve pazarı önce alır; kimseye üçü birden yazılmaz."
+        notes += "Pazartesi ve perşembe son $months aya göre herkese eşit sırayla döner."
         val satDays = days.filter { it.dayOfWeek == DayOfWeek.SATURDAY && cal.rotationGroup(it, history = false) == RotationGroup.VIZIT }
         if (satDays.isNotEmpty() && plan?.current != null) {
             val without = rows.filter { r ->
@@ -199,9 +201,19 @@ object DokumBuilder {
         val since = maxOf(roster.official.keys.minOrNull() ?: data.settings.longMemoryStart, data.settings.longMemoryStart)
         notes += "Bayram, resmi tatil ve yılbaşı ilk listeden (${monthNameTr(since.monthValue)} ${since.year}) beri sayılır; geride olan önce yazılır."
         notes += "Yeni başlayana ilk ay vizit yazılmaz. Takaslar hesabı değiştirmez."
-        val fixedNotes = rows.filter { it.fixedCount != null }.sortedBy { it.person.seniority }
-        if (fixedNotes.isNotEmpty()) {
-            notes += "Sabitlenen nöbet sayısı: " + fixedNotes.joinToString(", ") { "${it.person.name} ${it.fixedCount}" } + "."
+        // Hoca kararı borç yazmaz; bizim elle verdiğimiz sayının farkı sonraki aylarda dengelenir (§5.4).
+        val decided = rows.filter { r -> r.person.id in ruled || plan?.quotas.orEmpty().any { it.personId == r.person.id && it.manual && it.decision } }
+            .sortedBy { it.person.seniority }
+        if (decided.isNotEmpty()) {
+            notes += "Hoca kararı: " + decided.joinToString(", ") { "${it.person.name} ${it.fixedCount}" } + "; kalan günler diğerlerine katsayıyla dağıtıldı."
+        }
+        val ownFixed = rows.filter { it.fixedCount != null && it !in decided }.sortedBy { it.person.seniority }
+        if (ownFixed.isNotEmpty()) {
+            notes += "Elle verilen sayı: " + ownFixed.joinToString(", ") { "${it.person.name} ${it.fixedCount}" } + " (fark sonraki aylarda dengelenir)."
+        }
+        val countStart = YearMonth.from(data.settings.countBalanceStart)
+        if (month >= countStart) {
+            notes += "Nöbet sayıları ${monthNameTr(countStart.monthValue)} ${countStart.year} listesinden beri dengelenir: fazla tutan sonraki ay az tutar."
         }
 
         return Dokum(

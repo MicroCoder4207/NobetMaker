@@ -139,7 +139,8 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
             Stepper("Uzun hafıza dengesi", w.longMemory, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(longMemory = v)) } }
             Stepper("3 gün aralık", w.gap3, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(gap3 = v)) } }
             Stepper("4 gün aralık", w.gap4, 1.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(gap4 = v)) } }
-            Stepper("Pzt–Per aynı güne 2. kez", w.weekdayRepeat, 1.0, 0.0, 100.0, int) { v -> set { it.copy(penalties = w.copy(weekdayRepeat = v)) } }
+            Stepper("Ayda ikinci pazartesi", w.mondayRepeat, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(mondayRepeat = v)) } }
+            Stepper("Sal–Per aynı güne 2. kez", w.weekdayRepeat, 1.0, 0.0, 100.0, int) { v -> set { it.copy(penalties = w.copy(weekdayRepeat = v)) } }
             Stepper("Aynı ikili sıranın tekrarı", w.sequenceRepeat, 1.0, 0.0, 100.0, int) { v -> set { it.copy(penalties = w.copy(sequenceRepeat = v)) } }
             Stepper("Aynı bayramda 2. gün", w.sameBayram, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(sameBayram = v)) } }
             TextButton(onClick = { set { it.copy(points = Settings().points, hours = Settings().hours, penalties = Settings().penalties) } }) {

@@ -20,6 +20,10 @@ class RotationState(
     val target: Map<String, IntArray>,
     /** Planlanan ayın sırası: grup başına, günlere sırayla verilecek kişi id'leri. */
     val queue: List<List<String>>,
+    /** Zor günler (cuma, cumartesi, pazar) toplamında beklenen − tutulan; pozitif = geride. */
+    val hardDebt: Map<String, Double> = emptyMap(),
+    /** Zor günler toplamında tutulan gün sayısı (sıra hafızası içinde). */
+    val hardCount: Map<String, Int> = emptyMap(),
 )
 
 /** Uzun hafızalı kategorilerin (Yılbaşı, Bayram, Resmi tatil) durumu; dizi sırası [Category.LONG_MEMORY]. */
@@ -46,6 +50,8 @@ class Ledger(
      * süredir tutmayan, o da eşitse çömez. Vizit (cumartesi) kıdem sırasıyla gider: son yıla girmemiş herkes ayda
      * birer tutar (aralarında borç, eşitlikte çömez önce); artan cumartesiler son yıldakilere sırayla, en uzun
      * süredir cumartesi tutmayan önce. Son yıldakine aynı ay hem cumartesi hem pazar verilmez (sıkışırsa esner).
+     * Cuma ve pazar önce zor gün toplamına (cuma + cumartesi + pazar, kıdem eğrisinin zor gün katsayısıyla) bakar:
+     * cumartesi tutmayan kıdemli cuma ve pazarı önce alır. Kimseye aynı ay üçü birden verilmez (sıkışırsa esner).
      * Planlanan ayın günleri bu sırayla dağıtılır.
      */
     fun rotation(
@@ -56,6 +62,8 @@ class Ledger(
         availableInPlan: (Person, LocalDate) -> Boolean,
         wants: (Person, LocalDate) -> Boolean = { _, _ -> false },
         avoids: (Person, LocalDate) -> Boolean = { _, _ -> false },
+        /** Kişinin istekleri dışında kalan nöbet sayısı; dolan kişiye sıradan gün verilmez (sıkışırsa esner). */
+        room: (Person) -> Int = { Int.MAX_VALUE },
     ): RotationState {
         val groups = RotationGroup.entries
         val k = groups.size
@@ -75,6 +83,13 @@ class Ledger(
             return if (total <= 0.0) emptyList() else weights.map { (id, w) -> id to w / total }
         }
 
+        // Zor günler (cuma, cumartesi, pazar) ayrıca toplam olarak dengelenir: toplamın payı kıdem eğrisinin zor gün
+        // katsayısıyla. Cumartesi kıdem sırasıyla gittiği için cumartesi tutmayan kıdemli cuma ve pazarı önce alır.
+        val hardGroups = setOf(RotationGroup.VIZIT, RotationGroup.CUMA, RotationGroup.PAZAR)
+        val hardBalance = everyone.associate { it.id to doubleArrayOf(0.0) }
+        val hardHeld = everyone.associate { it.id to intArrayOf(0) }
+        fun hardShares(date: LocalDate, among: Collection<Person>) = shares(date, RotationGroup.CUMA, among)
+
         var d = windowStart
         while (d.isBefore(historyEnd)) {
             val who = roster.official[d]
@@ -83,12 +98,19 @@ class Ledger(
                 for ((id, share) in shares(d, group, everyone)) expected.getValue(id)[group.ordinal] += share
                 count[who]?.let { it[group.ordinal]++ }
                 last[who]?.set(group.ordinal, d)
+                if (group in hardGroups) {
+                    for ((id, share) in hardShares(d, everyone)) hardBalance.getValue(id)[0] += share
+                    hardBalance[who]?.let { it[0] -= 1.0 }
+                    hardHeld[who]?.let { it[0]++ }
+                }
             }
             d = d.plusDays(1)
         }
         val debt = everyone.associate { p -> p.id to DoubleArray(k) { expected.getValue(p.id)[it] - count.getValue(p.id)[it] } }
 
         val target = persons.associate { it.id to IntArray(k) }
+        val hardWork = persons.associate { it.id to hardBalance.getValue(it.id)[0] }.toMutableMap()
+        val left = persons.associate { it.id to room(it) }.toMutableMap()
         val queue = groups.map { group ->
             val days = planDays.filter { cal.rotationGroup(it, history = false) == group }
             val candidates = persons.filter { p -> days.any { availableInPlan(p, it) && availability.eligibleForShare(p, it) } }
@@ -98,6 +120,7 @@ class Ledger(
             val usedWeekdays = HashMap<String, MutableSet<java.time.DayOfWeek>>()
             days.map { day ->
                 for ((id, share) in shares(day, group, candidates)) work[id] = work.getValue(id) + share
+                if (group in hardGroups) for ((id, share) in hardShares(day, candidates)) hardWork[id] = hardWork.getValue(id) + share
                 // İstek sıradan önce gelir. Aynı kişiye ayda haftanın aynı gününden ikincisi verilmez;
                 // mümkün değilse kural esner.
                 val wanting = candidates.filter { wants(it, day) && availableInPlan(it, day) }
@@ -107,8 +130,14 @@ class Ledger(
                     group == RotationGroup.PAZAR && availability.coefficients.isSenior(p, day) &&
                         target.getValue(p.id)[RotationGroup.VIZIT.ordinal] > 0
                 }
+                // Kimseye aynı ay cuma, cumartesi ve pazarın üçü birden verilmez; sıkışırsa esner.
+                val tripleWeekend = { p: Person ->
+                    group == RotationGroup.PAZAR && target.getValue(p.id).let { it[RotationGroup.VIZIT.ordinal] > 0 && it[RotationGroup.CUMA.ordinal] > 0 }
+                }
+                val roomy = { p: Person -> left.getValue(p.id) > 0 }
                 val pool = wanting
-                    .ifEmpty { fresh.filter { availableInPlan(it, day) && !avoids(it, day) && !doubleWeekend(it) } }
+                    .ifEmpty { fresh.filter { roomy(it) && availableInPlan(it, day) && !avoids(it, day) && !doubleWeekend(it) && !tripleWeekend(it) } }
+                    .ifEmpty { fresh.filter { roomy(it) && availableInPlan(it, day) && !avoids(it, day) } }
                     .ifEmpty { fresh.filter { availableInPlan(it, day) && !avoids(it, day) } }
                     .ifEmpty { fresh.filter { availableInPlan(it, day) } }
                     .ifEmpty { fresh }
@@ -128,18 +157,28 @@ class Ledger(
                             else -> juniors.compare(a, b)
                         }
                     }
+                } else if (group in hardGroups) {
+                    // Cuma ve pazar: önce zor gün toplamındaki borç, sonra o günün kendi sırası.
+                    compareByDescending<Person> { Math.round(hardWork.getValue(it.id) * 2) / 2.0 }
+                        .then(byDebt).thenBy { lastWork[it.id] ?: LocalDate.MIN }.thenByDescending { it.seniority }
                 } else {
                     byDebt.thenBy { lastWork[it.id] ?: LocalDate.MIN }.thenByDescending { it.seniority }
                 }
                 val pick = pool.sortedWith(order).first()
+                if (pick !in wanting) left[pick.id] = left.getValue(pick.id) - 1
                 target.getValue(pick.id)[group.ordinal]++
                 usedWeekdays.getOrPut(pick.id) { HashSet() } += day.dayOfWeek
                 work[pick.id] = work.getValue(pick.id) - 1.0
+                if (group in hardGroups) hardWork[pick.id] = hardWork.getValue(pick.id) - 1.0
                 lastWork[pick.id] = day
                 pick.id
             }
         }
-        return RotationState(debt, count, last, target, queue)
+        return RotationState(
+            debt, count, last, target, queue,
+            hardDebt = everyone.associate { it.id to hardBalance.getValue(it.id)[0] },
+            hardCount = everyone.associate { it.id to hardHeld.getValue(it.id)[0] },
+        )
     }
 
     private class Event(val kind: EventKind, val dates: List<LocalDate>, val days: Map<String, Double>, val present: Set<String>)

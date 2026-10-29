@@ -4,6 +4,7 @@ import com.nobetmaker.core.calendar.CalendarService
 import com.nobetmaker.core.calendar.Category
 import com.nobetmaker.core.calendar.TurkishHolidays
 import com.nobetmaker.core.calendar.monthNameTr
+import com.nobetmaker.core.ledger.CountLedger
 import com.nobetmaker.core.ledger.Ledger
 import com.nobetmaker.core.model.AppData
 import com.nobetmaker.core.model.Assignment
@@ -239,8 +240,8 @@ object ProblemBuilder {
             }
             persons[p].id to count
         }
-        val prevMonth = data.month(month.minusMonths(1))
-        val carryIn = prevMonth?.quotas?.associate { it.personId to it.carryOut }.orEmpty()
+        // Devreden: Kasım 2026'dan beri resmi listeden hesaplanan sayı dengesi (hoca kararları hariç, §5.4).
+        val carryIn = CountLedger(data, avail, roster).carryInto(month)
         // Kişiye özel "ayda sabit sayı" kuralı; elle sabitlenen sayı ondan önce gelir.
         val ruleFixed = persons.mapNotNull { p ->
             val rule = p.rules.firstOrNull { it.type == RuleType.MONTHLY_COUNT && it.count != null && days.any { d -> it.appliesOn(d) } }
@@ -265,11 +266,14 @@ object ProblemBuilder {
         // Defter.
         val personPos = persons.withIndex().associate { (i, p) -> p.id to i }
         fun dayIdx(d: LocalDate) = (d.toEpochDay() - first.toEpochDay()).toInt()
+        val wantedDays = IntArray(P).also { arr -> wants.map { it.p to it.day }.distinct().forEach { (p, _) -> arr[p]++ } }
         val rotation = ledger.rotation(
             persons, first.minusMonths(settings.rotationMonths.toLong()), first, days,
             availableInPlan = { p, d -> available[personPos.getValue(p.id)][dayIdx(d)] },
             wants = { p, d -> wants.any { it.p == personPos.getValue(p.id) && it.day == dayIdx(d) } },
             avoids = { p, d -> softAvoid[personPos.getValue(p.id)][dayIdx(d)] > 0.0 },
+            // İstediği günler nöbet sayısını dolduran kişiye sıradan gün verilmez.
+            room = { p -> personPos.getValue(p.id).let { i -> (quotas[i] - wantedDays[i]).coerceAtLeast(0) } },
         )
         val rotationIndex = IntArray(D) { cal.rotationGroup(days[it], history = false)?.ordinal ?: -1 }
         val rotationTarget = Array(P) { rotation.target.getValue(persons[it].id) }

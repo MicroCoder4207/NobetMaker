@@ -162,7 +162,8 @@ class Objective(private val pr: MonthProblem) {
         }
         for (d in 0 until 4) {
             if (weekday[d] > 1) {
-                val v = (weekday[d] - 1) * w.weekdayRepeat
+                // İkinci pazartesi Salı dersini ikinci kez kaçırtır; diğer hafta içi tekrarlardan ağır.
+                val v = (weekday[d] - 1) * if (d == 0) w.mondayRepeat else w.weekdayRepeat
                 cost += v
                 collect?.invoke(Penalty(PenaltyKind.SAME_WEEKDAY, p, -1, v, "$name: ayda ${weekday[d]} ${weekdayNames[d]}"))
             }

@@ -36,7 +36,7 @@ data class AppData(
     fun month(ym: YearMonth): MonthPlan? = months.firstOrNull { it.year == ym.year && it.month == ym.monthValue }
 
     companion object {
-        const val SCHEMA_VERSION = 5
+        const val SCHEMA_VERSION = 6
     }
 }
 
@@ -246,6 +246,11 @@ data class QuotaEntry(
     val carryOut: Double = 0.0,
     /** Elle sabitlendi; kalan günler diğerlerine algoritmayla dağıtılır. */
     val manual: Boolean = false,
+    /**
+     * Hoca kararı: kişinin bu ayki sayısı kararla belirlendi, ona borç ya da alacak yazılmaz (§5.4). Kapalıysa
+     * elle sabitleme bizim düzeltmemizdir; fark sonraki aylarda o kişiye geri yansır.
+     */
+    val decision: Boolean = false,
 )
 
 @Serializable
@@ -335,8 +340,10 @@ data class PenaltyWeights(
     val longMemory: Double = 30.0,
     val gap3: Double = 15.0,
     val gap4: Double = 5.0,
-    /** Aynı kişiye ayda Pzt–Per'den aynı güne 2. kez. */
+    /** Aynı kişiye ayda Sal–Per'den aynı güne 2. kez. */
     val weekdayRepeat: Double = 5.0,
+    /** Aynı kişiye ayda 2. pazartesi (Salı dersini iki kez kaçırır). */
+    val mondayRepeat: Double = 30.0,
     /** Ard arda iki günün aynı ikiliyle (ör. Aslı → Oğuz) ayda bir kez daha dizilmesi. */
     val sequenceRepeat: Double = 8.0,
     val sameBayram: Double = 40.0,
@@ -352,6 +359,8 @@ data class Settings(
     /** Vizit/Cuma/Pazar/Perşembe/Pazartesi sırasının geriye baktığı ay sayısı. */
     val rotationMonths: Int = 6,
     val longMemoryStart: LocalDate = LocalDate.of(2023, 1, 1),
+    /** Nöbet sayısı dengesinin başladığı ay (uygulamanın ilk listesi); öncesi elle yapılmış eski düzen sayılır. */
+    val countBalanceStart: LocalDate = LocalDate.of(2026, 11, 1),
     val excelTitle: String = "Tıbbi Mikrobiyoloji Asistan Nöbet Listesi",
     val curve: SeniorityCurve = SeniorityCurve(),
     /** Liste görseline, PDF'e ve Excel'e nöbet dökümü eklenir (§14.3). */

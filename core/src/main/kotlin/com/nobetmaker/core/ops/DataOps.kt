@@ -105,6 +105,10 @@ object AppJson {
                 },
             )
         }
+        if (d.schemaVersion < 6) {
+            // 0.4.2: önceden elle sabitlenen sayılar borç yazmıyordu; hoca kararı olarak işaretlenir (§5.4).
+            d = d.copy(months = d.months.map { m -> m.copy(quotas = m.quotas.map { q -> if (q.manual) q.copy(decision = true) else q }) })
+        }
         return if (d.schemaVersion == AppData.SCHEMA_VERSION) d else d.copy(schemaVersion = AppData.SCHEMA_VERSION)
     }
 }
@@ -133,11 +137,17 @@ object DataOps {
     /** Önerilen kotaları yeniden hesaplar; kullanıcının değiştirmediği kotalar öneriyi izler. */
     private fun manualQuotas(plan: MonthPlan) = plan.quotas.filter { it.manual }.associate { it.personId to it.final }
 
+    /** Yeniden hesaplanan sayılarda "hoca kararı" işaretleri korunur; yeni sabitlenen kişi varsayılan olarak hoca kararıdır. */
+    private fun withDecisions(entries: List<QuotaEntry>, flags: Map<String, Boolean>): List<QuotaEntry> =
+        entries.map { if (it.manual) it.copy(decision = flags[it.personId] ?: true) else it }
+
+    private fun decisionFlags(plan: MonthPlan) = plan.quotas.filter { it.manual }.associate { it.personId to it.decision }
+
     /** Önerileri yeniden hesaplar; elle sabitlenenler kalır, kalan günler diğerlerine dağılır. */
     fun refreshQuotas(data: AppData, ym: YearMonth): AppData {
         val plan = data.month(ym) ?: return ensureMonth(data, ym)
         if (plan.status == MonthStatus.KAPANDI) return data
-        val fresh = ProblemBuilder.suggestedQuotas(data, ym, manualQuotas(plan))
+        val fresh = withDecisions(ProblemBuilder.suggestedQuotas(data, ym, manualQuotas(plan)), decisionFlags(plan))
         return if (fresh == plan.quotas) data else replaceMonth(data, plan.copy(quotas = fresh))
     }
 
@@ -150,13 +160,27 @@ object DataOps {
     fun setQuota(data: AppData, ym: YearMonth, personId: String, value: Int): AppData {
         val plan = data.month(ym) ?: return data
         val fixed = manualQuotas(plan) + (personId to value.coerceAtLeast(0))
-        return replaceMonth(data, plan.copy(quotas = ProblemBuilder.suggestedQuotas(data, ym, fixed)))
+        val quotas = withDecisions(ProblemBuilder.suggestedQuotas(data, ym, fixed), decisionFlags(plan))
+        val name = data.person(personId)?.name ?: personId
+        return log(replaceMonth(data, plan.copy(quotas = quotas)), "Nöbet sayısı", "$ym: $name ${value.coerceAtLeast(0)}")
+    }
+
+    /**
+     * Sabitlenen sayının hoca kararı olup olmadığı. Hoca kararıysa kişiye borç ya da alacak yazılmaz; değilse
+     * (bizim düzeltmemiz) fark sonraki aylarda o kişiye geri yansır (§5.4).
+     */
+    fun setQuotaDecision(data: AppData, ym: YearMonth, personId: String, decision: Boolean): AppData {
+        val plan = data.month(ym) ?: return data
+        val quotas = plan.quotas.map { if (it.personId == personId && it.manual) it.copy(decision = decision) else it }
+        val name = data.person(personId)?.name ?: personId
+        return log(replaceMonth(data, plan.copy(quotas = quotas)), "Nöbet sayısı", "$ym: $name " + if (decision) "hoca kararı" else "elle düzeltme")
     }
 
     /** Elle sabitlemeyi kaldırır; kişi yeniden öneriye göre dağıtıma katılır. */
     fun releaseQuota(data: AppData, ym: YearMonth, personId: String): AppData {
         val plan = data.month(ym) ?: return data
-        return replaceMonth(data, plan.copy(quotas = ProblemBuilder.suggestedQuotas(data, ym, manualQuotas(plan) - personId)))
+        val quotas = withDecisions(ProblemBuilder.suggestedQuotas(data, ym, manualQuotas(plan) - personId), decisionFlags(plan))
+        return replaceMonth(data, plan.copy(quotas = quotas))
     }
 
     fun quotaMap(plan: MonthPlan?): Map<String, Int>? = plan?.quotas?.takeIf { it.isNotEmpty() }?.associate { it.personId to it.final }
