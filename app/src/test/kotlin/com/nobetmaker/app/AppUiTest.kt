@@ -115,6 +115,20 @@ abstract class AppUiTest {
         rule.waitForIdle()
     }
 
+    /**
+     * Onay isteyen düğme: pencere açılana kadar bekler (yeniden çizim sırasında dokunuş kaybolabiliyor; bir kez daha
+     * basılır), sonra [answer] düğmesine basar.
+     */
+    protected fun clickAndConfirm(button: String, answer: String = "Evet") {
+        click(button)
+        val opened = runCatching { rule.waitUntil(5_000) { exists(answer) } }.isSuccess
+        if (!opened) {
+            click(button)
+            rule.waitUntil(10_000) { exists(answer) }
+        }
+        click(answer)
+    }
+
     protected fun clickDesc(desc: String) {
         rule.onNodeWithContentDescription(desc).performClick()
         rule.waitForIdle()

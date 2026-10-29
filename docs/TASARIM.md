@@ -245,9 +245,9 @@ Y4'teki sapma, ayın sırasında beklenen gün sayısından fark; Y5'teki sapma 
 1. Ayın gün sayısına N denir.
 2. Her kişinin **etkin katsayısı** hesaplanır: nöbet katsayısı × (1 − kotayı düşüren dönem günleri / N). Ayın tamamında ekipte olmayan kişi için de (ay ortasında başlayan ya da ayrılan) aynı oranlama yapılır.
 3. **Ham hak:** hak = N × etkin katsayı / Σ etkin katsayılar.
-4. Önceki aydan devreden **küsurat** ham hakka eklenir.
+4. Önceki aylardan devreden **sayı dengesi** ham hakka eklenir (5.4): payından az tutan için +, fazla tutan için −. Ayda en fazla ±2 düzeltilir.
 5. **Yuvarlama:** Toplam N olacak şekilde en büyük kalan yöntemiyle yapılır. Eşitlik olursa fazla nöbet çömeze gider.
-6. **Yeni küsurat** = (hak + eski küsurat) − verilen kota. Bu fark sonraki aya devreder. Örneğin Yaren'in hakkı 2.5 ise bir ay 2, bir ay 3 nöbet tutar.
+6. Yuvarlamada kalan küsurat da sayı dengesine girer ve sonraki aya devreder. Örneğin Yaren'in hakkı 2.5 ise bir ay 2, bir ay 3 nöbet tutar.
 7. **Katsayı:** Kıdem eğrisinden (2.3) ya da kişinin elle girdiği değerden gelir; her gün o günün katsayısı kullanılır.
 8. **Sınırlar:** Üst sınır 6'dır (S6). Ekip küçülürse (ör. Eylül 2027'den sonra 4 kişi) kişi başı 7–8 nöbet düşer; bu durumda üst sınır Ayarlar'dan artırılır. Ayrıca fiziksel sığma kontrol edilir: kişinin uygun günlerine en az 3 gün arayla en fazla kaç nöbet sığabileceğine bakılır. Sınırı aşan kısım o ay diğerlerine dağıtılır. Bunun için **borç yazılmaz** ve küsurat devri yapılmaz.
 9. Uygulama sayıları **önerir** (uygulamada "Nöbet sayıları" sekmesi). Liste yapan, bir kişinin sayısını ±1 değiştirdiğinde o kişi **elle sabitlenir** ve kalan günler diğerlerine yukarıdaki adımlarla yeniden dağıtılır; toplam N korunur. Örnek: Kasım 2026'da Yaren 0'a indirilince 2 günü Fatma ve Aslı'ya geçer. Sabitleme kişi bazında kaldırılabilir ya da "Öneriye dön" ile hepsi sıfırlanır. Elle sabitlenen kişiye borç yazılmaz.
@@ -261,6 +261,18 @@ Doğrulama:
   - 30 günlük ay: Kenan ≈4.3, Fatma ≈4.8, çömezler ≈5.2–5.3.
   - 31 günlük ay: Kenan ≈4.4, Fatma ≈4.9, çömezler ≈5.3–5.5.
   - Yaren zaten hafta sonu ve tatil tutmadığı için Cumartesi, Pazar ve tatil dağılımı değişmez. Fark hafta içi ve Cuma günlerine yansır.
+
+### 5.4 Nöbet sayısı dengesi ve hoca kararı (0.4.2)
+
+Hocalar bir ay için birinin sayısını söyleyebilir ("Yaren bu ay 1, sınavı var"; sonraki ay "Yaren 4"). Bu düzeni bozmamalı ve kimseye haksızlık olmamalı.
+
+- **Hoca kararı:** Nöbet sayıları sekmesinde bir kişinin sayısı değiştirilince o kişi sabitlenir ve varsayılan olarak "Hoca kararı" işaretlenir. Hoca kararı olan kişiye o ay için borç ya da alacak yazılmaz. "Ayda sabit nöbet sayısı" kuralı da hoca kararı sayılır.
+- **Bizim düzeltmemiz:** "Hoca kararı" kapatılırsa sabitleme bizim düzeltmemiz sayılır; kişinin payından fazla ya da eksik tuttuğu sonraki aylarda ona geri yansır.
+- **Kalan günler:** Hoca kararıyla artan ya da eksilen günler diğerlerine nöbet katsayısıyla paylaştırılır. Yuvarlamada fazladan gün alan sonraki aylarda daha az alır; böylece "artanı hep Aslı'ya verdik" durumu birikmez.
+- **Hesap (sayı defteri):** Kayıt tutulmaz; her seferinde resmi listeden hesaplanır. Her ay: asistanların tuttuğu günlerden hoca kararı olan kişilerin tuttukları düşülür, kalan günler diğerleri arasında o ayki nöbet katsayısıyla paylaştırılır. Denge = tutulan − pay. Elle yapılan her düzeltme (kapanmış ay dahil) kendiliğinden yansır.
+- **Başlangıç:** Kasım 2026 (uygulamanın ilk listesi). Öncesi elle yapılmış eski düzen sayılır, dengeye girmez (Ayarlar'dan değiştirilebilir).
+- **Gösterim:** Nöbet sayıları sekmesinde "önceki aylardan eksik 0,6" ya da "fazla 0,4"; istatistikte "Nöbet sayısı 9 / payı 9,4"; dökümde "Hoca kararı: Yaren 1; kalan günler diğerlerine katsayıyla dağıtıldı."
+- **Liste ile sayılar uyuşmazsa** (ör. sayı liste oluşturulduktan sonra değişti) takvimde uyarı çıkar: "Liste nöbet sayılarıyla uyuşmuyor: Yaren 2 (1 olmalı)". Uyarıdaki düğme listeyi (kesinleşmişse kalan günleri) yeni sayılarla oluşturur.
 
 ### 5.2 İzin kotayı düşürmez
 
@@ -329,9 +341,12 @@ Elle hazırlanan listelerde zor günler sırayla döner. Cumartesi Ağustos 2026
     - Cumartesi sırası en zor esneyen sıradır (ceza ağırlığı 150; Cuma/Pazar/Perşembe 60).
     - Neden: oransal paylaşımda (kıdemli 0,65) çömezler de 4 ayda bir boş kalıyor, kıdemliler 2 ayda bir tutuyordu; Kasım 2026'da Kenan ve Fatma'ya cumartesi + pazar, Şule ve Oğuz'a yalnızca pazar düşüyordu. Kıdem sırası hem bölümün alışkanlığıdır hem de herkes aynı aşamalardan geçtiği için adildir.
   - **İlk ay:** Nöbete yeni başlayana (ve uzun izinden dönene) ilk ayında vizit yazılmaz; o ayın vizitleri ona borç da yazmaz.
-  - **Cuma** ve **Pazar** (vizitsiz): zor gün katsayısıyla döner (önce çömez).
+  - **Cuma** ve **Pazar** (vizitsiz): önce **zor gün toplamına** bakılır (0.4.2): cuma, cumartesi ve pazar birlikte sayılır, kişinin toplamdaki payı kıdem eğrisinin zor gün katsayısıyla hesaplanır (son 6 ay). Cumartesi kıdem sırasıyla çömezlere gittiği için cumartesi tutmayan kıdemli cuma ve pazarı önce alır; eşitlikte o günün kendi sırası, sonra en uzun süredir tutmayan. Kimseye aynı ay cuma, cumartesi ve pazarın üçü birden yazılmaz (ay 13–14 zor gün çıkarırsa esner).
+    - Neden: Cuma ve pazar ayrı ayrı dönerken kıdemli iki kez indirim alıyordu (cumartesiyi tutmuyor, cuma/pazar payı da 0,66). Kasım 2026'da Kenan ve Fatma'ya 1'er zor gün, Oğuz ve Aslı'ya 3'er düşüyordu. Toplamda dengelenince 9 aylık denemede çömezler ayda ~2,4, kıdemliler ~1,6 zor gün tutuyor (oran ≈ 0,70; kıdem eğrisi 0,66).
+    - Tatil günleri (bayram, resmi tatil, yılbaşı; ör. vizitli 29 Ekim) zor gün toplamına girmez, kendi uzun hafızasında sayılır (K37); iki kez sayılmaz.
   - **Perşembe:** herkese eşit döner.
-  - **Pazartesi:** Salı günleri ders var ve Pazartesi nöbetçisi nöbet ertesi olduğu için dersi kaçırıyor. Herkese eşit döner. Salı tatilse o Pazartesi sıraya girmez. En kolay esneyen kuraldır (Y4a).
+  - **Pazartesi:** Salı günleri ders var ve Pazartesi nöbetçisi nöbet ertesi olduğu için dersi kaçırıyor. Herkese eşit döner. Salı tatilse o Pazartesi sıraya girmez. En kolay esneyen kuraldır (Y4a); ama aynı kişiye ayda ikinci pazartesi yüksek ceza alır (30).
+  - İsteğiyle nöbet sayısı dolan kişiye sıradan ayrıca gün verilmez.
 - **Borç:** Son 6 ayda her kişi için beklenen − tutulan. Beklenen, her günün uygun kişiler arasındaki payının toplamıdır.
 - **Ayın sırası:** Ayın o gruptaki günleri sırayla dağıtılır. Her gün, borcu en büyük olana gider (borç yarım güne yuvarlanır); eşitlikte o günü en uzun süredir tutmayan, o da eşitse çömez seçilir. Vizitte önce son yıla girmemişler (aralarında borç, eşitlikte çömez), sonra son yıldakiler (en uzun süredir tutmayan önce).
   - Aynı kişiye ayda o günden ikincisi verilmez (bkz. Y9).
@@ -397,7 +412,7 @@ Problem küçüktür (yaklaşık 7 kişi × 31 gün). Telefonda, çevrimdışı 
 - Sert kuralları ve kotaları bozmayan hamleler denenir: iki günün nöbetçileri yer değiştirir (takas) ya da üç günün nöbetçileri döner (A'nın günü B'ye, B'ninki C'ye, C'ninki A'ya).
 - Hamle toplam cezayı düşürüyorsa kabul edilir. Yerel bir minimumda takılmamak için kontrollü rastgelelik kullanılır (benzetimli tavlama).
 - Sonunda bütün takas ve üçlü dönüşler tek tek denenir, iyileştiren kalmayana kadar uygulanır (cilalama).
-- Bu adımlar 32 farklı başlangıçla tekrarlanır.
+- Bu adımlar 64 farklı başlangıçla, her biri 40.000 adımla tekrarlanır (0.4.2; 32 × 15.000 sıkışık aylarda bir isteği kaçırabiliyordu). Masaüstünde bir ay 1 saniyenin altında üretilir.
 
 ### 8.4 Alternatifler
 
@@ -439,7 +454,11 @@ Uygulama "çözülemedi" deyip bırakmaz:
 
 - Algoritma üretir, liste yapan düzeltir. S1–S9'dan herhangi biri ihlal edildiği sürece kaydedilemez.
 - Sürümlüdür, her revizyon yeni bir sürüm oluşturur. Hocaya giden Excel en güncel sürümden üretilir. Adalet defteri de en güncel resmi sürüme bakar.
-- Durumları: **Taslak → Yayınlandı → Kapandı**. Kapanan ay yeniden üretilmez; ama her şey elle düzeltilebilir (K45): gün ekranında ya da bayram kayıtlarında bir günün resmi kaydı düzeltilince yeni sürüm açılır, eski hali sürümlerde kalır, ay kapalı kalır.
+- Durumları: **Taslak → Kesinleşti → Kapandı** (uygulamada düğmeler: "Listeyi kesinleştir", "Listeyi kapat", "Listeyi yeniden aç").
+  - Yanlışlıkla kesinleştirilen liste **"Taslağa geri al"** ile taslağa döner: kesinleşmiş hali sürümlerde kalır, taslak onun kopyasıyla başlar; liste baştan oluşturulabilir, sayılar değişebilir.
+  - Kesinleşmiş ayda sayılar değişebilir (hoca kararı); "Kalan günleri yeniden oluştur" bugüne kadarki günleri korur, kalanları yeni sayılarla oluşturur.
+  - Kapanan liste yeniden oluşturulmaz; ama her şey elle düzeltilebilir (K45): gün ekranında ya da bayram kayıtlarında bir günün resmi kaydı düzeltilince yeni sürüm açılır, eski hali sürümlerde kalır, ay kapalı kalır.
+  - İstatistik, sıra, sayı dengesi ve bayram dengesi her zaman geçerli resmi listeden hesaplanır; her değişiklik kendiliğinden yansır.
 - Elle düzeltmede kurallar engel olmaz, yalnızca uyarır (taslakta "Kurala aykırı — yine de yaz"). Bir gün "Uzman tuttu (asistan yok)" diye işaretlenebilir; o gün asistanların bayram ve sıra hesabından düşer.
 
 ### 9.2 Gayriresmi liste
@@ -485,7 +504,7 @@ Bayramda kıdem önemlidir ama kesin bir kural yoktur. Bu yüzden bayram günler
 6. **Çakışmalar** kontrol edilir.
 7. **Üret:** 3 alternatif ve skor kartları gelir, biri seçilir.
 8. **Düzelt:** Elle değişiklik yapılır, istenen günler kilitlenir, "kalanı yeniden üret" kullanılır.
-9. **Yayınla:** Resmi Excel hocaya, görsel WhatsApp grubuna gönderilir.
+9. **Kesinleştir:** Resmi Excel hocaya, görsel WhatsApp grubuna gönderilir. Yanlışlıkla kesinleştirildiyse "Taslağa geri al".
 10. **Ay içi:** Gayriresmi değişimler ve değişim asistanı kullanılır, gerekirse resmi revizyon yapılır.
 11. **Ay sonu:** Belirsiz vizitler işaretlenir, ay kapatılır, defter güncellenir.
 
@@ -697,6 +716,11 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 | K45 | Her şey elle düzeltilebilir: kapanmış ay dahil herhangi bir günün resmi kaydı (yeni sürüm), gerçekte tutan, "Uzman tuttu", gün türü ve vizit. Kurallar elle düzeltmede uyarır, engellemez. |
 | K46 | Bayram ve tatil kayıtları ekranı (6.2): her tatil günü, kim tuttu ve denge şeffaf; oradan gün gün düzeltilir. |
 | K47 | Fatma'nın asistanlık başlangıcı Ekim 2023'tür (Eylül değil). |
+| K48 | Zor günler (cuma, cumartesi, pazar) toplam olarak dengelenir; kıdemlinin payı kıdem eğrisinden. Cumartesi tutmayan kıdemli cuma ve pazarı önce alır; kimseye aynı ay üçü birden yazılmaz. Tatiller kendi hafızasında kalır (K37). |
+| K49 | Hoca kararı borç yazmaz; artan ve eksilen günler diğerlerine katsayıyla paylaşılır ve sonraki aylarda dengelenir. Nöbet sayısı dengesi Kasım 2026'dan beri resmi listeden hesaplanır (5.4). Önceki küsurat devrinin yerini alır. |
+| K50 | Liste "kesinleşir" (yayınlanmaz); yanlışlıkla kesinleştirilen liste taslağa geri alınabilir. Liste sayılarla uyuşmazsa takvimde uyarı ve yeniden oluşturma düğmesi çıkar. |
+| K51 | Aynı kişiye ayda ikinci pazartesi yüksek ceza alır (Salı dersi). Çözücü 64 × 40.000 adımla arar. |
+| K52 | Düğme yazıları: "Ay hazırlığı", "Liste oluştur", "Listeyi kesinleştir", "Taslağa geri al", "Listeyi kapat", "İki günü takasla", "Kalan günleri yeniden oluştur"; sayılar "2 nöbet (1 olmalı)", saat "saat". |
 
 ---
 

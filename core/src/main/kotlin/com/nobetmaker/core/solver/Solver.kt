@@ -296,7 +296,7 @@ class Solver(private val pr: MonthProblem) {
         return a
     }
 
-    fun solve(alternatives: Int = 3, seeds: Int = 32, iterations: Int = 15_000, seedOffset: Int = 0): SolveResult {
+    fun solve(alternatives: Int = 3, seeds: Int = 64, iterations: Int = 40_000, seedOffset: Int = 0): SolveResult {
         val found = ArrayList<Solution>()
         for (s in 0 until seeds) {
             val rng = Random(seedOffset * 1000 + s)

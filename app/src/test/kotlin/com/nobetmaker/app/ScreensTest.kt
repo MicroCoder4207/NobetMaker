@@ -31,7 +31,7 @@ class ScreensTest : AppUiTest() {
         waitForText("Kasım 2026")
         shot("03-kasim-bos")
 
-        click("Ayı hazırla")
+        click("Ay hazırlığı")
         waitForText("Kasım 2026 hazırlığı")
         shot("04-hazirla-donemler")
         click("İstekler")
@@ -43,10 +43,10 @@ class ScreensTest : AppUiTest() {
         waitForText("Sorun görünmüyor")
         shot("07-hazirla-kontrol")
 
-        click("Liste üret")
+        click("Liste oluştur")
         waitForText("Seçenek 1", 120_000)
         shot("08-secenekler")
-        click("Bunu kullan")
+        click("Bu listeyi kullan")
         waitForText("Taslak")
         shot("09-kasim-taslak")
 
@@ -63,9 +63,9 @@ class ScreensTest : AppUiTest() {
         }
         // "Liste kaydedildi" bildirimi düğmenin üstünü kapatıyor; kapanmasını bekle.
         rule.waitUntil(15_000) { rule.onAllNodesWithText("Liste kaydedildi").fetchSemanticsNodes().isEmpty() }
-        click("Liste üret")
+        click("Liste oluştur")
         waitForText("Seçenek 1", 120_000)
-        click("Bunu kullan")
+        click("Bu listeyi kullan")
         waitForText("Taslak")
         rule.activityRule.scenario.onActivity { activity ->
             val plan = (activity.application as NobetApp).repository.data.value.month(kasim)!!
@@ -96,7 +96,7 @@ class ScreensTest : AppUiTest() {
         shot("t1-tablet-takvim")
         rule.onNodeWithContentDescription("Sonraki ay").performClick()
         waitForText("Kasım 2026")
-        click("Ayı hazırla")
+        click("Ay hazırlığı")
         waitForText("Kasım 2026 hazırlığı")
         click("Nöbet sayıları")
         waitForText("Toplam")

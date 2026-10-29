@@ -29,7 +29,7 @@ class PrepareButtonsTest : AppUiTest() {
 
     private fun openPrepare(tab: String? = null) {
         goToMonth(kasim)
-        click("Ayı hazırla")
+        click("Ay hazırlığı")
         waitForText("Kasım 2026 hazırlığı")
         if (tab != null) click(tab)
     }
@@ -156,8 +156,15 @@ class PrepareButtonsTest : AppUiTest() {
         val yaren = q("yaren").final
 
         stepper("Yaren", plus = false)
-        waitForData(what = "elle azaltma") { q("yaren").final == yaren - 1 && q("yaren").manual }
+        waitForData(what = "elle azaltma") { q("yaren").final == yaren - 1 && q("yaren").manual && q("yaren").decision }
         assertEquals(30, data().month(kasim)!!.quotas.sumOf { it.final })
+        // Varsayılan olarak hoca kararı; kapatılınca bizim düzeltmemiz olur.
+        waitForText("Hoca kararı · öneri")
+        click("Hoca kararı")
+        waitForData(what = "hoca kararını kapatma") { q("yaren").manual && !q("yaren").decision }
+        waitForText("Elle verildi · öneri")
+        click("Hoca kararı")
+        waitForData(what = "hoca kararını açma") { q("yaren").decision }
 
         clickDesc("Sabitlemeyi kaldır")
         waitForData(what = "sabitlemeyi kaldırma") { !q("yaren").manual && q("yaren").final == yaren }
@@ -167,7 +174,7 @@ class PrepareButtonsTest : AppUiTest() {
         waitForData(what = "elle artırma") { q("kenan").final == kenan + 1 && q("kenan").manual }
         assertEquals(30, data().month(kasim)!!.quotas.sumOf { it.final })
 
-        click("Öneriye dön")
+        click("Önerilen sayılara dön")
         waitForData(what = "öneriye dönme") { d -> d.month(kasim)!!.quotas.none { it.manual } && q("kenan").final == kenan }
     }
 
@@ -182,7 +189,7 @@ class PrepareButtonsTest : AppUiTest() {
         waitForText("birden fazla kesin istek var", 30_000)
         shot("t-kontrol")
 
-        click("Liste üret")
+        click("Liste oluştur")
         waitForText("Kasım 2026 seçenekleri")
         clickDesc("Geri")
         waitForText("Kasım 2026 hazırlığı")

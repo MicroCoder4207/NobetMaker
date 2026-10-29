@@ -77,6 +77,7 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
             Stepper("Aylık en fazla nöbet", s.maxPerMonth.toDouble(), 1.0, 3.0, 10.0, int) { v -> set { it.copy(maxPerMonth = v.toInt()) } }
             Stepper("Sıra hafızası (ay)", s.rotationMonths.toDouble(), 1.0, 1.0, 12.0, int) { v -> set { it.copy(rotationMonths = v.toInt()) } }
             DateField("Uzun hafıza başlangıcı", s.longMemoryStart, { d -> d?.let { date -> set { it.copy(longMemoryStart = date) } } }, Modifier.fillMaxWidth())
+            DateField("Nöbet sayısı dengesi başlangıcı", s.countBalanceStart, { d -> d?.let { date -> set { it.copy(countBalanceStart = date.withDayOfMonth(1)) } } }, Modifier.fillMaxWidth())
             var title by remember(s.excelTitle) { mutableStateOf(s.excelTitle) }
             OutlinedTextField(
                 title, { title = it }, label = { Text("Excel/görsel başlığı") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
@@ -159,7 +160,7 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
                 }
             }, Modifier.fillMaxWidth()) { Text("Başlangıç verisine dön") }
         }
-        Text("NöbetMaker 0.4.1", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("NöbetMaker 0.4.2", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.padding(16.dp))
     }
 

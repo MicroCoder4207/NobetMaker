@@ -85,7 +85,7 @@ fun CalendarScreen(vm: AppViewModel, nav: Nav) {
             when (status) {
                 null -> StatusPill("Liste yok", scheme.surfaceContainerHigh, scheme.onSurfaceVariant)
                 MonthStatus.TASLAK -> StatusPill("Taslak", scheme.primaryContainer, scheme.onPrimaryContainer)
-                MonthStatus.YAYINLANDI -> StatusPill("Yayınlandı", scheme.secondaryContainer, scheme.onSecondaryContainer)
+                MonthStatus.YAYINLANDI -> StatusPill("Kesinleşti", scheme.secondaryContainer, scheme.onSecondaryContainer)
                 MonthStatus.KAPANDI -> StatusPill("Kapandı", scheme.surfaceContainerHigh, scheme.onSurfaceVariant)
             }
         }
@@ -98,7 +98,7 @@ fun CalendarScreen(vm: AppViewModel, nav: Nav) {
         if (swapPicking) {
             Surface(color = scheme.secondaryContainer, shape = MaterialTheme.shapes.medium) {
                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    val text = swapFrom?.let { "${it.short()} ile yer değiştirecek günü seçin" } ?: "Yer değiştirecek ilk günü seçin"
+                    val text = swapFrom?.let { "${it.short()} ile takaslanacak günü seçin" } ?: "Takaslanacak ilk günü seçin"
                     Text(text, Modifier.weight(1f), color = scheme.onSecondaryContainer)
                     TextButton(onClick = { swapFrom = null; swapPicking = false }) { Text("Vazgeç") }
                 }
@@ -113,7 +113,7 @@ fun CalendarScreen(vm: AppViewModel, nav: Nav) {
                 val from = swapFrom
                 when {
                     from != null -> {
-                        if (from != day.date) vm.update("${from.short()} ↔ ${day.date.short()} değiştirildi") { DataOps.swap(it, month, from, day.date) }
+                        if (from != day.date) vm.update("${from.short()} ↔ ${day.date.short()} takaslandı") { DataOps.swap(it, month, from, day.date) }
                         swapFrom = null
                         swapPicking = false
                     }
@@ -126,16 +126,41 @@ fun CalendarScreen(vm: AppViewModel, nav: Nav) {
     val side: @Composable ColumnScope.() -> Unit = {
         MonthSummary(vm, showActual)
 
+        // Liste nöbet sayılarıyla uyuşmuyorsa (ör. hoca kararından sonra sayı değişti) yeniden oluşturmaya çağır.
+        val regenerateRest = {
+            confirm = "Bugüne kadarki günler korunsun ve kalan günler yeniden oluşturulsun mu? Seçtiğiniz liste yeni sürüm olarak saklanır." to {
+                vm.update("Bugüne kadarki günler korundu", onDone = { nav.generate(month) }) {
+                    DataOps.lockThrough(it, month, java.time.LocalDate.now())
+                }
+            }
+        }
+        val mismatch = remember(data, month) { quotaMismatch(data, month) }
+        if (!showActual && mismatch.isNotEmpty() && status != MonthStatus.KAPANDI) {
+            Surface(color = scheme.errorContainer, shape = MaterialTheme.shapes.medium) {
+                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Liste nöbet sayılarıyla uyuşmuyor: " + mismatch.joinToString(", ") { (p, count, quota) -> "${p.name} $count ($quota olmalı)" } + ".",
+                        color = scheme.onErrorContainer,
+                    )
+                    if (status == MonthStatus.YAYINLANDI) {
+                        Button(onClick = regenerateRest) { Text("Kalan günleri yeni sayılarla oluştur") }
+                    } else {
+                        Button(onClick = { nav.generate(month) }) { Text("Listeyi yeni sayılarla oluştur") }
+                    }
+                }
+            }
+        }
+
         val canEdit = status == null || status == MonthStatus.TASLAK
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (status != MonthStatus.KAPANDI) {
                 OutlinedButton(onClick = { nav.prepare(month) }) {
-                    Icon(Icons.Default.Build, null); Spacer(Modifier.width(6.dp)); Text("Ayı hazırla")
+                    Icon(Icons.Default.Build, null); Spacer(Modifier.width(6.dp)); Text("Ay hazırlığı")
                 }
             }
             if (canEdit) {
                 Button(onClick = { nav.generate(month) }) {
-                    Icon(Icons.Default.Refresh, null); Spacer(Modifier.width(6.dp)); Text("Liste üret")
+                    Icon(Icons.Default.Refresh, null); Spacer(Modifier.width(6.dp)); Text("Liste oluştur")
                 }
             }
             if (plan?.current != null) {
@@ -143,37 +168,42 @@ fun CalendarScreen(vm: AppViewModel, nav: Nav) {
                     Icon(Icons.Default.Share, null); Spacer(Modifier.width(6.dp)); Text("Paylaş")
                 }
             }
+            if (plan?.current != null && status != MonthStatus.KAPANDI) {
+                OutlinedButton(onClick = { swapFrom = null; swapPicking = true }) { Text("İki günü takasla") }
+            }
             when (status) {
                 MonthStatus.TASLAK -> if (plan.current != null) OutlinedButton(onClick = {
-                    confirm = "${month.title()} resmi listesi yayınlansın mı? Bundan sonraki resmi değişiklikler yeni sürüm olarak kaydedilir." to {
-                        vm.update("Yayınlandı") { DataOps.setStatus(it, month, MonthStatus.YAYINLANDI) }
+                    confirm = "${month.title()} listesi kesinleşsin mi? Bundan sonraki değişiklikler yeni sürüm olarak saklanır. Yanlışlıkla kesinleştirirseniz \"Taslağa geri al\" ile dönebilirsiniz." to {
+                        vm.update("Liste kesinleşti") { DataOps.setStatus(it, month, MonthStatus.YAYINLANDI) }
                     }
-                }) { Icon(Icons.Default.Check, null); Spacer(Modifier.width(6.dp)); Text("Yayınla") }
-                MonthStatus.YAYINLANDI -> OutlinedButton(onClick = {
-                    confirm = "${month.title()} kapatılsın mı? Kapanan ay yeniden üretilmez; yanlış bir gün olursa gün ekranından elle düzeltilir. Belirsiz vizitleri önce işaretleyin." to {
-                        vm.update("Ay kapatıldı") { DataOps.setStatus(it, month, MonthStatus.KAPANDI) }
+                }) { Icon(Icons.Default.Check, null); Spacer(Modifier.width(6.dp)); Text("Listeyi kesinleştir") }
+                MonthStatus.YAYINLANDI -> {
+                    // Hocalar sayı söylediğinde ya da ay ortasında bir şey değiştiğinde: bugüne kadarki günler korunur,
+                    // kalan günler yeniden oluşturulur ve yeni sürüm olarak kaydedilir.
+                    OutlinedButton(onClick = regenerateRest) {
+                        Icon(Icons.Default.Refresh, null); Spacer(Modifier.width(6.dp)); Text("Kalan günleri yeniden oluştur")
                     }
-                }) { Text("Ayı kapat") }
+                    OutlinedButton(onClick = {
+                        confirm = "${month.title()} listesi taslağa geri alınsın mı? Listeyi baştan oluşturabilir, sayıları değiştirebilirsiniz. Kesinleşmiş hali sürümlerde saklanır." to {
+                            vm.update("Taslağa geri alındı") { DataOps.backToDraft(it, month) }
+                        }
+                    }) { Icon(Icons.Default.Create, null); Spacer(Modifier.width(6.dp)); Text("Taslağa geri al") }
+                    OutlinedButton(onClick = {
+                        confirm = "${month.title()} listesi kapatılsın mı? Kapanan liste yeniden oluşturulmaz; yanlış bir gün olursa gün ekranından elle düzeltilir. Belirsiz vizitleri önce işaretleyin." to {
+                            vm.update("Liste kapatıldı") { DataOps.setStatus(it, month, MonthStatus.KAPANDI) }
+                        }
+                    }) { Text("Listeyi kapat") }
+                }
                 MonthStatus.KAPANDI -> OutlinedButton(onClick = {
-                    confirm = "${month.title()} yeniden açılsın mı?" to { vm.update("Ay yeniden açıldı") { DataOps.setStatus(it, month, MonthStatus.YAYINLANDI) } }
-                }) { Icon(Icons.Default.Create, null); Spacer(Modifier.width(6.dp)); Text("Yeniden aç") }
+                    confirm = "${month.title()} listesi yeniden açılsın mı?" to { vm.update("Liste yeniden açıldı") { DataOps.setStatus(it, month, MonthStatus.YAYINLANDI) } }
+                }) { Icon(Icons.Default.Create, null); Spacer(Modifier.width(6.dp)); Text("Listeyi yeniden aç") }
                 null -> {}
             }
-            if (plan?.current != null && status != MonthStatus.KAPANDI) {
-                OutlinedButton(onClick = { swapFrom = null; swapPicking = true }) { Text("İki günü değiştir") }
-            }
-            if (status == MonthStatus.YAYINLANDI) {
-                // Hocalar sayı söylediğinde ya da ay ortasında bir şey değiştiğinde: bugüne kadarki günler kilitlenir,
-                // kalan günler yeniden üretilir ve yeni sürüm olarak kaydedilir.
-                OutlinedButton(onClick = {
-                    confirm = "Bugüne kadarki günler kilitlensin ve kalan günler yeniden üretilsin mi? Seçtiğiniz liste yeni sürüm olarak kaydedilir." to {
-                        vm.update("Bugüne kadarki günler kilitlendi", onDone = { nav.generate(month) }) {
-                            DataOps.lockThrough(it, month, java.time.LocalDate.now())
-                        }
-                    }
-                }) { Icon(Icons.Default.Refresh, null); Spacer(Modifier.width(6.dp)); Text("Kalan günleri yeniden üret") }
-            }
         }
+        Text(
+            "İstatistik, sıra ve bayram dengesi her zaman geçerli resmi listeden hesaplanır; listede yaptığınız her değişiklik kendiliğinden yansır.",
+            style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+        )
     }
 
     // Tablet ve yatay ekranda takvim solda, özet ve işlemler sağda; telefonda alt alta.
@@ -247,13 +277,27 @@ private fun MonthSummary(vm: AppViewModel, showActual: Boolean) {
                 PersonDot(r.person)
                 Spacer(Modifier.width(8.dp))
                 Text(r.person.name, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                val quota = if (!showActual && r.quota != null && r.quota != r.count) " / hedef ${r.quota}" else ""
-                Text("${r.count} nöbet$quota", style = MaterialTheme.typography.bodyMedium)
+                Text("${r.count} nöbet", style = MaterialTheme.typography.bodyMedium)
+                if (!showActual && r.quota != null && r.quota != r.count) {
+                    Text(" (${r.quota} olmalı)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                }
                 Spacer(Modifier.width(12.dp))
-                Text("${r.hours} sa", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${r.hours} saat", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
+}
+
+/** Resmi listedeki sayısı nöbet sayıları sekmesindeki sayıyla uyuşmayan kişiler: (kişi, listede, olması gereken). */
+private fun quotaMismatch(data: com.nobetmaker.core.model.AppData, month: java.time.YearMonth): List<Triple<com.nobetmaker.core.model.Person, Int, Int>> {
+    val plan = data.month(month) ?: return emptyList()
+    val cur = plan.current ?: return emptyList()
+    val counts = cur.assignments.groupingBy { it.personId }.eachCount()
+    return plan.quotas.mapNotNull { q ->
+        val p = data.person(q.personId) ?: return@mapNotNull null
+        val n = counts[q.personId] ?: 0
+        if (n != q.final) Triple(p, n, q.final) else null
+    }.sortedBy { it.first.seniority }
 }
 
 private class SummaryRow(val person: com.nobetmaker.core.model.Person, val count: Int, val quota: Int?, val hours: Int, val holidayCount: Int)

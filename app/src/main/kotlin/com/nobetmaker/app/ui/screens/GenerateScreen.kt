@@ -88,7 +88,7 @@ fun GenerateScreen(vm: AppViewModel, nav: Nav, month: YearMonth) {
                         }
                         Text("Art arda ve günaşırı kuralı hiçbir zaman gevşetilmez.", style = MaterialTheme.typography.bodySmall)
                     }
-                    OutlinedButton(onClick = { nav.prepare(month) }) { Text("Ayı hazırla ekranına dön") }
+                    OutlinedButton(onClick = { nav.prepare(month) }) { Text("Ay hazırlığına dön") }
                 }
                 else -> {
                     Text(
@@ -100,7 +100,7 @@ fun GenerateScreen(vm: AppViewModel, nav: Nav, month: YearMonth) {
                         AlternativeCard(vm, g.problem, s, i, s.cost - best) { vm.applyAlternative(i) { nav.calendar() } }
                     }
                     OutlinedButton(onClick = { vm.generate(month, g.seedOffset + 1) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Farklı seçenekler üret")
+                        Text("Başka seçenekler göster")
                     }
                 }
             }
@@ -144,7 +144,7 @@ private fun AlternativeCard(vm: AppViewModel, pr: MonthProblem, solution: Soluti
         if (expanded) CalendarGrid(gridFromSolution(data, pr, solution.assignment), cellHeight = 58)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Takvimi gizle" else "Takvimi göster") }
-            Button(onClick = onUse) { Text("Bunu kullan") }
+            Button(onClick = onUse) { Text("Bu listeyi kullan") }
         }
     }
 }

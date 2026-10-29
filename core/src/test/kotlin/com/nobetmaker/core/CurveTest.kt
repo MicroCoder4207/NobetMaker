@@ -182,6 +182,24 @@ class CurveTest {
     }
 
     @Test
+    fun `zor gunler toplam olarak dengelenir`() {
+        // Kasım 2026: cumartesiler çömezlere gider; cumartesi tutmayan Kenan ve Fatma cuma ve pazarı önce alır.
+        val ym = YearMonth.of(2026, 11)
+        val data = DataOps.ensureMonth(seed, ym)
+        val pr = ProblemBuilder.build(data, ym, quotaOverride = DataOps.quotaMap(data.month(ym)))
+        fun target(id: String, g: RotationGroup) = pr.rotationTarget[pr.personIndex(id)][g.ordinal]
+        for (id in listOf("kenan", "fatma")) {
+            assertEquals(0, target(id, RotationGroup.VIZIT), "$id cumartesi")
+            assertEquals(2, target(id, RotationGroup.CUMA) + target(id, RotationGroup.PAZAR), "$id cuma + pazar")
+        }
+        // 13 zor gün, cumartesi ve pazar tutabilen 6 kişi: en fazla bir kişiye üçü birden düşer.
+        val triple = pr.persons.count { p ->
+            listOf(RotationGroup.VIZIT, RotationGroup.CUMA, RotationGroup.PAZAR).all { g -> target(p.id, g) > 0 }
+        }
+        assertTrue(triple <= 1, "üç zor günlü kişi sayısı $triple")
+    }
+
+    @Test
     fun `bayram dengesi o gunku katsayiyla ve 2024'ten itibaren`() {
         val cal = CalendarService(seed.dayOverrides, seed.settings)
         val avail = Availability(seed, cal)

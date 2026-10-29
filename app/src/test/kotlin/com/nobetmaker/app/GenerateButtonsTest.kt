@@ -18,7 +18,7 @@ class GenerateButtonsTest : AppUiTest() {
     @Test
     fun seceneklerVeIkinciSecenegiKullan() {
         goToMonth(kasim)
-        click("Liste üret")
+        click("Liste oluştur")
         waitForText("Seçenek 1", 120_000)
         assertTrue(exists("Seçenek 2", substring = true))
 
@@ -27,11 +27,11 @@ class GenerateButtonsTest : AppUiTest() {
         click("Takvimi göster")
         assertTrue(exists("Takvimi gizle"))
 
-        click("Farklı seçenekler üret")
+        click("Başka seçenekler göster")
         waitForText("Kurallara uygun listeler aranıyor", 10_000)
         waitForText("Seçenek 1", 120_000)
 
-        rule.onAllNodesWithText("Bunu kullan")[1].apply { performScrollTo(); performClick() }
+        rule.onAllNodesWithText("Bu listeyi kullan")[1].apply { performScrollTo(); performClick() }
         waitForData(what = "ikinci seçeneği kaydetme") { it.month(kasim)?.current?.note?.contains("seçenek 2") == true }
         waitForText("Taslak")
     }
@@ -45,11 +45,11 @@ class GenerateButtonsTest : AppUiTest() {
             }
         }
         goToMonth(kasim)
-        click("Liste üret")
-        waitForText("Ayı hazırla ekranına dön", 120_000)
+        click("Liste oluştur")
+        waitForText("Ay hazırlığına dön", 120_000)
         assertTrue("sebep yazmalı", exists("uygun kimse yok", substring = true))
         shot("t-cozum-yok")
-        click("Ayı hazırla ekranına dön")
+        click("Ay hazırlığına dön")
         waitForText("Kasım 2026 hazırlığı")
     }
 }

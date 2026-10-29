@@ -23,6 +23,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
@@ -85,7 +86,10 @@ fun PrepareScreen(vm: AppViewModel, nav: Nav, month: YearMonth) {
     LaunchedEffect(month) { if (data.month(month) == null) vm.update { DataOps.ensureMonth(it, month) } }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val tabs = listOf("Dönemler", "İstekler", "Nöbet sayıları", "Kontrol")
-    val editable = data.month(month)?.status.let { it == null || it == MonthStatus.TASLAK }
+    val status = data.month(month)?.status
+    val editable = status == null || status == MonthStatus.TASLAK
+    // Kesinleşmiş ayda da sayılar değişebilir (hoca kararı); liste "Kalan günleri yeniden oluştur" ile güncellenir.
+    val quotaEditable = status != MonthStatus.KAPANDI
 
     Scaffold(
         topBar = {
@@ -97,7 +101,7 @@ fun PrepareScreen(vm: AppViewModel, nav: Nav, month: YearMonth) {
         bottomBar = {
             if (editable) {
                 Surface(tonalElevation = 3.dp) {
-                    Button(onClick = { nav.generate(month) }, modifier = Modifier.fillMaxWidth().padding(16.dp)) { Text("Liste üret") }
+                    Button(onClick = { nav.generate(month) }, modifier = Modifier.fillMaxWidth().padding(16.dp)) { Text("Liste oluştur") }
                 }
             }
         },
@@ -118,7 +122,7 @@ fun PrepareScreen(vm: AppViewModel, nav: Nav, month: YearMonth) {
                 when (tab) {
                     0 -> PeriodsTab(vm, month)
                     1 -> RequestsTab(vm, month)
-                    2 -> QuotaTab(vm, month, editable)
+                    2 -> QuotaTab(vm, month, quotaEditable, published = status == MonthStatus.YAYINLANDI)
                     else -> CheckTab(vm, month)
                 }
             }
@@ -322,16 +326,27 @@ private fun RequestDialog(persons: List<Person>, initial: DutyRequest?, month: Y
 // ------------------------------------------------------------------ Nöbet sayıları
 
 @Composable
-private fun QuotaTab(vm: AppViewModel, month: YearMonth, editable: Boolean) {
+private fun QuotaTab(vm: AppViewModel, month: YearMonth, editable: Boolean, published: Boolean) {
     val data by rememberData(vm)
     LaunchedEffect(data.periods, data.persons) { if (editable) vm.update { DataOps.refreshQuotas(it, month) } }
     val plan = data.month(month) ?: return
     val total = plan.quotas.sumOf { it.final }
     val days = month.lengthOfMonth()
     Text(
-        "Uygulama kıdem katsayılarına göre önerir. Birinin sayısını değiştirdiğinizde o kişi sabitlenir, kalan günler diğerlerine aynı kurallarla yeniden dağıtılır.",
+        "Uygulama kıdem katsayılarına ve önceki aylardaki sayı dengesine göre önerir. Birinin sayısını değiştirdiğinizde o kişi sabitlenir, kalan günler diğerlerine aynı kurallarla yeniden dağıtılır.",
         style = MaterialTheme.typography.bodySmall,
     )
+    Text(
+        "Hoca kararı: o kişiye borç ya da alacak yazılmaz; artan ya da eksilen günler diğerlerine paylaştırılır ve sonraki aylarda dengelenir. " +
+            "Sayıyı kendiniz değiştirdiyseniz \"Hoca kararı\"nı kapatın; fark sonraki aylarda o kişiye geri yansır.",
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    if (published) {
+        Text(
+            "Liste kesinleşti. Sayıyı değiştirdikten sonra takvimde \"Kalan günleri yeniden oluştur\"a basın; geçmiş günler korunur.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary,
+        )
+    }
     SectionCard {
         plan.quotas.mapNotNull { q -> data.person(q.personId)?.let { it to q } }.sortedBy { it.first.seniority }.forEach { (p, q) ->
             Row(Modifier.semantics { isTraversalGroup = true }, verticalAlignment = Alignment.CenterVertically) {
@@ -339,9 +354,24 @@ private fun QuotaTab(vm: AppViewModel, month: YearMonth, editable: Boolean) {
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
                     Text(p.name, fontWeight = FontWeight.SemiBold)
-                    val carry = if (q.carryIn != 0.0) " · devreden ${"%.2f".format(q.carryIn)}" else ""
-                    val detail = if (q.manual) "Elle sabit · öneri ${q.suggested}" else "Önerilen sayı$carry"
+                    val carry = when {
+                        q.carryIn >= 0.05 -> " · önceki aylardan eksik ${fmt1(q.carryIn)}"
+                        q.carryIn <= -0.05 -> " · önceki aylardan fazla ${fmt1(-q.carryIn)}"
+                        else -> ""
+                    }
+                    val detail = when {
+                        q.manual && q.decision -> "Hoca kararı · öneri ${q.suggested}"
+                        q.manual -> "Elle verildi · öneri ${q.suggested}"
+                        else -> "Önerilen$carry"
+                    }
                     Text(detail, style = MaterialTheme.typography.bodySmall, color = if (q.manual) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (q.manual && editable) {
+                        FilterChip(
+                            selected = q.decision,
+                            onClick = { vm.update { DataOps.setQuotaDecision(it, month, p.id, !q.decision) } },
+                            label = { Text("Hoca kararı") },
+                        )
+                    }
                 }
                 if (q.manual && editable) {
                     IconButton(onClick = { vm.update { DataOps.releaseQuota(it, month, p.id) } }) { Icon(Icons.Default.Lock, "Sabitlemeyi kaldır", tint = MaterialTheme.colorScheme.primary) }
@@ -354,8 +384,10 @@ private fun QuotaTab(vm: AppViewModel, month: YearMonth, editable: Boolean) {
     }
     val color = if (total == days) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
     Text("Toplam $total / $days gün", color = color, fontWeight = FontWeight.SemiBold)
-    if (editable) OutlinedButton(onClick = { vm.update("Öneriye dönüldü") { DataOps.resetQuotas(it, month) } }) { Text("Öneriye dön") }
+    if (editable) OutlinedButton(onClick = { vm.update("Önerilen sayılara dönüldü") { DataOps.resetQuotas(it, month) } }) { Text("Önerilen sayılara dön") }
 }
+
+private fun fmt1(v: Double): String = String.format(java.util.Locale.ROOT, "%.1f", v).replace('.', ',')
 
 // ------------------------------------------------------------------ Kontrol
 
@@ -367,7 +399,7 @@ private fun CheckTab(vm: AppViewModel, month: YearMonth) {
         issues = null
         issues = ConflictDetector.detect(vm.problem(month))
     }
-    Text("Liste üretmeden önce çakışan istekler ve doldurulamayacak günler.", style = MaterialTheme.typography.bodySmall)
+    Text("Liste oluşturmadan önce çakışan istekler ve doldurulamayacak günler.", style = MaterialTheme.typography.bodySmall)
     val list = issues
     when {
         list == null -> CircularProgressIndicator()

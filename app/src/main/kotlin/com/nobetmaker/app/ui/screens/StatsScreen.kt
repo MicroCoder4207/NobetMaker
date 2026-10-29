@@ -65,9 +65,10 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
         }
         Text("${from.title()} – ${last.title()} · resmi listeye göre", style = MaterialTheme.typography.bodySmall)
         Text(
-            "Denge: + önde (payından fazla tutmuş), − geride. Cumartesi kıdem sırasıyla: son yıla girmemiş herkes ayda bir, son yıldakiler artanları sırayla. " +
-                "Cuma, Pazar, Perşembe ve Pazartesi sırası son ${data.settings.rotationMonths} ay; " +
-                "bayram, yılbaşı ve resmi tatil ilk listeden beri (o gün ekipte olanlar arasında, o günkü katsayıyla; arefe yarım gün).",
+            "Denge: + önde (payından fazla tutmuş), − geride. Nöbet sayısı ${data.settings.countBalanceStart.let { "${com.nobetmaker.core.calendar.monthNameTr(it.monthValue)} ${it.year}" }} listesinden beri; hoca kararı olan aylar dengeye girmez. " +
+                "Zor gün (cuma + cumartesi + pazar) toplamı son ${data.settings.rotationMonths} ay, kıdemlinin payı kıdem eğrisinden. " +
+                "Cumartesi kıdem sırasıyla: son yıla girmemiş herkes ayda bir, son yıldakiler artanları sırayla. " +
+                "Bayram, yılbaşı ve resmi tatil ilk listeden beri (o gün ekipte olanlar arasında, o günkü katsayıyla; arefe yarım gün).",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
@@ -88,6 +89,13 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
                         .joinToString(" · ") { "${it.label} ${c[it] ?: 0}" },
                     style = MaterialTheme.typography.bodySmall,
                 )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    s.countBalance?.let { b ->
+                        val decided = if (b.decided.isEmpty()) "" else " · hoca kararı ${b.decided.size} ay"
+                        BalanceChip("Nöbet sayısı ${b.held} / payı ${String.format(Locale.ROOT, "%.1f", b.expected).replace('.', ',')}$decided", b.diff)
+                    }
+                    BalanceChip("Zor gün ${s.hardCount}", s.hardBalance)
+                }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     s.rotationCount.forEach { (g, n) ->
                         // Cumartesi borçla değil kıdem sırasıyla gider; renk ve ± göstermek kıdemliyi borçlu gösterirdi.

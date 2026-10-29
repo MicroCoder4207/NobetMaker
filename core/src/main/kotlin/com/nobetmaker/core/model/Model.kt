@@ -214,7 +214,7 @@ data class DutyRequest(
 // ---------------------------------------------------------------- Aylık plan
 
 @Serializable
-enum class MonthStatus(val label: String) { TASLAK("Taslak"), YAYINLANDI("Yayınlandı"), KAPANDI("Kapandı") }
+enum class MonthStatus(val label: String) { TASLAK("Taslak"), YAYINLANDI("Kesinleşti"), KAPANDI("Kapandı") }
 
 @Serializable
 enum class AssignmentSource { OTOMATIK, ELLE }

@@ -101,7 +101,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val pr = g.problem ?: return
         val solution = g.result?.solutions?.getOrNull(index) ?: return
         viewModelScope.launch(Dispatchers.IO) {
-            repository.update { DataOps.applySolution(it, pr, solution.assignment, "Otomatik üretildi (seçenek ${index + 1})") }
+            repository.update { DataOps.applySolution(it, pr, solution.assignment, "Otomatik oluşturuldu (seçenek ${index + 1})") }
                 .onSuccess {
                     messages.tryEmit("Liste kaydedildi")
                     withContext(Dispatchers.Main) { onDone() }

@@ -253,6 +253,52 @@ class OpsTest {
     }
 
     @Test
+    fun `hoca karari borc yazmaz kalan gunler dengelenir`() {
+        val kasim = YearMonth.of(2026, 11)
+        val aralik = YearMonth.of(2026, 12)
+        var data = DataOps.ensureMonth(SeedData.build(), kasim)
+        // Hoca: Yaren bu ay 1. Varsayılan olarak hoca kararıdır; kalan 29 gün diğerlerine dağılır.
+        data = DataOps.setQuota(data, kasim, "yaren", 1)
+        val q = data.month(kasim)!!.quotas
+        assertTrue(q.single { it.personId == "yaren" }.let { it.manual && it.decision })
+        assertEquals(29, q.filter { it.personId != "yaren" }.sumOf { it.final })
+        val pr = ProblemBuilder.build(data, kasim, quotaOverride = DataOps.quotaMap(data.month(kasim)))
+        data = DataOps.applySolution(data, pr, Solver(pr).solve().solutions.first().assignment)
+
+        val cal = com.nobetmaker.core.calendar.CalendarService(data.dayOverrides, data.settings)
+        val avail = com.nobetmaker.core.rules.Availability(data, cal)
+        val ledger = com.nobetmaker.core.ledger.CountLedger(data, avail, RosterIndex(data))
+        val bal = ledger.balance(kasim, aralik)
+        val yaren = bal.getValue("yaren")
+        assertEquals(1, yaren.held)
+        assertEquals(0.0, yaren.diff, 1e-9, "hoca kararı borç yazmaz")
+        assertEquals(listOf(kasim), yaren.decided)
+        assertEquals(0.0, bal.values.sumOf { it.diff }, 1e-6, "artan ve eksilen günler diğerleri arasında sıfırlanır")
+        // Payından fazla tutan Aralık'ta az, eksik tutan çok önerilir.
+        val carry = ledger.carryInto(aralik)
+        for ((id, b) in bal) assertEquals(-b.diff, carry[id] ?: 0.0, 1e-9, id)
+        val dec = ProblemBuilder.suggestedQuotas(data, aralik).associateBy { it.personId }
+        for ((id, b) in bal) assertEquals(-b.diff, dec.getValue(id).carryIn, 1e-9, "devreden $id")
+
+        // Hoca kararı kapatılırsa (bizim düzeltmemiz) fark kişiye yazılır.
+        val own = DataOps.setQuotaDecision(data, kasim, "yaren", false)
+        val ownBal = com.nobetmaker.core.ledger.CountLedger(own, avail, RosterIndex(own)).balance(kasim, aralik).getValue("yaren")
+        assertTrue(ownBal.diff < -0.5, "Yaren payından az tuttu: ${ownBal.diff}")
+        // Sayı dengesi başlangıcından önceki aylar dengeye girmez.
+        assertTrue(com.nobetmaker.core.ledger.CountLedger(data, avail, RosterIndex(data)).carryInto(kasim).isEmpty())
+    }
+
+    @Test
+    fun `0_4_1 verisinde elle sabit sayilar hoca karari olur`() {
+        val ym = YearMonth.of(2026, 11)
+        val base = DataOps.setQuota(DataOps.ensureMonth(SeedData.build(), ym), ym, "yaren", 1)
+        val v5 = base.copy(schemaVersion = 5, months = base.months.map { m -> m.copy(quotas = m.quotas.map { it.copy(decision = false) }) })
+        val m = AppJson.decode(AppJson.encode(v5))
+        assertTrue(m.month(ym)!!.quotas.single { it.personId == "yaren" }.decision)
+        assertTrue(m.month(ym)!!.quotas.filter { it.personId != "yaren" }.none { it.decision })
+    }
+
+    @Test
     fun `elle degisen nobet sayisi digerlerine dagilir`() {
         val ym = YearMonth.of(2026, 11)
         var data = DataOps.ensureMonth(SeedData.build(), ym)

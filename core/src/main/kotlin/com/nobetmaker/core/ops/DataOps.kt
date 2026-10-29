@@ -205,7 +205,7 @@ object DataOps {
     }
 
     /** Çözücü sonucunu resmi listeye yazar; kilitli günlerin kilidi korunur. */
-    fun applySolution(data: AppData, pr: MonthProblem, assignment: IntArray, note: String = "Otomatik üretildi"): AppData {
+    fun applySolution(data: AppData, pr: MonthProblem, assignment: IntArray, note: String = "Otomatik oluşturuldu"): AppData {
         val list = assignment.indices.map { i ->
             Assignment(
                 date = pr.days[i],
@@ -332,6 +332,19 @@ object DataOps {
     fun clearUnlocked(data: AppData, ym: YearMonth): AppData {
         val list = currentAssignments(data, ym).filter { it.locked }
         return setAssignments(data, ym, list, "Kilitsiz günler temizlendi")
+    }
+
+    /**
+     * Kesinleşmiş listeyi taslağa geri alır (ör. yanlışlıkla kesinleştirildiyse): kesinleşmiş hali sürümlerde kalır,
+     * taslak onun kopyasıyla başlar; liste baştan oluşturulabilir, sayılar değişebilir. Defter ve istatistik her
+     * zaman geçerli resmi listeden hesaplandığı için değişiklik kendiliğinden yansır.
+     */
+    fun backToDraft(data: AppData, ym: YearMonth): AppData {
+        val plan = data.month(ym) ?: return data
+        if (plan.status != MonthStatus.YAYINLANDI) return data
+        val cur = plan.current
+        val versions = if (cur == null) plan.versions else plan.versions + cur.copy(number = cur.number + 1, createdAt = now(), note = "Taslağa geri alındı")
+        return log(replaceMonth(data, plan.copy(status = MonthStatus.TASLAK, versions = versions)), "Ay durumu", "$ym: taslağa geri alındı")
     }
 
     fun setStatus(data: AppData, ym: YearMonth, status: MonthStatus): AppData {

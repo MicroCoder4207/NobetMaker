@@ -81,13 +81,13 @@ class CalendarButtonsTest : AppUiTest() {
         waitForData(what = "elle atama") { official(day) != before }
         waitSnackbarGone()
 
-        // Gün ayrıntısından "Başka günle değiştir".
+        // Gün ayrıntısından "Başka günle takasla".
         click("10")
         waitForText("Kim tutabilir?")
         val a = official(day)
         val b = official(kasim.atDay(14))
-        click("Başka günle değiştir")
-        waitForText("ile yer değiştirecek günü seçin")
+        click("Başka günle takasla")
+        waitForText("ile takaslanacak günü seçin")
         click("14")
         waitForData(what = "iki gün değişimi") { official(day) == b && official(kasim.atDay(14)) == a }
     }
@@ -153,14 +153,14 @@ class CalendarButtonsTest : AppUiTest() {
         val a = official(d3)
         val b = official(d6)
 
-        click("İki günü değiştir")
-        waitForText("Yer değiştirecek ilk günü seçin")
+        click("İki günü takasla")
+        waitForText("Takaslanacak ilk günü seçin")
         click("Vazgeç")
-        assertTrue(!exists("Yer değiştirecek ilk günü seçin"))
+        assertTrue(!exists("Takaslanacak ilk günü seçin"))
 
-        click("İki günü değiştir")
+        click("İki günü takasla")
         click("3")
-        waitForText("ile yer değiştirecek günü seçin")
+        waitForText("ile takaslanacak günü seçin")
         click("6")
         waitForData(what = "iki günü değiştir") { official(d3) == b && official(d6) == a }
     }
@@ -176,10 +176,10 @@ class CalendarButtonsTest : AppUiTest() {
             }
         }
         goToMonth(ekim)
-        click("Kalan günleri yeniden üret")
+        click("Kalan günleri yeniden oluştur")
         click("Vazgeç")
         assertTrue(data().month(ekim)!!.current!!.assignments.none { it.locked })
-        click("Kalan günleri yeniden üret")
+        click("Kalan günleri yeniden oluştur")
         click("Evet")
         val until = minOf(LocalDate.now(), ekim.atEndOfMonth())
         waitForData(what = "geçmiş günleri kilitleme") { d ->
@@ -194,23 +194,44 @@ class CalendarButtonsTest : AppUiTest() {
         goToMonth(kasim)
         fun status() = data().month(kasim)!!.status
 
-        click("Yayınla")
+        click("Listeyi kesinleştir")
         click("Vazgeç")
         assertEquals(MonthStatus.TASLAK, status())
 
-        click("Yayınla")
-        click("Evet")
+        clickAndConfirm("Listeyi kesinleştir")
         waitForData(what = "yayınlama") { status() == MonthStatus.YAYINLANDI }
         waitSnackbarGone()
 
-        click("Ayı kapat")
-        click("Evet")
+        // Yanlışlıkla kesinleştirildiyse taslağa geri alınır; kesinleşmiş hali sürümlerde kalır.
+        val versions = data().month(kasim)!!.versions.size
+        clickAndConfirm("Taslağa geri al")
+        waitForData(what = "taslağa geri alma") { status() == MonthStatus.TASLAK && it.month(kasim)!!.versions.size == versions + 1 }
+        waitSnackbarGone()
+        clickAndConfirm("Listeyi kesinleştir")
+        waitForData(what = "yeniden kesinleştirme") { status() == MonthStatus.YAYINLANDI }
+        waitSnackbarGone()
+
+        clickAndConfirm("Listeyi kapat")
         waitForData(what = "ayı kapatma") { status() == MonthStatus.KAPANDI }
         waitSnackbarGone()
 
-        click("Yeniden aç")
-        click("Evet")
+        clickAndConfirm("Listeyi yeniden aç")
         waitForData(what = "yeniden açma") { status() == MonthStatus.YAYINLANDI }
+    }
+
+    @Test
+    fun sayilarDegisinceListeYenidenOlusturulur() {
+        draftMonth(kasim)
+        // Hoca kararı: Yaren bu ay 1; liste eski sayılarla kaldı.
+        update { DataOps.setQuota(it, kasim, "yaren", 1) }
+        goToMonth(kasim)
+        waitForText("Liste nöbet sayılarıyla uyuşmuyor")
+        assertTrue(exists("(1 olmalı)", substring = true))
+        shot("t-sayi-uyusmazligi")
+        click("Listeyi yeni sayılarla oluştur")
+        waitForText("Seçenek 1", 120_000)
+        click("Bu listeyi kullan")
+        waitForData(what = "yeni sayılarla liste") { d -> d.month(kasim)!!.current!!.assignments.count { it.personId == "yaren" } == 1 }
     }
 
     @Test
@@ -223,16 +244,16 @@ class CalendarButtonsTest : AppUiTest() {
         click("20")
         waitForText("Kim tutabilir?")
         clickCandidate()
-        waitForText("Liste yayınlandı")
+        waitForText("Liste kesinleşti")
         click("Gerçekte tutan")
         waitForData(what = "gayriresmi değişim") { d -> d.informalChanges.any { it.date == day && it.officialPersonId == off } }
         assertEquals("resmi liste değişmemeli", off, official(day))
         waitSnackbarGone()
 
-        // Aynı günü aç: "Resmiye döndür".
+        // Aynı günü aç: "Resmi kişiye döndür".
         click("20")
         waitForText("Gerçekte tutan:")
-        click("Resmiye döndür")
+        click("Resmi kişiye döndür")
         waitForData(what = "resmiye döndürme") { d -> d.informalChanges.none { it.date == day } }
         waitSnackbarGone()
 
@@ -240,7 +261,7 @@ class CalendarButtonsTest : AppUiTest() {
         click("20")
         waitForText("Kim tutabilir?")
         clickCandidate()
-        waitForText("Liste yayınlandı")
+        waitForText("Liste kesinleşti")
         click("Resmi kayıt")
         waitForData(what = "resmi değişiklik") { d -> d.month(ekim)!!.versions.size == versions + 1 }
         assertNotEquals(off, official(day))

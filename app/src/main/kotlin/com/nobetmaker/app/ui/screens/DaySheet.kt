@@ -121,15 +121,15 @@ fun DaySheet(vm: AppViewModel, date: LocalDate, candidates: List<CandidateInfo>?
                     if (actual != null && actual.id != official?.id) Text("Gerçekte tutan: ${actual.name}", color = MaterialTheme.colorScheme.secondary)
                 }
                 if (actual != null && actual.id != official?.id) {
-                    TextButton(onClick = { vm.update("Resmi kişiye döndü") { DataOps.revertInformal(it, date) } }) { Text("Resmiye döndür") }
+                    TextButton(onClick = { vm.update("Resmi kişiye döndü") { DataOps.revertInformal(it, date) } }) { Text("Resmi kişiye döndür") }
                 }
             }
             if (status == null || status == MonthStatus.TASLAK) {
-                SwitchRow("Kilitle (yeniden üretimde korunur)", locked, enabled = official != null) { on -> vm.update { d -> DataOps.setLock(d, ym, date, on) } }
+                SwitchRow("Kilitle (yeniden oluştururken korunur)", locked, enabled = official != null) { on -> vm.update { d -> DataOps.setLock(d, ym, date, on) } }
             }
 
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (official != null && status != MonthStatus.KAPANDI) OutlinedButton(onClick = onStartSwap) { Text("Başka günle değiştir") }
+                if (official != null && status != MonthStatus.KAPANDI) OutlinedButton(onClick = onStartSwap) { Text("Başka günle takasla") }
                 if (status == MonthStatus.YAYINLANDI && actual != null) OutlinedButton(onClick = { swapOpen = true }) { Text("Değişim asistanı") }
             }
 
@@ -175,7 +175,7 @@ fun DaySheet(vm: AppViewModel, date: LocalDate, candidates: List<CandidateInfo>?
             title = { Text("${c.person.name} için") },
             text = {
                 Text(
-                    (if (closed) "Ay kapandı. " else "Liste yayınlandı. ") +
+                    (if (closed) "Ay kapandı. " else "Liste kesinleşti. ") +
                         "Resmi kaydı mı değiştiriyorsunuz (bayram ve sıra hesabına girer, yeni sürüm açılır), yoksa yalnızca gerçekte kimin tuttuğunu mu " +
                         "kaydediyorsunuz (takas, hesabı değiştirmez)?" +
                         if (c.status == CandidateStatus.HARD) "\n\nUyarı, kurala aykırı: ${c.hardReasons.joinToString("; ")}" else "",
