@@ -298,6 +298,61 @@ class OpsTest {
         assertTrue(m.month(ym)!!.quotas.filter { it.personId != "yaren" }.none { it.decision })
     }
 
+    /** Telefonda oluşturulan Kasım 2026 listesi (Yaren 1 hoca kararı, Aslı 6 bizim verdiğimiz). */
+    private fun telefondakiKasim(asliKarar: Boolean): com.nobetmaker.core.model.AppData {
+        val kasim = YearMonth.of(2026, 11)
+        val gunler = ("kenan asli oguz sule betul fatma asli oguz kenan betul asli sule kenan oguz fatma " +
+            "betul sule oguz yaren asli betul sule oguz asli kenan fatma betul sule asli fatma").split(" ")
+        var data = DataOps.ensureMonth(SeedData.build(), kasim)
+        data = DataOps.setQuota(data, kasim, "yaren", 1, decision = true)
+        data = DataOps.setQuota(data, kasim, "asli", 6, decision = asliKarar)
+        val list = gunler.mapIndexed { i, id -> com.nobetmaker.core.model.Assignment(kasim.atDay(i + 1), id) }
+        return data.copy(
+            months = data.months.map { m ->
+                if (m.yearMonth == kasim) m.copy(versions = listOf(com.nobetmaker.core.model.RosterVersion(1, "", "telefon", list))) else m
+            },
+        )
+    }
+
+    @Test
+    fun `ayni ayda kimse kendinden kidemliden az tutmaz`() {
+        val kasim = YearMonth.of(2026, 11)
+        val aralik = YearMonth.of(2026, 12)
+        for (asliKarar in listOf(false, true)) {
+            val data = telefondakiKasim(asliKarar)
+            val q = ProblemBuilder.suggestedQuotas(data, aralik).associate { it.personId to it.final }
+            // 0.4.2 burada Fatma 5, Betül 4 veriyordu: çömez kıdemliden az.
+            assertEquals(mapOf("yaren" to 3, "kenan" to 4, "fatma" to 4, "betul" to 5, "sule" to 5, "oguz" to 5, "asli" to 5), q, "Aslı hoca kararı: $asliKarar")
+            val bySeniority = data.persons.sortedBy { it.seniority }.map { q.getValue(it.id) }
+            assertEquals(bySeniority.sorted(), bySeniority, "kıdem sırası: $bySeniority")
+
+            // Kasım'da payları yakın olanlar (Kenan–Fatma; henüz son yılda olmayan Betül–Şule–Oğuz) yuvarlama farkını
+            // birlikte taşır: kişiye yazılsaydı aynı sırayı koruyan sayılar bir sonraki ay sırayı bozardı.
+            val cal = com.nobetmaker.core.calendar.CalendarService(data.dayOverrides, data.settings)
+            val bal = com.nobetmaker.core.ledger.CountLedger(data, com.nobetmaker.core.rules.Availability(data, cal), RosterIndex(data)).balance(kasim, aralik)
+            val d = { id: String -> bal.getValue(id).diff }
+            assertEquals(d("kenan"), d("fatma"), 0.01)
+            assertEquals(d("betul"), d("sule"), 0.01)
+            assertEquals(d("sule"), d("oguz"), 0.01)
+            if (!asliKarar) assertTrue(bal.getValue("asli").diff > 0.5, "Aslı'nın fazlası kendisine yazılır: ${bal.getValue("asli").diff}")
+            else assertEquals(0.0, bal.getValue("asli").diff, 1e-9)
+        }
+    }
+
+    @Test
+    fun `0_4_2 verisinde ondan fazla verilen sayi hoca karari olmaktan cikar`() {
+        val kasim = YearMonth.of(2026, 11)
+        val v6 = telefondakiKasim(asliKarar = true).let { it.copy(schemaVersion = 6) }
+        val m = AppJson.decode(AppJson.encode(v6))
+        val q = m.month(kasim)!!.quotas.associateBy { it.personId }
+        assertTrue(q.getValue("yaren").decision, "hocanın düşürdüğü sayı karar olarak kalır")
+        assertTrue(q.getValue("asli").manual && !q.getValue("asli").decision, "artanı Aslı'ya biz verdik")
+        // Sayı dengesi başlangıcından önceki aylara dokunulmaz.
+        val ekim = YearMonth.of(2026, 10)
+        val old = DataOps.setQuota(DataOps.ensureMonth(SeedData.build(), ekim), ekim, "asli", 9, decision = true).copy(schemaVersion = 6)
+        assertTrue(AppJson.decode(AppJson.encode(old)).month(ekim)!!.quotas.single { it.personId == "asli" }.decision)
+    }
+
     @Test
     fun `elle degisen nobet sayisi digerlerine dagilir`() {
         val ym = YearMonth.of(2026, 11)

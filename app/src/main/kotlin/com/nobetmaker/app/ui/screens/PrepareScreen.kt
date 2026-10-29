@@ -70,6 +70,7 @@ import com.nobetmaker.core.model.MonthStatus
 import com.nobetmaker.core.model.Period
 import com.nobetmaker.core.model.PeriodType
 import com.nobetmaker.core.model.Person
+import com.nobetmaker.core.model.QuotaEntry
 import com.nobetmaker.core.model.Priority
 import com.nobetmaker.core.model.RequestType
 import com.nobetmaker.core.ops.DataOps
@@ -332,8 +333,14 @@ private fun QuotaTab(vm: AppViewModel, month: YearMonth, editable: Boolean, publ
     val plan = data.month(month) ?: return
     val total = plan.quotas.sumOf { it.final }
     val days = month.lengthOfMonth()
+    // İlk kez sabitlenen kişi: hoca kararı mı, bizim değişikliğimiz mi?
+    var asking by remember { mutableStateOf<Pair<Person, Int>?>(null) }
+    fun change(p: Person, q: QuotaEntry, value: Int) {
+        if (q.manual) vm.update { DataOps.setQuota(it, month, p.id, value) } else asking = p to value
+    }
     Text(
-        "Uygulama kıdem katsayılarına ve önceki aylardaki sayı dengesine göre önerir. Birinin sayısını değiştirdiğinizde o kişi sabitlenir, kalan günler diğerlerine aynı kurallarla yeniden dağıtılır.",
+        "Uygulama kıdem katsayılarına ve önceki aylardaki sayı dengesine göre önerir. Aynı ay içinde kimse kendinden kıdemliden az tutmaz; " +
+            "artan nöbet önce en çömeze gider. Birinin sayısını değiştirdiğinizde o kişi sabitlenir, kalan günler diğerlerine aynı kurallarla yeniden dağıtılır.",
         style = MaterialTheme.typography.bodySmall,
     )
     Text(
@@ -341,6 +348,27 @@ private fun QuotaTab(vm: AppViewModel, month: YearMonth, editable: Boolean, publ
             "Sayıyı kendiniz değiştirdiyseniz \"Hoca kararı\"nı kapatın; fark sonraki aylarda o kişiye geri yansır.",
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+    asking?.let { (p, value) ->
+        val old = plan.quotas.firstOrNull { it.personId == p.id }?.final ?: 0
+        AlertDialog(
+            onDismissRequest = { asking = null },
+            title = { Text("Hoca kararı mı?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("${p.name}: $old → $value")
+                    Text("Hoca kararı: bu kişiye borç ya da alacak yazılmaz; fark diğerlerine dağılır ve sonraki aylarda onlar arasında dengelenir.", style = MaterialTheme.typography.bodySmall)
+                    Text("Biz değiştirdik: fark sonraki aylarda bu kişiye geri yansır.", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                Row {
+                    TextButton(onClick = { asking = null; vm.update { DataOps.setQuota(it, month, p.id, value, decision = false) } }) { Text("Biz değiştirdik") }
+                    TextButton(onClick = { asking = null; vm.update { DataOps.setQuota(it, month, p.id, value, decision = true) } }) { Text("Hoca kararı") }
+                }
+            },
+            dismissButton = { TextButton(onClick = { asking = null }) { Text("Vazgeç") } },
+        )
+    }
     if (published) {
         Text(
             "Liste kesinleşti. Sayıyı değiştirdikten sonra takvimde \"Kalan günleri yeniden oluştur\"a basın; geçmiş günler korunur.",
@@ -376,9 +404,9 @@ private fun QuotaTab(vm: AppViewModel, month: YearMonth, editable: Boolean, publ
                 if (q.manual && editable) {
                     IconButton(onClick = { vm.update { DataOps.releaseQuota(it, month, p.id) } }) { Icon(Icons.Default.Lock, "Sabitlemeyi kaldır", tint = MaterialTheme.colorScheme.primary) }
                 }
-                IconButton(enabled = editable && q.final > 0, onClick = { vm.update { DataOps.setQuota(it, month, p.id, q.final - 1) } }) { Text("−", style = MaterialTheme.typography.titleLarge) }
+                IconButton(enabled = editable && q.final > 0, onClick = { change(p, q, q.final - 1) }) { Text("−", style = MaterialTheme.typography.titleLarge) }
                 Text("${q.final}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                IconButton(enabled = editable, onClick = { vm.update { DataOps.setQuota(it, month, p.id, q.final + 1) } }) { Text("+", style = MaterialTheme.typography.titleLarge) }
+                IconButton(enabled = editable, onClick = { change(p, q, q.final + 1) }) { Text("+", style = MaterialTheme.typography.titleLarge) }
             }
         }
     }

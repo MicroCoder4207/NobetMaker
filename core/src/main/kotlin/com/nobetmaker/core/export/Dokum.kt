@@ -215,6 +215,7 @@ object DokumBuilder {
         if (month >= countStart) {
             notes += "Nöbet sayıları ${monthNameTr(countStart.monthValue)} ${countStart.year} listesinden beri dengelenir: fazla tutan sonraki ay az tutar."
         }
+        notes += "Aynı ay içinde kimse kendinden kıdemliden az tutmaz; artan nöbet önce en çömeze."
 
         return Dokum(
             month = month,

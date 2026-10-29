@@ -15,6 +15,7 @@ import com.nobetmaker.core.model.Person
 import com.nobetmaker.core.model.PersonRule
 import com.nobetmaker.core.model.RosterVersion
 import com.nobetmaker.core.model.RuleType
+import com.nobetmaker.core.quota.QuotaCalculator
 import com.nobetmaker.core.ops.DataOps
 import com.nobetmaker.core.rules.Availability
 import com.nobetmaker.core.rules.Coefficients
@@ -179,6 +180,27 @@ class CurveTest {
         val sundays = jan.queue[RotationGroup.PAZAR.ordinal]
         assertFalse("k2" in sundays, "k2 aynı ay hem cumartesi hem pazar: $sundays")
         assertTrue("k1" in sundays, "pazarlar: $sundays")
+    }
+
+    @Test
+    fun `devreden ne olursa olsun comez kidemliden az tutmaz`() {
+        val ym = YearMonth.of(2026, 12)
+        val cal = CalendarService(seed.dayOverrides, seed.settings)
+        val avail = Availability(seed, cal)
+        val persons = seed.persons.filter { p -> (1..ym.lengthOfMonth()).any { p.isActiveOn(ym.atDay(it)) } }.sortedBy { it.seniority }
+        val random = java.util.Random(7)
+        repeat(300) {
+            val carry = persons.associate { it.id to (random.nextDouble() * 4 - 2) }
+            val total = 28 + random.nextInt(4)
+            val q = QuotaCalculator.compute(ym, persons, avail, carry, emptyMap(), seed.settings.maxPerMonth, fixedTotal = total).entries
+                .associate { it.personId to it.final }
+            val counts = persons.map { q.getValue(it.id) }
+            assertEquals(total, counts.sum())
+            assertEquals(counts.sorted(), counts, "devreden $carry → $counts")
+        }
+        // Havuz: sırayı bozan komşular ortalamada birleşir.
+        assertEquals(listOf(listOf("a") to 1.0, listOf("b", "c") to 2.5, listOf("d") to 4.0),
+            QuotaCalculator.pool(listOf("a" to 1.0, "b" to 3.0, "c" to 2.0, "d" to 4.0)))
     }
 
     @Test

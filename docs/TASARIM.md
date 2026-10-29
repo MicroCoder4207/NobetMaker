@@ -246,11 +246,11 @@ Y4'teki sapma, ayın sırasında beklenen gün sayısından fark; Y5'teki sapma 
 2. Her kişinin **etkin katsayısı** hesaplanır: nöbet katsayısı × (1 − kotayı düşüren dönem günleri / N). Ayın tamamında ekipte olmayan kişi için de (ay ortasında başlayan ya da ayrılan) aynı oranlama yapılır.
 3. **Ham hak:** hak = N × etkin katsayı / Σ etkin katsayılar.
 4. Önceki aylardan devreden **sayı dengesi** ham hakka eklenir (5.4): payından az tutan için +, fazla tutan için −. Ayda en fazla ±2 düzeltilir.
-5. **Yuvarlama:** Toplam N olacak şekilde en büyük kalan yöntemiyle yapılır. Eşitlik olursa fazla nöbet çömeze gider.
+5. **Yuvarlama:** Toplam N olacak şekilde en büyük kalan yöntemiyle yapılır. Eşitlik olursa fazla nöbet çömeze gider. Kıdem kuralı (5.5) burada uygulanır: kimse kendinden kıdemliden az tutmaz.
 6. Yuvarlamada kalan küsurat da sayı dengesine girer ve sonraki aya devreder. Örneğin Yaren'in hakkı 2.5 ise bir ay 2, bir ay 3 nöbet tutar.
 7. **Katsayı:** Kıdem eğrisinden (2.3) ya da kişinin elle girdiği değerden gelir; her gün o günün katsayısı kullanılır.
 8. **Sınırlar:** Üst sınır 6'dır (S6). Ekip küçülürse (ör. Eylül 2027'den sonra 4 kişi) kişi başı 7–8 nöbet düşer; bu durumda üst sınır Ayarlar'dan artırılır. Ayrıca fiziksel sığma kontrol edilir: kişinin uygun günlerine en az 3 gün arayla en fazla kaç nöbet sığabileceğine bakılır. Sınırı aşan kısım o ay diğerlerine dağıtılır. Bunun için **borç yazılmaz** ve küsurat devri yapılmaz.
-9. Uygulama sayıları **önerir** (uygulamada "Nöbet sayıları" sekmesi). Liste yapan, bir kişinin sayısını ±1 değiştirdiğinde o kişi **elle sabitlenir** ve kalan günler diğerlerine yukarıdaki adımlarla yeniden dağıtılır; toplam N korunur. Örnek: Kasım 2026'da Yaren 0'a indirilince 2 günü Fatma ve Aslı'ya geçer. Sabitleme kişi bazında kaldırılabilir ya da "Öneriye dön" ile hepsi sıfırlanır. Elle sabitlenen kişiye borç yazılmaz.
+9. Uygulama sayıları **önerir** (uygulamada "Nöbet sayıları" sekmesi). Liste yapan, bir kişinin sayısını ±1 değiştirdiğinde o kişi **elle sabitlenir** ve kalan günler diğerlerine yukarıdaki adımlarla yeniden dağıtılır; toplam N korunur. Örnek: Kasım 2026'da Yaren 0'a indirilince 2 günü Fatma ve Aslı'ya geçer. Sabitleme kişi bazında kaldırılabilir ya da "Öneriye dön" ile hepsi sıfırlanır. Hoca kararıyla sabitlenen kişiye borç yazılmaz (5.4).
    - Hocalar bir kişi için sayı söylerse o ay elle sabitlenir. Kalıcıysa kişiye **"Ayda sabit nöbet sayısı"** kuralı girilir; her ay o sayıyla gelir, kural kalkınca öneriye döner.
    - Sayısı düşen kişinin Cuma/Cumartesi/Pazar sırası değişmez; düşen nöbet hafta içinden gelir. Böylece diğerleri onun yükünü iki kez (hem sayı hem hafta sonu) taşımaz.
 
@@ -266,13 +266,27 @@ Doğrulama:
 
 Hocalar bir ay için birinin sayısını söyleyebilir ("Yaren bu ay 1, sınavı var"; sonraki ay "Yaren 4"). Bu düzeni bozmamalı ve kimseye haksızlık olmamalı.
 
-- **Hoca kararı:** Nöbet sayıları sekmesinde bir kişinin sayısı değiştirilince o kişi sabitlenir ve varsayılan olarak "Hoca kararı" işaretlenir. Hoca kararı olan kişiye o ay için borç ya da alacak yazılmaz. "Ayda sabit nöbet sayısı" kuralı da hoca kararı sayılır.
+- **Hoca kararı:** Nöbet sayıları sekmesinde bir kişinin sayısı ilk kez değiştirilince uygulama sorar: "Hoca kararı mı?" → [Hoca kararı] / [Biz değiştirdik] (0.4.3). Hoca kararı olan kişiye o ay için borç ya da alacak yazılmaz. "Ayda sabit nöbet sayısı" kuralı da hoca kararı sayılır. İşaret sonradan kişinin altındaki "Hoca kararı" düğmesiyle değiştirilebilir.
 - **Bizim düzeltmemiz:** "Hoca kararı" kapatılırsa sabitleme bizim düzeltmemiz sayılır; kişinin payından fazla ya da eksik tuttuğu sonraki aylarda ona geri yansır.
 - **Kalan günler:** Hoca kararıyla artan ya da eksilen günler diğerlerine nöbet katsayısıyla paylaştırılır. Yuvarlamada fazladan gün alan sonraki aylarda daha az alır; böylece "artanı hep Aslı'ya verdik" durumu birikmez.
 - **Hesap (sayı defteri):** Kayıt tutulmaz; her seferinde resmi listeden hesaplanır. Her ay: asistanların tuttuğu günlerden hoca kararı olan kişilerin tuttukları düşülür, kalan günler diğerleri arasında o ayki nöbet katsayısıyla paylaştırılır. Denge = tutulan − pay. Elle yapılan her düzeltme (kapanmış ay dahil) kendiliğinden yansır.
 - **Başlangıç:** Kasım 2026 (uygulamanın ilk listesi). Öncesi elle yapılmış eski düzen sayılır, dengeye girmez (Ayarlar'dan değiştirilebilir).
 - **Gösterim:** Nöbet sayıları sekmesinde "önceki aylardan eksik 0,6" ya da "fazla 0,4"; istatistikte "Nöbet sayısı 9 / payı 9,4"; dökümde "Hoca kararı: Yaren 1; kalan günler diğerlerine katsayıyla dağıtıldı."
 - **Liste ile sayılar uyuşmazsa** (ör. sayı liste oluşturulduktan sonra değişti) takvimde uyarı çıkar: "Liste nöbet sayılarıyla uyuşmuyor: Yaren 2 (1 olmalı)". Uyarıdaki düğme listeyi (kesinleşmişse kalan günleri) yeni sayılarla oluşturur.
+
+### 5.5 Kıdem kuralı (0.4.3)
+
+**Aynı ay içinde kimse kendinden kıdemliden az tutmaz; en kötü ihtimalle eşit tutar.** "Betül benden çömez, nasıl benden az tutuyor?" durumu olmaz. Sayı dengesinin devrettiği küsurat bu sırayı bozamaz.
+
+1. **Havuz:** Ayın tamamında olağan katılan kişiler (izin dışı dönem, yeni başlama, ayrılma yok) kıdem sırasına dizilir. Hakkı (pay + devreden) kendinden çömezinkinden büyük olan komşular birleştirilir ve ortalama hakkı alır; birleşen blok yine sırayı bozuyorsa bir öncekiyle birleşir. Sonuç kıdemliden çömeze azalmayan haklardır.
+2. **Yuvarlama:** Toplam N olacak şekilde en büyük kalan yöntemi. Aynı tam sayıdaki kişiler kendi toplamlarını eşit paylaşır; artan nöbet **önce en çömeze** gider.
+3. **Üst sınır:** Sınıra takılanın fazlası, sırayı bozmayan birine verilir (kendinden çömezlerin hiçbirini geçmeyen).
+4. **Sayı dengesinde gruplar:** Payları birbirine 0,5'ten yakın, kıdemce ardışık kişiler o ayın yuvarlama farkını **birlikte** taşır: grubun toplam sapması üyelere payları oranında yazılır. Kişiye yazılsaydı ertesi ay devreden sırayı yine bozmaya çalışırdı. Elle verilen (hoca kararı olmayan) sayı ve ayın bir kısmında olmayan kişi kendi sapmasını taşır.
+5. **Bedeli:** Grup içinde artan hep çömeze gittiği için yakın kıdemliler arasında küçük bir kıdem farkı oluşur. 12 aylık benzetimde Kenan 48, Fatma 50, Betül 53 tuttu (payları 50 / 50,5 / 50,8); sırayı bozan ay 0, grubun toplam farkı 48 ayda en fazla 0,8.
+
+Örnek (telefonda oluşturulan Kasım 2026 listesinden Aralık): 0.4.2 Fatma 5, Betül 4 veriyordu. Kıdem kuralıyla: Yaren 3, Kenan 4, Fatma 4, Betül 5, Şule 5, Oğuz 5, Aslı 5.
+
+**Geçiş:** 0.4.2 elle girilen her sayıyı hoca kararı saymıştı. 0.4.3, sayı dengesi döneminde öneriden fazla verilen elle sayıları "bizim düzeltmemiz" yapar (Kasım'da Yaren'den artanı Aslı'ya vermemiz gibi); hocanın düşürdüğü sayı hoca kararı kalır.
 
 ### 5.2 İzin kotayı düşürmez
 
@@ -721,6 +735,7 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 | K50 | Liste "kesinleşir" (yayınlanmaz); yanlışlıkla kesinleştirilen liste taslağa geri alınabilir. Liste sayılarla uyuşmazsa takvimde uyarı ve yeniden oluşturma düğmesi çıkar. |
 | K51 | Aynı kişiye ayda ikinci pazartesi yüksek ceza alır (Salı dersi). Çözücü 64 × 40.000 adımla arar. |
 | K52 | Düğme yazıları: "Ay hazırlığı", "Liste oluştur", "Listeyi kesinleştir", "Taslağa geri al", "Listeyi kapat", "İki günü takasla", "Kalan günleri yeniden oluştur"; sayılar "2 nöbet (1 olmalı)", saat "saat". |
+| K53 | Aynı ay içinde kimse kendinden kıdemliden az tutmaz (5.5): haklar kıdem sırasına göre havuzlanır, artan nöbet önce en çömeze, payları yakın olanlar yuvarlama farkını birlikte taşır. Elle sayı ilk değiştirilince "Hoca kararı mı?" diye sorulur. |
 
 ---
 

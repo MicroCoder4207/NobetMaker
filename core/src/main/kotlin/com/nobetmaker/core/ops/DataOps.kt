@@ -109,6 +109,17 @@ object AppJson {
             // 0.4.2: önceden elle sabitlenen sayılar borç yazmıyordu; hoca kararı olarak işaretlenir (§5.4).
             d = d.copy(months = d.months.map { m -> m.copy(quotas = m.quotas.map { q -> if (q.manual) q.copy(decision = true) else q }) })
         }
+        if (d.schemaVersion < 7) {
+            // 0.4.3: 0.4.2 her elle sayıyı hoca kararı saydı. Denge döneminde öneriden fazla verilen sayı genelde
+            // hocanın düşürdüğü kişiden artanı bizim birine vermemizdir: kendi sapmasını taşısın (§5.4).
+            val start = YearMonth.from(d.settings.countBalanceStart)
+            d = d.copy(
+                months = d.months.map { m ->
+                    if (YearMonth.of(m.year, m.month) < start) m
+                    else m.copy(quotas = m.quotas.map { q -> if (q.manual && q.decision && q.final > q.suggested) q.copy(decision = false) else q })
+                },
+            )
+        }
         return if (d.schemaVersion == AppData.SCHEMA_VERSION) d else d.copy(schemaVersion = AppData.SCHEMA_VERSION)
     }
 }
@@ -156,11 +167,15 @@ object DataOps {
         return replaceMonth(data, plan.copy(quotas = ProblemBuilder.suggestedQuotas(data, ym)))
     }
 
-    /** Kişinin sayısını elle sabitler; diğerlerinin önerisi kalan günlere göre yeniden dağılır. */
-    fun setQuota(data: AppData, ym: YearMonth, personId: String, value: Int): AppData {
+    /**
+     * Kişinin sayısını elle sabitler; diğerlerinin önerisi kalan günlere göre yeniden dağılır.
+     * @param decision ilk sabitlemede hoca kararı mı; null ise önceki işaret (yoksa hoca kararı) kalır.
+     */
+    fun setQuota(data: AppData, ym: YearMonth, personId: String, value: Int, decision: Boolean? = null): AppData {
         val plan = data.month(ym) ?: return data
         val fixed = manualQuotas(plan) + (personId to value.coerceAtLeast(0))
-        val quotas = withDecisions(ProblemBuilder.suggestedQuotas(data, ym, fixed), decisionFlags(plan))
+        val flags = decisionFlags(plan) + listOfNotNull(decision?.let { personId to it })
+        val quotas = withDecisions(ProblemBuilder.suggestedQuotas(data, ym, fixed), flags)
         val name = data.person(personId)?.name ?: personId
         return log(replaceMonth(data, plan.copy(quotas = quotas)), "Nöbet sayısı", "$ym: $name ${value.coerceAtLeast(0)}")
     }

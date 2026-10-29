@@ -251,6 +251,8 @@ object ProblemBuilder {
         val computed = QuotaCalculator.compute(
             month, persons, avail, carryIn, capacity, settings.maxPerMonth, fixed = fixed,
             dutyOf = { p, d -> avail.coefficients.on(p, d).duty },
+            // Kıdem kuralı ayın tamamında olağan katılanlar arasında (izin dışı dönem, yeni başlama, ayrılma yok).
+            regular = { p -> days.all { d -> avail.countsForQuota(p, d) } },
         )
         // Kuraldan gelen sayı önerinin kendisidir; elle sabitlenmiş sayılmaz (kural kalkınca öneriye döner).
         val quotaResult = computed.copy(

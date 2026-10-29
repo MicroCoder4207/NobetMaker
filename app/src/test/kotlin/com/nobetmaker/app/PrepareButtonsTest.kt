@@ -155,10 +155,18 @@ class PrepareButtonsTest : AppUiTest() {
         fun q(id: String) = data().month(kasim)!!.quotas.first { it.personId == id }
         val yaren = q("yaren").final
 
+        // İlk değişiklikte sorulur: vazgeçilirse bir şey değişmez.
         stepper("Yaren", plus = false)
+        waitForText("Hoca kararı mı?")
+        shot("t-hoca-karari-mi")
+        clickInDialog("Vazgeç")
+        assertTrue(!q("yaren").manual)
+
+        stepper("Yaren", plus = false)
+        clickInDialog("Hoca kararı")
         waitForData(what = "elle azaltma") { q("yaren").final == yaren - 1 && q("yaren").manual && q("yaren").decision }
         assertEquals(30, data().month(kasim)!!.quotas.sumOf { it.final })
-        // Varsayılan olarak hoca kararı; kapatılınca bizim düzeltmemiz olur.
+        // Sabitlenmiş kişide artık sorulmaz; hoca kararı kapatılınca bizim düzeltmemiz olur.
         waitForText("Hoca kararı · öneri")
         click("Hoca kararı")
         waitForData(what = "hoca kararını kapatma") { q("yaren").manual && !q("yaren").decision }
@@ -171,7 +179,13 @@ class PrepareButtonsTest : AppUiTest() {
 
         val kenan = q("kenan").final
         stepper("Kenan", plus = true)
-        waitForData(what = "elle artırma") { q("kenan").final == kenan + 1 && q("kenan").manual }
+        clickInDialog("Biz değiştirdik")
+        waitForData(what = "elle artırma") { q("kenan").final == kenan + 1 && q("kenan").manual && !q("kenan").decision }
+        waitForText("Elle verildi · öneri")
+        stepper("Kenan", plus = true)
+        waitForData(what = "sorulmadan artırma") { q("kenan").final == kenan + 2 && !q("kenan").decision }
+        stepper("Kenan", plus = false)
+        waitForData(what = "geri azaltma") { q("kenan").final == kenan + 1 }
         assertEquals(30, data().month(kasim)!!.quotas.sumOf { it.final })
 
         click("Önerilen sayılara dön")

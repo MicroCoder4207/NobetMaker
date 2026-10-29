@@ -1,10 +1,13 @@
 package com.nobetmaker.core.ledger
 
 import com.nobetmaker.core.model.AppData
+import com.nobetmaker.core.model.Person
 import com.nobetmaker.core.model.RuleType
 import com.nobetmaker.core.rules.Availability
 import com.nobetmaker.core.rules.RosterIndex
+import java.time.LocalDate
 import java.time.YearMonth
+import kotlin.math.abs
 
 /** Kişinin nöbet sayısı dengesi (§5.4): tutulan − payı; pozitif = payından fazla tutmuş. */
 class CountBalance(
@@ -23,6 +26,11 @@ class CountBalance(
  * Her ay: asistanların tuttuğu günlerden hoca kararıyla belirlenen kişilerin tuttukları düşülür, kalan günler
  * diğerleri arasında o ayki nöbet katsayısıyla paylaştırılır. Hoca kararı olan kişiye borç ya da alacak yazılmaz;
  * fazla ya da eksik tutan diğerleri sonraki aylarda dengelenir.
+ *
+ * Kıdem kuralı (§5.5) yüzünden payları birbirine yakın (farkı [NEAR] altında) ve kıdemce ardışık kişiler o ay
+ * eşit ya da çömez lehine birer fazla tutar; aralarındaki yuvarlama farkı kişiye değil gruba yazılır: grubun toplam
+ * sapması üyelere payları oranında bölünür. Böylece sonraki ay yine aynı sıra korunur, grup olarak da denge kayar.
+ * Elle verilen (hoca kararı olmayan) sayı ve ayın bir kısmında olmayan kişi kendi sapmasını taşır.
  */
 class CountLedger(
     private val data: AppData,
@@ -64,13 +72,36 @@ class CountLedger(
                     expected.merge(id, (count[id] ?: 0).toDouble(), Double::plus)
                     decided.getOrPut(id) { ArrayList() } += m
                 }
-                if (sum > 0.0) for (p in sharing) expected.merge(p.id, remaining * effective.getValue(p.id) / sum, Double::plus)
+                if (sum > 0.0) {
+                    val share = sharing.associate { it.id to remaining * effective.getValue(it.id) / sum }
+                    val own = data.month(m)?.quotas.orEmpty().filter { it.manual && !it.decision }.map { it.personId }.toSet()
+                    for (group in groups(sharing, share, own, days)) {
+                        val dev = group.sumOf { (count[it] ?: 0) - share.getValue(it) }
+                        val total = group.sumOf { share.getValue(it) }
+                        for (id in group) expected.merge(id, (count[id] ?: 0) - dev * share.getValue(id) / total, Double::plus)
+                    }
+                }
             }
             m = m.plusMonths(1)
         }
         return (held.keys + expected.keys).associateWith { id ->
             CountBalance(held[id] ?: 0, expected[id] ?: 0.0, decided[id].orEmpty())
         }
+    }
+
+    /**
+     * Sapmayı birlikte taşıyan gruplar: ayın tamamında olağan katılan, elle sayı verilmemiş kişiler kıdem sırasıyla
+     * dizilir; payı bir öncekine [NEAR]'dan yakın olan aynı gruba girer. Diğerleri tek başına.
+     */
+    private fun groups(sharing: List<Person>, share: Map<String, Double>, own: Set<String>, days: List<LocalDate>): List<List<String>> {
+        val (ranked, alone) = sharing.sortedBy { it.seniority }
+            .partition { p -> p.id !in own && days.all { d -> availability.countsForQuota(p, d) } }
+        val out = ArrayList<MutableList<String>>()
+        for (p in ranked) {
+            val last = out.lastOrNull()
+            if (last != null && abs(share.getValue(p.id) - share.getValue(last.last())) < NEAR) last += p.id else out += mutableListOf(p.id)
+        }
+        return out + alone.map { listOf(it.id) }
     }
 
     /**
@@ -85,5 +116,8 @@ class CountLedger(
 
     companion object {
         const val MAX_CARRY = 2.0
+
+        /** Payları bundan yakın olan ardışık kişiler sapmayı birlikte taşır. */
+        const val NEAR = 0.5
     }
 }
