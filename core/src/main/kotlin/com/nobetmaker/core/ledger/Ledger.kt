@@ -88,17 +88,26 @@ class Ledger(
 
         val hardGroups = setOf(RotationGroup.VIZIT, RotationGroup.CUMA, RotationGroup.PAZAR)
         fun senior(p: Person, date: LocalDate) = availability.coefficients.isSenior(p, date)
-        // Hoca kararı olan ay (elle sayı ya da "ayda sabit sayı") kişi zor gün düzenine girmez: sırası gelmez, defterine
-        // de yazılmaz; gün başkasına sığmazsa yine yazılabilir. Sayı dengesi gibi Kasım 2026'dan beri.
-        val counts = CountLedger(data, availability, roster)
+        // Hoca kararı olan ay kişinin zor gün payı sayısıyla orantılıdır: hoca düşürdüyse (ör. sınav, 4 yerine 2) payı da
+        // aynı oranda düşer, artırdıysa değişmez, 0 dediyse zor gün düzenine girmez. Sayı dengesi gibi Kasım 2026'dan beri.
         val balanceStart = YearMonth.from(data.settings.countBalanceStart)
-        val decidedCache = HashMap<YearMonth, Set<String>>()
-        fun decided(date: LocalDate): Set<String> = YearMonth.from(date).let { m ->
-            if (m < balanceStart) emptySet() else decidedCache.getOrPut(m) { counts.decisions(m).keys }
+        val factorCache = HashMap<YearMonth, Map<String, Double>>()
+        fun factor(p: Person, date: LocalDate): Double {
+            val m = YearMonth.from(date)
+            if (m < balanceStart) return 1.0
+            return factorCache.getOrPut(m) {
+                data.month(m)?.quotas.orEmpty().filter { it.manual && it.decision }.associate { q ->
+                    q.personId to when {
+                        q.suggested > 0 -> minOf(1.0, q.final.toDouble() / q.suggested)
+                        q.final > 0 -> 1.0
+                        else -> 0.0
+                    }
+                }
+            }[p.id] ?: 1.0
         }
         // O haftanın cumartesi ya da pazarını tutabilen; uzatmadaki gibi ikisi de kapalıysa zor gün düzenine girmez.
         fun weekendPeer(p: Person, date: LocalDate): Boolean {
-            if (!availability.eligibleForShare(p, date) || p.id in decided(date)) return false
+            if (!availability.eligibleForShare(p, date) || factor(p, date) <= 0.0) return false
             val sat = when (date.dayOfWeek) {
                 DayOfWeek.FRIDAY -> date.plusDays(1)
                 DayOfWeek.SUNDAY -> date.minusDays(1)
@@ -127,9 +136,11 @@ class Ledger(
                     val holder = byId[who]
                     if (holder != null && weekendPeer(holder, d)) {
                         val peers = tier(holder, d)
+                        val weight = peers.sumOf { factor(it, d) }
                         for (p in peers) {
-                            hardBalance.getValue(p.id)[0] += 1.0 / peers.size
-                            if (group != RotationGroup.VIZIT) expected.getValue(p.id)[group.ordinal] += 1.0 / peers.size
+                            val share = factor(p, d) / weight
+                            hardBalance.getValue(p.id)[0] += share
+                            if (group != RotationGroup.VIZIT) expected.getValue(p.id)[group.ordinal] += share
                         }
                         hardBalance.getValue(holder.id)[0] -= 1.0
                     }
@@ -161,11 +172,7 @@ class Ledger(
                 // mümkün değilse kural esner.
                 val wanting = candidates.filter { wants(it, day) && availableInPlan(it, day) }
                 val fresh = candidates.filter { day.dayOfWeek !in usedWeekdays[it.id].orEmpty() }
-                // Hoca kararı olan ay cumartesi sırası da gelmez (başkası yoksa yazılır).
-                val rested = if (group == RotationGroup.VIZIT) decided(day) else emptySet()
                 val pool = wanting
-                    .ifEmpty { fresh.filter { it.id !in rested && left.getValue(it.id) > 0 && availableInPlan(it, day) && !avoids(it, day) } }
-                    .ifEmpty { fresh.filter { it.id !in rested && availableInPlan(it, day) && !avoids(it, day) } }
                     .ifEmpty { fresh.filter { left.getValue(it.id) > 0 && availableInPlan(it, day) && !avoids(it, day) } }
                     .ifEmpty { fresh.filter { availableInPlan(it, day) && !avoids(it, day) } }
                     .ifEmpty { fresh.filter { availableInPlan(it, day) } }
@@ -208,9 +215,9 @@ class Ledger(
             if (fri.isEmpty() && sun.isEmpty()) return emptyList<String>() to emptyList()
             val mid = planDays[planDays.size / 2]
             val junior = people.associate { it.id to !senior(it, mid) }
-            // Pay yalnızca ekipte olmaya bağlı (ayın ortasında başlayan ya da ayrılan az alır). İzin ve istek payı
-            // azaltmaz (K22): yalnızca hangi günleri tutabileceğini belirler, sığmayan pay defterde kalır.
-            val share = people.associate { p -> p.id to hard.count { weekendPeer(p, it) }.toDouble() / hard.size }
+            // Pay yalnızca ekipte olmaya bağlı (ayın ortasında başlayan ya da ayrılan az alır) ve hoca kararıyla düşen
+            // sayıyla orantılı. İzin ve istek payı azaltmaz (K22): yalnızca hangi günleri tutabileceğini belirler.
+            val share = people.associate { p -> p.id to hard.count { weekendPeer(p, it) }.toDouble() / hard.size * factor(p, mid) }
             val held = people.associate { it.id to target.getValue(it.id)[RotationGroup.VIZIT.ordinal] }.toMutableMap()
             val hasSat = people.associate { it.id to (target.getValue(it.id)[RotationGroup.VIZIT.ordinal] > 0) }
             val behind = { p: Person -> Math.round(hardBalance.getValue(p.id)[0] * 2) / 2.0 }
@@ -243,9 +250,16 @@ class Ledger(
                 return if (hasSat.getValue(p.id)) minOf(f + s, maxOf(0, 1 - hasF.getValue(p.id) - hasS.getValue(p.id))) else f + s
             }
             fun most(p: Person) = openF.count { can(p, it) } + openS.count { can(p, it) }
+            // Hoca kararıyla sayısı düşen kişi payından fazla zor gün almaz (ör. 4 yerine 2 → 1); başka kimse yoksa alır.
+            val totalShare = people.sumOf { share.getValue(it.id) }
+            val limit = people.associate { p ->
+                p.id to if (factor(p, mid) < 1.0) Math.round(hard.size * share.getValue(p.id) / totalShare).toInt() else Int.MAX_VALUE
+            }
+            fun underLimit(p: Person) = held.getValue(p.id) < limit.getValue(p.id)
             repeat(openF.size + openS.size) {
-                val pick = people.filter { units.getValue(it.id) < ideal(it) && left.getValue(it.id) > units.getValue(it.id) }.minWithOrNull(order)
-                    ?: people.filter { units.getValue(it.id) < most(it) && left.getValue(it.id) > units.getValue(it.id) }.minWithOrNull(order)
+                val pick = people.filter { units.getValue(it.id) < ideal(it) && left.getValue(it.id) > units.getValue(it.id) && underLimit(it) }.minWithOrNull(order)
+                    ?: people.filter { units.getValue(it.id) < most(it) && left.getValue(it.id) > units.getValue(it.id) && underLimit(it) }.minWithOrNull(order)
+                    ?: people.filter { units.getValue(it.id) < most(it) && underLimit(it) }.minWithOrNull(order)
                     ?: people.filter { units.getValue(it.id) < most(it) }.minWithOrNull(order)
                     ?: return@repeat
                 units[pick.id] = units.getValue(pick.id) + 1

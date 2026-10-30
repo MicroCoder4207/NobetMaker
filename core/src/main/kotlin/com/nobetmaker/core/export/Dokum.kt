@@ -203,7 +203,7 @@ object DokumBuilder {
         notes += "Zor günler (cuma, cumartesi, pazar): hafta sonu tutan herkes eşit sayıda tutar; fazla gün önce çömezlere, eksik gün önce kıdemliden, kademesinde sırayla."
         if (hardDays > 0 && weekenders > 0) notes += "Bu ay $hardDays zor gün, $weekenders kişi: ${Dokum.hardSplit(hardDays, weekenders)}."
         notes += "Cumartesi tutan kıdemliye pazar, kimseye aynı ay üçü birden yazılmaz; zor gün yetmezse en az esneyen dağılım seçilir."
-        notes += "Hoca kararı olan ay o kişi hafta sonu sırasına girmez, zor gün defterine de yazılmaz. Uzatmada cuma, cumartesi, pazar ve tatil yok."
+        notes += "Hoca kararıyla sayısı düşen kişinin zor gün payı da aynı oranda düşer; artan sayı payı değiştirmez. Uzatmada cuma, cumartesi, pazar ve tatil yok."
         if (days.any { cal.category(it) == Category.YILBASI }) notes += "31 Aralık'ı daha önce tutan mümkünse bir daha tutmaz."
         notes += "Pazartesi ve perşembe son $months aya göre herkese eşit sırayla döner."
         val satDays = days.filter { it.dayOfWeek == DayOfWeek.SATURDAY && cal.rotationGroup(it, history = false) == RotationGroup.VIZIT }

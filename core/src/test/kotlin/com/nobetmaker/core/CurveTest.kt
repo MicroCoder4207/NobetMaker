@@ -204,18 +204,18 @@ class CurveTest {
     }
 
     @Test
-    fun `hoca karari olan ay hafta sonu sirasina girmez`() {
-        // Şubat 2027: hoca bir kişinin sayısını 2'ye düşürünce iki nöbeti de hafta sonuna düşüyordu.
+    fun `hoca karariyla dusen sayi zor gun payini orantili dusurur`() {
+        // Şubat 2027: hoca bir kişinin sayısını 2'ye düşürünce iki nöbeti de hafta sonuna düşüyordu; şimdi en fazla biri.
         val ym = YearMonth.of(2027, 2)
         val hard = listOf(RotationGroup.VIZIT, RotationGroup.CUMA, RotationGroup.PAZAR)
         for (id in listOf("kenan", "sule")) {
             val data = DataOps.setQuota(DataOps.ensureMonth(seed, ym), ym, id, 2, decision = true)
             val pr = ProblemBuilder.build(data, ym, quotaOverride = DataOps.quotaMap(data.month(ym)))
             val p = pr.personIndex(id)
-            assertEquals(0, hard.sumOf { pr.rotationTarget[p][it.ordinal] }, "$id sıra")
+            assertEquals(1, hard.sumOf { pr.rotationTarget[p][it.ordinal] }, "$id sıra")
             assertEquals(12, pr.persons.indices.sumOf { q -> hard.sumOf { pr.rotationTarget[q][it.ordinal] } }, "bütün zor günler dağıtılır")
             val a = com.nobetmaker.core.solver.Solver(pr).solve().solutions.first().assignment
-            assertTrue(a.indices.none { a[it] == p && pr.rotationIndex[it] in hard.map { g -> g.ordinal } }, "$id listede hafta sonu tutmaz")
+            assertTrue(a.indices.count { a[it] == p && pr.rotationIndex[it] in hard.map { g -> g.ordinal } } <= 1, "$id listede en fazla bir zor gün")
         }
     }
 

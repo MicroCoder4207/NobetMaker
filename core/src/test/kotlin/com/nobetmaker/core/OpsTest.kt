@@ -401,6 +401,25 @@ class OpsTest {
     }
 
     @Test
+    fun `hoca karariyla artan sayi hafta sonu payini dusurmez`() {
+        // Tablet: Aslı'nın 6'sı "hoca kararı" işaretliyken 0.4.5 onu hafta sonundan çıkarıyordu; Betül, Şule ve Oğuz
+        // üçer zor gün, Fatma cumartesi tutuyordu.
+        fun d(n: Int) = YearMonth.of(2026, 11).atDay(n)
+        val requests = tabletIstekleri().map { if (it.id == "r7") it.copy(priority = Priority.MUMKUNSE) else it } +
+            DutyRequest("r0", "yaren", RequestType.WANT_DATES, Priority.KESIN, dates = listOf(d(2)))
+        val ym = YearMonth.of(2026, 11)
+        var data = DataOps.ensureMonth(SeedData.build(), ym)
+        data = DataOps.setQuota(data, ym, "yaren", 1, decision = true)
+        data = DataOps.setQuota(data, ym, "asli", 6, decision = true)
+        data = requests.fold(data) { acc, r -> DataOps.upsertRequest(acc, r) }
+        val pr = ProblemBuilder.build(data, ym, quotaOverride = DataOps.quotaMap(data.month(ym)))
+        assertEquals(mapOf("yaren" to 0, "kenan" to 2, "fatma" to 2, "betul" to 2, "sule" to 2, "oguz" to 2, "asli" to 3), hardTotals(pr))
+        assertEquals(0, pr.rotationTarget[pr.personIndex("fatma")][com.nobetmaker.core.calendar.RotationGroup.VIZIT.ordinal], "Fatma'ya cumartesi yok")
+        val held = hardTotals(pr, Solver(pr).solve().solutions.first().assignment)
+        assertTrue(held.values.count { it == 3 } == 1 && held["asli"] == 3, "liste: $held")
+    }
+
+    @Test
     fun `istek zor gun dagilimini degistirirse sebebiyle yazilir`() {
         // Aslı bütün cuma ve pazarlarını kapatırsa yalnız cumartesi tutabilir; fazla günler başkasına geçer.
         fun d(n: Int) = YearMonth.of(2026, 11).atDay(n)
