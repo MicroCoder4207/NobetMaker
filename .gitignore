@@ -1,0 +1,11 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+captures/
+.kotlin/
+
+# İmzalama anahtarı: repo özel olana kadar commit edilmez
+app/signing/

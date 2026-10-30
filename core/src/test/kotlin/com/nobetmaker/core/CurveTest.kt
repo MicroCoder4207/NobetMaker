@@ -1,0 +1,347 @@
+package com.nobetmaker.core
+
+import com.nobetmaker.core.calendar.CalendarService
+import com.nobetmaker.core.calendar.Category
+import com.nobetmaker.core.calendar.RotationGroup
+import com.nobetmaker.core.ledger.Ledger
+import com.nobetmaker.core.model.AppData
+import com.nobetmaker.core.model.Assignment
+import com.nobetmaker.core.model.CoefficientPeriod
+import com.nobetmaker.core.model.MonthPlan
+import com.nobetmaker.core.model.MonthStatus
+import com.nobetmaker.core.model.Period
+import com.nobetmaker.core.model.PeriodType
+import com.nobetmaker.core.model.Person
+import com.nobetmaker.core.model.PersonRule
+import com.nobetmaker.core.model.RosterVersion
+import com.nobetmaker.core.model.RuleType
+import com.nobetmaker.core.quota.QuotaCalculator
+import com.nobetmaker.core.ops.DataOps
+import com.nobetmaker.core.rules.Availability
+import com.nobetmaker.core.rules.Coefficients
+import com.nobetmaker.core.rules.RosterIndex
+import com.nobetmaker.core.seed.SeedData
+import com.nobetmaker.core.solver.ProblemBuilder
+import java.time.LocalDate
+import java.time.YearMonth
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+/** Kıdem eğrisi, ekipte sayılma, tatil/vizit ayrımı ve uzun hafıza (0.4.0). */
+class CurveTest {
+
+    private val seed = SeedData.build()
+    private val nov15 = LocalDate.of(2026, 11, 15)
+
+    private fun near(expected: Double, actual: Double, tol: Double = 0.005) =
+        assertTrue(kotlin.math.abs(expected - actual) <= tol, "beklenen $expected, gelen $actual")
+
+    @Test
+    fun `kidem egrisi yil ilerledikce iner ve herkes ayni egriden gecer`() {
+        val coef = Coefficients(seed)
+        val p = { id: String -> seed.person(id)!! }
+        near(0.808, coef.on(p("kenan"), nov15).duty)
+        near(0.658, coef.on(p("kenan"), nov15).hardDay)
+        assertTrue(coef.on(p("fatma"), nov15).duty > coef.on(p("kenan"), nov15).duty, "Fatma iki ay çömez, çok az yüksek")
+        assertTrue(coef.on(p("fatma"), nov15).duty - coef.on(p("kenan"), nov15).duty < 0.01)
+        near(0.971, coef.on(p("betul"), nov15).duty, 0.002)
+        // Betül Aralık'ta son yılına giriyor.
+        near(0.82, coef.on(p("betul"), LocalDate.of(2026, 12, 2)).duty, 0.002)
+        assertEquals(LocalDate.of(2026, 12, 1), coef.dateAtMonths(p("betul"), coef.lastYearStart))
+        assertEquals(LocalDate.of(2027, 8, 1), coef.dateAtMonths(p("kenan"), coef.totalMonths))
+        // Aslı ilk yılında; Yaren uzatmada (cumartesi, pazar, tatil yok).
+        near(0.996, coef.on(p("asli"), nov15).duty, 0.002)
+        assertEquals(0.5, coef.on(p("yaren"), nov15).duty)
+        assertEquals("uzatma", coef.stageText(p("yaren"), nov15))
+        assertEquals("1. yıl 11. ay", coef.stageText(p("asli"), nov15))
+        assertTrue(coef.inExtension(p("yaren"), nov15))
+        // Elle girilen katsayı eğrinin yerine geçer.
+        val manual = p("fatma").copy(autoCoefficients = false)
+        assertEquals(0.90, coef.on(manual, nov15).duty)
+    }
+
+    @Test
+    fun `dogum izni asistanlik suresinden duser ve kucuk ekipte indirim yariya iner`() {
+        val canay = Person(
+            "canay", "Canay", 6, "#94D82D", residencyStart = LocalDate.of(2024, 9, 1),
+        )
+        val leave = Period("izin", "canay", LocalDate.of(2025, 5, 1), LocalDate.of(2026, 10, 31), PeriodType.DOGUM_IZNI)
+        val data = AppData(persons = listOf(canay), periods = listOf(leave))
+        val coef = Coefficients(data)
+        // Eylül 2024 → Kasım 2026: 26 ay, 18 ayı izin → ~8 ay.
+        val m = coef.residencyMonths(canay, nov15)!!
+        assertTrue(m in 7.5..9.0, "izin düşülmeli: $m")
+
+        // Kasım 2026'da yalnızca 4 kişi kalsaydı Kenan'ın son yıl indirimi yarıya inerdi.
+        val small = seed.copy(persons = seed.persons.filter { it.id in setOf("kenan", "sule", "oguz", "asli") })
+        val k = Coefficients(small).on(small.person("kenan")!!, nov15)
+        near(1.0 - (1.0 - 0.808) / 2, k.duty)
+    }
+
+    @Test
+    fun `bolume katilis tek basina ekipte saymaz, kaydi olmayan borcsuz baslar`() {
+        val cal = CalendarService(seed.dayOverrides, seed.settings)
+        val avail = Availability(seed, cal)
+        // Aslı Ocak 2026'da bölüme katıldı ama ilk nöbeti Ağustos 2026.
+        assertEquals(LocalDate.of(2026, 8, 2), avail.presenceStart(seed.person("asli")!!))
+        assertEquals(LocalDate.of(2025, 6, 4), avail.presenceStart(seed.person("oguz")!!))
+        assertEquals(LocalDate.of(2025, 3, 25), avail.presenceStart(seed.person("sule")!!))
+        // Yeni gelen (kaydı yok, bölüme katılışı geçmişte): kayıtların bittiği günün ertesinden.
+        val yeni = Person("yeni", "Yeni", 8, "#343A40", joinDate = LocalDate.of(2026, 1, 1), residencyStart = LocalDate.of(2026, 1, 1))
+        val withNew = seed.copy(persons = seed.persons + yeni)
+        val a2 = Availability(withNew, cal)
+        assertEquals(LocalDate.of(2026, 11, 1), a2.presenceStart(yeni))
+        // Nöbete katılış girilmişse o esas.
+        val a3 = Availability(withNew.copy(persons = seed.persons + yeni.copy(dutyStart = LocalDate.of(2026, 12, 1))), cal)
+        assertEquals(LocalDate.of(2026, 12, 1), a3.presenceStart(yeni.copy(dutyStart = LocalDate.of(2026, 12, 1))))
+    }
+
+    @Test
+    fun `yeni baslayana ilk ay vizit yazilmaz`() {
+        val yeni = Person("yeni", "Yeni", 8, "#343A40", residencyStart = LocalDate.of(2026, 5, 1), dutyStart = LocalDate.of(2026, 11, 1))
+        val data = seed.copy(persons = seed.persons + yeni)
+        val avail = Availability(data, CalendarService(data.dayOverrides, data.settings))
+        val sat = LocalDate.of(2026, 11, 7)
+        assertTrue("İlk nöbet ayı: vizit yok" in avail.hardReasons(yeni, sat))
+        assertTrue(avail.hardReasons(yeni, LocalDate.of(2026, 11, 8)).isEmpty(), "pazar yazılabilir")
+        assertFalse(avail.eligibleForShare(yeni, sat), "ilk ayın viziti borç da yazmaz")
+        assertTrue(avail.hardReasons(yeni, LocalDate.of(2026, 12, 5)).isEmpty(), "ikinci ay vizit yazılabilir")
+    }
+
+    @Test
+    fun `tatil gunleri sira grubuna girmez, idari izin bayrama dahil`() {
+        val cal = CalendarService(seed.dayOverrides, seed.settings)
+        // 29 Ekim 2026 vizitliydi ama yalnızca resmi tatil sayılır.
+        assertNull(cal.rotationGroup(LocalDate.of(2026, 10, 29), history = true))
+        assertEquals(Category.RESMI_TATIL, cal.category(LocalDate.of(2026, 10, 29)))
+        // Bayram tatiline denk gelen cumartesi vizit sırasına girmez.
+        assertNull(cal.rotationGroup(LocalDate.of(2026, 5, 23), history = false))
+        assertEquals(RotationGroup.VIZIT, cal.rotationGroup(LocalDate.of(2026, 11, 7), history = false))
+        // 2025 Ramazan: 2–4 Nisan idari izin, 9 günlük tatilin parçası.
+        for (d in 2..4) {
+            val date = LocalDate.of(2025, 4, d)
+            assertEquals(Category.BAYRAM, cal.category(date), "$date")
+            assertEquals(1.0, cal.holidayFraction(date))
+        }
+        assertEquals(Category.BAYRAM, cal.category(LocalDate.of(2024, 6, 21)))
+        // Arefe yarım sayılır, yılbaşı gecesi bir.
+        assertEquals(0.5, cal.longWeight(LocalDate.of(2026, 10, 28)))
+        assertEquals(1.0, cal.longWeight(LocalDate.of(2026, 12, 31)))
+    }
+
+    @Test
+    fun `vizitte esitlikte once comez`() {
+        val team = (1..6).map { i ->
+            Person("p$i", "K$i", i, "#343A40", autoCoefficients = false, coefficients = listOf(CoefficientPeriod(duty = 1.0, hardDay = 1.0)))
+        }
+        val data = AppData(persons = team)
+        val cal = CalendarService(data.dayOverrides, data.settings)
+        val avail = Availability(data, cal)
+        val ym = YearMonth.of(2026, 11)
+        val days = (1..ym.lengthOfMonth()).map { ym.atDay(it) }
+        val state = Ledger(data, cal, avail, RosterIndex(data)).rotation(team, ym.minusMonths(6).atDay(1), ym.atDay(1), days, { _, _ -> true })
+        assertEquals(listOf("p6", "p5", "p4", "p3"), state.queue[RotationGroup.VIZIT.ordinal])
+    }
+
+    @Test
+    fun `cumartesi once son yila girmeyenlere kalanlar kidemlilerde sirayla`() {
+        fun person(id: String, seniority: Int, start: LocalDate) =
+            Person(id, id, seniority, "#343A40", residencyStart = start, dutyStart = LocalDate.of(2025, 9, 1))
+        val team = listOf(
+            person("k1", 1, LocalDate.of(2023, 7, 1)),
+            person("k2", 2, LocalDate.of(2023, 8, 1)),
+            person("c1", 3, LocalDate.of(2024, 6, 1)),
+            person("c2", 4, LocalDate.of(2024, 9, 1)),
+            person("c3", 5, LocalDate.of(2025, 1, 1)),
+            person("c4", 6, LocalDate.of(2025, 3, 1)),
+        )
+        fun month(ym: YearMonth, vararg days: Pair<Int, String>) = MonthPlan(
+            ym.year, ym.monthValue, MonthStatus.KAPANDI,
+            versions = listOf(RosterVersion(1, "", null, days.map { (d, id) -> Assignment(ym.atDay(d), id) })),
+        )
+        // k1 en son 17 Ekim'de, k2 22 Ağustos'ta cumartesi tuttu; ikisi de son yılda.
+        val data = AppData(persons = team, months = listOf(month(YearMonth.of(2026, 8), 22 to "k2"), month(YearMonth.of(2026, 10), 17 to "k1")))
+        val cal = CalendarService(data.dayOverrides, data.settings)
+        val avail = Availability(data, cal)
+        assertTrue(avail.coefficients.isSenior(team[0], LocalDate.of(2027, 1, 2)))
+        assertFalse(avail.coefficients.isSenior(team[2], LocalDate.of(2027, 1, 2)))
+        val ledger = Ledger(data, cal, avail, RosterIndex(data))
+        fun state(ym: YearMonth) = ledger.rotation(team, ym.minusMonths(6).atDay(1), ym.atDay(1), (1..ym.lengthOfMonth()).map { ym.atDay(it) }, { _, _ -> true })
+
+        // Şubat 2027: 4 cumartesi, 4 çömez; kıdemliye cumartesi düşmez.
+        assertEquals(listOf("c4", "c3", "c2", "c1"), state(YearMonth.of(2027, 2)).queue[RotationGroup.VIZIT.ordinal])
+        // Ocak 2027: 5 cumartesi; artan biri en uzun süredir tutmayan kıdemliye (k2) gider.
+        val jan = state(YearMonth.of(2027, 1))
+        assertEquals(listOf("c4", "c3", "c2", "c1", "k2"), jan.queue[RotationGroup.VIZIT.ordinal])
+        // Cumartesi tutan kıdemliye aynı ay pazar verilmez; kalan pazar diğer kıdemliye gider.
+        val sundays = jan.queue[RotationGroup.PAZAR.ordinal]
+        assertFalse("k2" in sundays, "k2 aynı ay hem cumartesi hem pazar: $sundays")
+        assertTrue("k1" in sundays, "pazarlar: $sundays")
+    }
+
+    @Test
+    fun `devreden ne olursa olsun comez kidemliden az tutmaz`() {
+        val ym = YearMonth.of(2026, 12)
+        val cal = CalendarService(seed.dayOverrides, seed.settings)
+        val avail = Availability(seed, cal)
+        val persons = seed.persons.filter { p -> (1..ym.lengthOfMonth()).any { p.isActiveOn(ym.atDay(it)) } }.sortedBy { it.seniority }
+        val random = java.util.Random(7)
+        repeat(300) {
+            val carry = persons.associate { it.id to (random.nextDouble() * 4 - 2) }
+            val total = 28 + random.nextInt(4)
+            val q = QuotaCalculator.compute(ym, persons, avail, carry, emptyMap(), seed.settings.maxPerMonth, fixedTotal = total).entries
+                .associate { it.personId to it.final }
+            val counts = persons.map { q.getValue(it.id) }
+            assertEquals(total, counts.sum())
+            assertEquals(counts.sorted(), counts, "devreden $carry → $counts")
+        }
+        // Havuz: sırayı bozan komşular ortalamada birleşir.
+        assertEquals(listOf(listOf("a") to 1.0, listOf("b", "c") to 2.5, listOf("d") to 4.0),
+            QuotaCalculator.pool(listOf("a" to 1.0, "b" to 3.0, "c" to 2.0, "d" to 4.0)))
+    }
+
+    @Test
+    fun `hoca karariyla dusen sayi zor gun payini orantili dusurur`() {
+        // Şubat 2027: hoca bir kişinin sayısını 2'ye düşürünce iki nöbeti de hafta sonuna düşüyordu; şimdi en fazla biri.
+        val ym = YearMonth.of(2027, 2)
+        val hard = listOf(RotationGroup.VIZIT, RotationGroup.CUMA, RotationGroup.PAZAR)
+        for (id in listOf("kenan", "sule")) {
+            val data = DataOps.setQuota(DataOps.ensureMonth(seed, ym), ym, id, 2, decision = true)
+            val pr = ProblemBuilder.build(data, ym, quotaOverride = DataOps.quotaMap(data.month(ym)))
+            val p = pr.personIndex(id)
+            assertEquals(1, hard.sumOf { pr.rotationTarget[p][it.ordinal] }, "$id sıra")
+            assertEquals(12, pr.persons.indices.sumOf { q -> hard.sumOf { pr.rotationTarget[q][it.ordinal] } }, "bütün zor günler dağıtılır")
+            val a = com.nobetmaker.core.solver.Solver(pr).solve().solutions.first().assignment
+            assertTrue(a.indices.count { a[it] == p && pr.rotationIndex[it] in hard.map { g -> g.ordinal } } <= 1, "$id listede en fazla bir zor gün")
+        }
+    }
+
+    @Test
+    fun `uzatmada cuma da yazilmaz`() {
+        val avail = Availability(seed, CalendarService(seed.dayOverrides, seed.settings))
+        val yaren = seed.persons.single { it.id == "yaren" }
+        assertEquals(listOf("Uzatmada: cuma, cumartesi, pazar ve tatil yok"), avail.hardReasons(yaren, LocalDate.of(2026, 11, 6)))
+        assertTrue(avail.hardReasons(yaren, LocalDate.of(2026, 11, 5)).isEmpty(), "perşembe serbest")
+        // Kendisi kesin isterse yazılır; sıra da onu sayar ve dağılımın değiştiği yazılır.
+        val ym = YearMonth.of(2026, 11)
+        val data = DataOps.upsertRequest(DataOps.ensureMonth(seed, ym), com.nobetmaker.core.model.DutyRequest("y", "yaren", com.nobetmaker.core.model.RequestType.WANT_DATES, com.nobetmaker.core.model.Priority.KESIN, dates = listOf(LocalDate.of(2026, 11, 6))))
+        val pr = ProblemBuilder.build(data, ym, quotaOverride = DataOps.quotaMap(data.month(ym)))
+        assertEquals(1, pr.rotationTarget[pr.personIndex("yaren")][RotationGroup.CUMA.ordinal])
+        assertTrue(pr.requestNotes.single().contains("Yaren 0 → 1"), pr.requestNotes.toString())
+    }
+
+    @Test
+    fun `yilbasini tutan mumkunse bir daha tutmaz`() {
+        // 31 Aralık 2024'ü Betül, 31 Aralık 2025'i Fatma tuttu.
+        val ym = YearMonth.of(2026, 12)
+        val data = DataOps.ensureMonth(seed, ym)
+        val pr = ProblemBuilder.build(data, ym, quotaOverride = DataOps.quotaMap(data.month(ym)))
+        val day = pr.days.indexOf(LocalDate.of(2026, 12, 31))
+        for ((id, year) in listOf("betul" to 2024, "fatma" to 2025)) {
+            val p = pr.personIndex(id)
+            assertTrue(pr.softAvoid[p][day] > 0.0, id)
+            assertTrue(pr.softAvoidLabel[p][day]!!.endsWith("yılbaşını daha önce tuttu ($year)"), pr.softAvoidLabel[p][day])
+        }
+        val a = com.nobetmaker.core.solver.Solver(pr).solve().solutions.first().assignment
+        assertTrue(pr.persons[a[day]].id !in setOf("betul", "fatma"), "31 Aralık: ${pr.persons[a[day]].name}")
+    }
+
+    @Test
+    fun `zor gunler herkese esit fazlasi comeze eksigi kidemliden`() {
+        val hard = listOf(RotationGroup.VIZIT, RotationGroup.CUMA, RotationGroup.PAZAR)
+        fun targets(ym: YearMonth): Map<String, IntArray> {
+            val data = DataOps.ensureMonth(seed, ym)
+            val pr = ProblemBuilder.build(data, ym, quotaOverride = DataOps.quotaMap(data.month(ym)))
+            return pr.persons.associate { p -> p.id to IntArray(3) { pr.rotationTarget[pr.personIndex(p.id)][hard[it].ordinal] } }
+        }
+        val juniors = setOf("sule", "oguz", "asli")
+        val seniors = setOf("kenan", "fatma", "betul")
+        // Uzatmadaki Yaren hafta sonu tutmaz, cuma da ona sırayla verilmez.
+        for (ym in listOf(YearMonth.of(2026, 12), YearMonth.of(2027, 1), YearMonth.of(2027, 5))) assertEquals(0, targets(ym).getValue("yaren").sum(), "$ym Yaren")
+
+        // Kasım 2026: 13 zor gün, 6 kişi. Cumartesiler çömezlere; Kenan ve Fatma cuma + pazar; fazla 1 gün bir çömeze.
+        val kasim = targets(YearMonth.of(2026, 11))
+        for (id in listOf("kenan", "fatma")) {
+            assertEquals(0, kasim.getValue(id)[0], "$id cumartesi")
+            assertEquals(listOf(1, 1), listOf(kasim.getValue(id)[1], kasim.getValue(id)[2]), "$id cuma + pazar")
+        }
+        assertEquals(1, kasim.values.count { it.sum() == 3 }, "üç zor günlü kişi")
+        assertTrue(kasim.filterValues { it.sum() == 3 }.keys.all { it in setOf("betul", "sule", "oguz", "asli") })
+
+        // Aralık 2026: 12 zor gün, 6 kişi: herkes tam 2, kimseye üçü birden yok.
+        val aralik = targets(YearMonth.of(2026, 12))
+        assertEquals((juniors + seniors).associateWith { 2 }, aralik.filterKeys { it != "yaren" }.mapValues { it.value.sum() })
+
+        // Ocak 2027: 14 zor gün (5 cumartesi, 5 pazar): kıdemliler 2, fazla 2 gün iki çömeze.
+        val ocak = targets(YearMonth.of(2027, 1))
+        for (id in seniors) assertEquals(2, ocak.getValue(id).sum(), "Ocak $id")
+        assertEquals(2, ocak.filterKeys { it in juniors }.values.count { it.sum() == 3 }, "Ocak üç zor günlü çömez")
+
+        // Mayıs 2027: 11 zor gün: eksik gün bir kıdemliden, diğer herkes 2.
+        val mayis = targets(YearMonth.of(2027, 5))
+        val ones = mayis.filterValues { it.sum() == 1 }.keys
+        assertEquals(1, ones.size, "Mayıs bir zor günlü")
+        assertTrue(ones.single() in seniors)
+        assertTrue((juniors + seniors - ones).all { mayis.getValue(it).sum() == 2 })
+    }
+
+    @Test
+    fun `bayram dengesi o gunku katsayiyla ve 2024'ten itibaren`() {
+        val cal = CalendarService(seed.dayOverrides, seed.settings)
+        val avail = Availability(seed, cal)
+        val persons = seed.persons.filter { it.isActiveOn(nov15) }
+        val long = Ledger(seed, cal, avail, RosterIndex(seed)).longMemory(persons, LocalDate.of(2026, 11, 1), emptyList())
+        val bi = long.categories.indexOf(Category.BAYRAM)
+        val bal = persons.associate { it.id to long.base.getValue(it.id)[bi] }
+        // El yazısı kağıda göre (0.4.5): Kenan ve Şule geride; Oğuz, Yaren ve Fatma önde. Fatma 13 Nisan 2024'ten
+        // beri ekipte sayılır (ilk nöbeti), Ramazan 2024'ün payına da ortaktır.
+        assertTrue(bal.getValue("kenan") < -1.8, "Kenan ${bal["kenan"]}")
+        assertTrue(bal.getValue("sule") < -0.8, "Şule ${bal["sule"]}")
+        assertTrue(bal.getValue("oguz") > 1.5, "Oğuz ${bal["oguz"]}")
+        assertTrue(bal.getValue("yaren") > 0.5, "Yaren ${bal["yaren"]}")
+        assertTrue(bal.getValue("fatma") > 0.5, "Fatma ${bal["fatma"]}")
+        // 2025 Kurban'ın arefesi (5 Haziran, Fatma) yarım gün.
+        assertEquals(8.5, long.days.getValue("fatma")[bi])
+    }
+
+    @Test
+    fun `ayrilanin gunleri kalanlara borc yazmaz`() {
+        val cal = CalendarService(seed.dayOverrides, seed.settings)
+        fun bayram(data: AppData, id: String): Double {
+            val avail = Availability(data, cal)
+            val persons = data.persons.filter { it.isActiveOn(nov15) }
+            val long = Ledger(data, cal, avail, RosterIndex(data)).longMemory(persons, LocalDate.of(2026, 11, 1), emptyList())
+            return long.base.getValue(id)[long.categories.indexOf(Category.BAYRAM)]
+        }
+        val left = seed.copy(persons = seed.persons.map { if (it.id == "kenan") it.copy(leaveDate = LocalDate.of(2026, 10, 31)) else it })
+        near(bayram(seed, "sule"), bayram(left, "sule"), 1e-9)
+        near(bayram(seed, "oguz"), bayram(left, "oguz"), 1e-9)
+    }
+
+    @Test
+    fun `ayda sabit sayi kurali nobet sayisini sabitler`() {
+        val ym = YearMonth.of(2026, 11)
+        val data = seed.copy(
+            persons = seed.persons.map { if (it.id == "kenan") it.copy(rules = listOf(PersonRule(RuleType.MONTHLY_COUNT, from = LocalDate.of(2026, 11, 1), count = 3))) else it },
+        )
+        val pr = ProblemBuilder.build(data, ym)
+        val entries = pr.quotaResult!!.entries.associateBy { it.personId }
+        assertEquals(3, entries.getValue("kenan").final)
+        assertFalse(entries.getValue("kenan").manual, "kuraldan gelen sayı elle sabitlenmiş sayılmaz")
+        assertEquals(30, entries.values.sumOf { it.final })
+        // Kural ayın dışındaysa etkisi yok.
+        val later = seed.copy(persons = data.persons.map { if (it.id == "kenan") it.copy(rules = listOf(PersonRule(RuleType.MONTHLY_COUNT, from = LocalDate.of(2027, 1, 1), count = 3))) else it })
+        assertEquals(4, ProblemBuilder.build(later, ym).quotaResult!!.entries.single { it.personId == "kenan" }.final)
+    }
+
+    @Test
+    fun `yayinlanmis ayda gecmis gunler kilitlenir`() {
+        val ym = YearMonth.of(2026, 10)
+        val locked = DataOps.lockThrough(seed, ym, LocalDate.of(2026, 10, 15))
+        val a = locked.month(ym)!!.current!!.assignments
+        assertTrue(a.filter { it.date.dayOfMonth <= 15 }.all { it.locked })
+    }
+}
