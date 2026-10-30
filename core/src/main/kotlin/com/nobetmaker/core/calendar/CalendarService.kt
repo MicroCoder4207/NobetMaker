@@ -39,16 +39,16 @@ enum class Category(val label: String, val memory: Memory) {
  * Sırayla dönen gün grupları (§6). Tatil günleri (bayram, resmi tatil, yılbaşı) hiçbir gruba girmez; yalnızca
  * kendi uzun hafızasında sayılır, böylece tatilde vizit olup olmadığının bilinmemesi hesabı etkilemez.
  * Vizit = tatil olmayan vizitli gün (cumartesi); kıdem sırasıyla gider: son yıla girmemiş herkes ayda birer,
- * artanlar son yıldakilere sırayla (Ledger.rotation). Cuma ve Pazar zor gün katsayısıyla döner. Perşembe eşit
- * döner. Pazartesi: ertesi gün Salı dersi var ve nöbetçi dersi kaçırıyor; herkese eşit döner ama en kolay
+ * artanlar son yıldakilere sırayla (Ledger.rotation). Cuma ve Pazar cumartesiyle birlikte zor gün olarak dağılır:
+ * hafta sonu tutan herkes eşit (§6.1). Perşembe eşit döner. Pazartesi: ertesi gün Salı dersi var ve nöbetçi dersi kaçırıyor; herkese eşit döner ama en kolay
  * esneyen sıradır.
  */
-enum class RotationGroup(val label: String, val equalShare: Boolean) {
-    VIZIT("Vizit", true),
-    CUMA("Cuma", false),
-    PAZAR("Pazar", false),
-    PERSEMBE("Perşembe", true),
-    PAZARTESI("Pazartesi", true),
+enum class RotationGroup(val label: String) {
+    VIZIT("Vizit"),
+    CUMA("Cuma"),
+    PAZAR("Pazar"),
+    PERSEMBE("Perşembe"),
+    PAZARTESI("Pazartesi"),
 }
 
 /** Takvimle ilgili bütün hesaplar: tatil, vizit, zorluk puanı, saat, kategori (§3). */

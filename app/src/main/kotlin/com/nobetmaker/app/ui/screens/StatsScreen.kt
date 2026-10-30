@@ -66,7 +66,7 @@ fun StatsScreen(vm: AppViewModel, nav: Nav) {
         Text("${from.title()} – ${last.title()} · resmi listeye göre", style = MaterialTheme.typography.bodySmall)
         Text(
             "Denge: + önde (payından fazla tutmuş), − geride. Nöbet sayısı ${data.settings.countBalanceStart.let { "${com.nobetmaker.core.calendar.monthNameTr(it.monthValue)} ${it.year}" }} listesinden beri; hoca kararı olan aylar dengeye girmez. " +
-                "Zor gün (cuma + cumartesi + pazar) toplamı son ${data.settings.rotationMonths} ay, kıdemlinin payı kıdem eğrisinden. " +
+                "Zor gün (cuma + cumartesi + pazar) toplamı son ${data.settings.rotationMonths} ay; hafta sonu tutan herkes eşit tutar, denge kendi kademesinde (çömezler kendi arasında, son yıldakiler kendi arasında). " +
                 "Cumartesi kıdem sırasıyla: son yıla girmemiş herkes ayda bir, son yıldakiler artanları sırayla. " +
                 "Bayram, yılbaşı ve resmi tatil ilk listeden beri (o gün ekipte olanlar arasında, o günkü katsayıyla; arefe yarım gün).",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -8,6 +8,7 @@ import com.nobetmaker.core.model.EventKind
 import com.nobetmaker.core.model.Person
 import com.nobetmaker.core.rules.Availability
 import com.nobetmaker.core.rules.RosterIndex
+import java.time.DayOfWeek
 import java.time.LocalDate
 
 /** Sıra durumu (§6); diziler [RotationGroup.entries] sırasındadır. */
@@ -49,10 +50,14 @@ class Ledger(
      * Vizit, Cuma, Pazar, Perşembe ve Pazartesi sırası. Geçmişte payından az tutan önce gelir; eşitlikte en uzun
      * süredir tutmayan, o da eşitse çömez. Vizit (cumartesi) kıdem sırasıyla gider: son yıla girmemiş herkes ayda
      * birer tutar (aralarında borç, eşitlikte çömez önce); artan cumartesiler son yıldakilere sırayla, en uzun
-     * süredir cumartesi tutmayan önce. Son yıldakine aynı ay hem cumartesi hem pazar verilmez (sıkışırsa esner).
-     * Cuma ve pazar önce zor gün toplamına (cuma + cumartesi + pazar, kıdem eğrisinin zor gün katsayısıyla) bakar:
-     * cumartesi tutmayan kıdemli cuma ve pazarı önce alır. Kimseye aynı ay üçü birden verilmez (sıkışırsa esner).
-     * Planlanan ayın günleri bu sırayla dağıtılır.
+     * süredir cumartesi tutmayan önce.
+     *
+     * Zor günler (cuma, cumartesi, pazar; §6.1): hafta sonu tutan herkes ayda eşit sayıda (çoğu ay 2) tutar. Fazla
+     * gün önce çömezlere, eksik gün önce kıdemliden; kendi kademesinde en geride olan önce. Kimseye aynı haftanın
+     * gününden ikincisi, cumartesi tutan kıdemliye pazar ve cumartesi tutana üçüncü zor gün yazılmaz; ay buna
+     * yetmiyorsa (ör. 14 zor gün) en az esneyen dağılım seçilir. Denge kademe içinde tutulur: çömezlerin günü
+     * çömezler, son yıldakilerin günü son yıldakiler arasında eşit paylaşılır. Hafta sonu tutmayan (uzatma)
+     * zor gün düzenine girmez.
      */
     fun rotation(
         persons: List<Person>,
@@ -70,38 +75,55 @@ class Ledger(
         // Geçmiş günlerin payı o gün ekipte olan herkes arasında dağılır (sonradan ayrılanlar dahil); yoksa
         // ayrılan birinin tuttuğu günler kalanlara borç gibi görünürdü.
         val everyone = (persons + data.persons).distinctBy { it.id }
+        val byId = everyone.associateBy { it.id }
         val expected = everyone.associate { it.id to DoubleArray(k) }
         val count = everyone.associate { it.id to IntArray(k) }
         val last = everyone.associate { it.id to arrayOfNulls<LocalDate>(k) }
 
-        fun shares(date: LocalDate, group: RotationGroup, among: Collection<Person>): List<Pair<String, Double>> {
-            val weights = among.mapNotNull { p ->
-                if (!availability.eligibleForShare(p, date)) null
-                else p.id to (if (group.equalShare) 1.0 else availability.coefficients.on(p, date).hardDay)
-            }.filter { it.second > 0.0 }
-            val total = weights.sumOf { it.second }
-            return if (total <= 0.0) emptyList() else weights.map { (id, w) -> id to w / total }
+        fun equalShares(date: LocalDate, among: Collection<Person>): List<Pair<String, Double>> {
+            val ids = among.filter { availability.eligibleForShare(it, date) }.map { it.id }
+            return ids.map { it to 1.0 / ids.size }
         }
 
-        // Zor günler (cuma, cumartesi, pazar) ayrıca toplam olarak dengelenir: toplamın payı kıdem eğrisinin zor gün
-        // katsayısıyla. Cumartesi kıdem sırasıyla gittiği için cumartesi tutmayan kıdemli cuma ve pazarı önce alır.
         val hardGroups = setOf(RotationGroup.VIZIT, RotationGroup.CUMA, RotationGroup.PAZAR)
+        fun senior(p: Person, date: LocalDate) = availability.coefficients.isSenior(p, date)
+        // O haftanın cumartesi ya da pazarını tutabilen; uzatmadaki gibi ikisi de kapalıysa zor gün düzenine girmez.
+        fun weekendPeer(p: Person, date: LocalDate): Boolean {
+            if (!availability.eligibleForShare(p, date)) return false
+            val sat = when (date.dayOfWeek) {
+                DayOfWeek.FRIDAY -> date.plusDays(1)
+                DayOfWeek.SUNDAY -> date.minusDays(1)
+                else -> date
+            }
+            return availability.ruleBlock(p, sat) == null || availability.ruleBlock(p, sat.plusDays(1)) == null
+        }
+        // Günü tutanın kademesindeki (çömez ya da son yıl) hafta sonu tutabilenler.
+        fun tier(holder: Person, date: LocalDate) =
+            everyone.filter { weekendPeer(it, date) && senior(it, date) == senior(holder, date) }
+
         val hardBalance = everyone.associate { it.id to doubleArrayOf(0.0) }
         val hardHeld = everyone.associate { it.id to intArrayOf(0) }
-        fun hardShares(date: LocalDate, among: Collection<Person>) = shares(date, RotationGroup.CUMA, among)
-
         var d = windowStart
         while (d.isBefore(historyEnd)) {
             val who = roster.official[d]
             val group = if (who != null) cal.rotationGroup(d, history = true) else null
             if (group != null) {
-                for ((id, share) in shares(d, group, everyone)) expected.getValue(id)[group.ordinal] += share
                 count[who]?.let { it[group.ordinal]++ }
                 last[who]?.set(group.ordinal, d)
+                if (group == RotationGroup.VIZIT || group !in hardGroups) {
+                    for ((id, share) in equalShares(d, everyone)) expected.getValue(id)[group.ordinal] += share
+                }
                 if (group in hardGroups) {
-                    for ((id, share) in hardShares(d, everyone)) hardBalance.getValue(id)[0] += share
-                    hardBalance[who]?.let { it[0] -= 1.0 }
                     hardHeld[who]?.let { it[0]++ }
+                    val holder = byId[who]
+                    if (holder != null && weekendPeer(holder, d)) {
+                        val peers = tier(holder, d)
+                        for (p in peers) {
+                            hardBalance.getValue(p.id)[0] += 1.0 / peers.size
+                            if (group != RotationGroup.VIZIT) expected.getValue(p.id)[group.ordinal] += 1.0 / peers.size
+                        }
+                        hardBalance.getValue(holder.id)[0] -= 1.0
+                    }
                 }
             }
             d = d.plusDays(1)
@@ -109,35 +131,29 @@ class Ledger(
         val debt = everyone.associate { p -> p.id to DoubleArray(k) { expected.getValue(p.id)[it] - count.getValue(p.id)[it] } }
 
         val target = persons.associate { it.id to IntArray(k) }
-        val hardWork = persons.associate { it.id to hardBalance.getValue(it.id)[0] }.toMutableMap()
         val left = persons.associate { it.id to room(it) }.toMutableMap()
-        val queue = groups.map { group ->
-            val days = planDays.filter { cal.rotationGroup(it, history = false) == group }
+        fun daysOf(group: RotationGroup) = planDays.filter { cal.rotationGroup(it, history = false) == group }
+        fun give(id: String, group: RotationGroup, wanted: Boolean) {
+            if (!wanted) left[id] = left.getValue(id) - 1
+            target.getValue(id)[group.ordinal]++
+        }
+
+        // Cumartesi, perşembe ve pazartesi: gün gün, sırası gelene.
+        fun dayByDay(group: RotationGroup): List<String> {
+            val days = daysOf(group)
             val candidates = persons.filter { p -> days.any { availableInPlan(p, it) && availability.eligibleForShare(p, it) } }
-            if (days.isEmpty() || candidates.isEmpty()) return@map emptyList()
+            if (days.isEmpty() || candidates.isEmpty()) return emptyList()
             val work = candidates.associate { it.id to debt.getValue(it.id)[group.ordinal] }.toMutableMap()
             val lastWork = candidates.associate { it.id to last.getValue(it.id)[group.ordinal] }.toMutableMap()
-            val usedWeekdays = HashMap<String, MutableSet<java.time.DayOfWeek>>()
-            days.map { day ->
-                for ((id, share) in shares(day, group, candidates)) work[id] = work.getValue(id) + share
-                if (group in hardGroups) for ((id, share) in hardShares(day, candidates)) hardWork[id] = hardWork.getValue(id) + share
+            val usedWeekdays = HashMap<String, MutableSet<DayOfWeek>>()
+            return days.map { day ->
+                for ((id, share) in equalShares(day, candidates)) work[id] = work.getValue(id) + share
                 // İstek sıradan önce gelir. Aynı kişiye ayda haftanın aynı gününden ikincisi verilmez;
                 // mümkün değilse kural esner.
                 val wanting = candidates.filter { wants(it, day) && availableInPlan(it, day) }
                 val fresh = candidates.filter { day.dayOfWeek !in usedWeekdays[it.id].orEmpty() }
-                // Son yıldakine aynı ay hem cumartesi hem pazar verilmez; sıkışırsa esner.
-                val doubleWeekend = { p: Person ->
-                    group == RotationGroup.PAZAR && availability.coefficients.isSenior(p, day) &&
-                        target.getValue(p.id)[RotationGroup.VIZIT.ordinal] > 0
-                }
-                // Kimseye aynı ay cuma, cumartesi ve pazarın üçü birden verilmez; sıkışırsa esner.
-                val tripleWeekend = { p: Person ->
-                    group == RotationGroup.PAZAR && target.getValue(p.id).let { it[RotationGroup.VIZIT.ordinal] > 0 && it[RotationGroup.CUMA.ordinal] > 0 }
-                }
-                val roomy = { p: Person -> left.getValue(p.id) > 0 }
                 val pool = wanting
-                    .ifEmpty { fresh.filter { roomy(it) && availableInPlan(it, day) && !avoids(it, day) && !doubleWeekend(it) && !tripleWeekend(it) } }
-                    .ifEmpty { fresh.filter { roomy(it) && availableInPlan(it, day) && !avoids(it, day) } }
+                    .ifEmpty { fresh.filter { left.getValue(it.id) > 0 && availableInPlan(it, day) && !avoids(it, day) } }
                     .ifEmpty { fresh.filter { availableInPlan(it, day) && !avoids(it, day) } }
                     .ifEmpty { fresh.filter { availableInPlan(it, day) } }
                     .ifEmpty { fresh }
@@ -149,33 +165,160 @@ class Ledger(
                     val juniors = byDebt.thenByDescending<Person> { it.seniority }.thenBy { lastWork[it.id] ?: LocalDate.MIN }
                     val seniors = compareBy<Person> { lastWork[it.id] ?: LocalDate.MIN }.thenByDescending { it.seniority }
                     Comparator<Person> { a, b ->
-                        val sa = availability.coefficients.isSenior(a, day)
-                        val sb = availability.coefficients.isSenior(b, day)
+                        val sa = senior(a, day)
+                        val sb = senior(b, day)
                         when {
                             sa != sb -> sa.compareTo(sb)
                             sa -> seniors.compare(a, b)
                             else -> juniors.compare(a, b)
                         }
                     }
-                } else if (group in hardGroups) {
-                    // Cuma ve pazar: önce zor gün toplamındaki borç, sonra o günün kendi sırası.
-                    compareByDescending<Person> { Math.round(hardWork.getValue(it.id) * 2) / 2.0 }
-                        .then(byDebt).thenBy { lastWork[it.id] ?: LocalDate.MIN }.thenByDescending { it.seniority }
                 } else {
                     byDebt.thenBy { lastWork[it.id] ?: LocalDate.MIN }.thenByDescending { it.seniority }
                 }
                 val pick = pool.sortedWith(order).first()
-                if (pick !in wanting) left[pick.id] = left.getValue(pick.id) - 1
-                target.getValue(pick.id)[group.ordinal]++
+                give(pick.id, group, pick in wanting)
                 usedWeekdays.getOrPut(pick.id) { HashSet() } += day.dayOfWeek
                 work[pick.id] = work.getValue(pick.id) - 1.0
-                if (group in hardGroups) hardWork[pick.id] = hardWork.getValue(pick.id) - 1.0
                 lastWork[pick.id] = day
                 pick.id
             }
         }
+
+        // Cuma ve pazar birlikte: önce kişi başına kaç zor gün, sonra hangi gün türü, en son hangi tarih.
+        fun weekend(): Pair<List<String>, List<String>> {
+            val fri = daysOf(RotationGroup.CUMA)
+            val sun = daysOf(RotationGroup.PAZAR)
+            val hard = daysOf(RotationGroup.VIZIT) + fri + sun
+            fun can(p: Person, day: LocalDate) = availableInPlan(p, day) && weekendPeer(p, day)
+            val people = persons.filter { p -> hard.any { can(p, it) } }
+            if (fri.isEmpty() && sun.isEmpty()) return emptyList<String>() to emptyList()
+            val mid = planDays[planDays.size / 2]
+            val junior = people.associate { it.id to !senior(it, mid) }
+            // Ayın bir kısmında olmayanın payı tutabildiği zor gün oranında.
+            val share = people.associate { p -> p.id to hard.count { can(p, it) }.toDouble() / hard.size }
+            val held = people.associate { it.id to target.getValue(it.id)[RotationGroup.VIZIT.ordinal] }.toMutableMap()
+            val hasSat = people.associate { it.id to (target.getValue(it.id)[RotationGroup.VIZIT.ordinal] > 0) }
+            val behind = { p: Person -> Math.round(hardBalance.getValue(p.id)[0] * 2) / 2.0 }
+            val lastHard = people.associate { p -> p.id to hardGroups.mapNotNull { last.getValue(p.id)[it.ordinal] }.maxOrNull() }
+            // Az tutan önce; eşitse çömez önce (fazla gün çömeze, eksik gün kıdemliden), sonra kademesinde geride olan.
+            val order = compareBy<Person> { held.getValue(it.id) / share.getValue(it.id) }
+                .thenBy { if (junior.getValue(it.id)) 0 else 1 }
+                .thenByDescending { behind(it) }
+                .thenBy { lastHard[it.id] ?: LocalDate.MIN }
+                .thenByDescending { it.seniority }
+
+            // İstek sıradan önce gelir.
+            val assigned = HashMap<LocalDate, String>()
+            for (day in fri + sun) {
+                val wanting = persons.filter { wants(it, day) && availableInPlan(it, day) }
+                val w = wanting.filter { it.id in held }.minWithOrNull(order) ?: wanting.firstOrNull() ?: continue
+                assigned[day] = w.id
+                if (w.id in held) held[w.id] = held.getValue(w.id) + 1
+            }
+            val hasF = people.associate { p -> p.id to fri.count { assigned[it] == p.id } }
+            val hasS = people.associate { p -> p.id to sun.count { assigned[it] == p.id } }
+            val openF = fri.filter { it !in assigned }
+            val openS = sun.filter { it !in assigned }
+
+            // 1) Kişi başına kaç zor gün: tek tek, sırası gelene.
+            val units = people.associate { it.id to 0 }.toMutableMap()
+            fun ideal(p: Person): Int {
+                val f = if (hasF.getValue(p.id) == 0 && openF.any { can(p, it) }) 1 else 0
+                val s = if (hasS.getValue(p.id) == 0 && openS.any { can(p, it) } && !(hasSat.getValue(p.id) && !junior.getValue(p.id))) 1 else 0
+                return if (hasSat.getValue(p.id)) minOf(f + s, maxOf(0, 1 - hasF.getValue(p.id) - hasS.getValue(p.id))) else f + s
+            }
+            fun most(p: Person) = openF.count { can(p, it) } + openS.count { can(p, it) }
+            repeat(openF.size + openS.size) {
+                val pick = people.filter { units.getValue(it.id) < ideal(it) && left.getValue(it.id) > units.getValue(it.id) }.minWithOrNull(order)
+                    ?: people.filter { units.getValue(it.id) < most(it) && left.getValue(it.id) > units.getValue(it.id) }.minWithOrNull(order)
+                    ?: people.filter { units.getValue(it.id) < most(it) }.minWithOrNull(order)
+                    ?: return@repeat
+                units[pick.id] = units.getValue(pick.id) + 1
+                held[pick.id] = held.getValue(pick.id) + 1
+            }
+
+            // 2) Gün türü: aynı günden ikincisi, cumartesi tutan kıdemliye pazar en az olacak şekilde (küçük arama).
+            val takers = people.filter { units.getValue(it.id) > 0 }
+            fun cost(p: Person, f: Int): Double {
+                val s = units.getValue(p.id) - f
+                val totalF = hasF.getValue(p.id) + f
+                val totalS = hasS.getValue(p.id) + s
+                var c = 100.0 * (maxOf(0, totalF - 1) + maxOf(0, totalS - 1))
+                if (f > openF.count { can(p, it) }) c += 1000.0
+                if (s > openS.count { can(p, it) }) c += 1000.0
+                if (hasSat.getValue(p.id) && !junior.getValue(p.id) && totalS > 0) c += 30.0
+                // Kendi cuma sırası pazardan gerideyse cumayı tercih eder.
+                c -= 0.01 * f * (debt.getValue(p.id)[RotationGroup.CUMA.ordinal] - debt.getValue(p.id)[RotationGroup.PAZAR.ordinal])
+                return c
+            }
+            val maxF = openF.size
+            val inf = Double.MAX_VALUE / 4
+            var best = DoubleArray(maxF + 1) { if (it == 0) 0.0 else inf }
+            val choice = ArrayList<IntArray>()
+            for (p in takers) {
+                val next = DoubleArray(maxF + 1) { inf }
+                val pick = IntArray(maxF + 1) { -1 }
+                for (used in 0..maxF) {
+                    if (best[used] >= inf) continue
+                    for (f in 0..minOf(units.getValue(p.id), maxF - used)) {
+                        val v = best[used] + cost(p, f)
+                        if (v < next[used + f]) { next[used + f] = v; pick[used + f] = f }
+                    }
+                }
+                choice += pick
+                best = next
+            }
+            val totalUnits = takers.sumOf { units.getValue(it.id) }
+            // Pazar sayısı aşılmasın: cuma sayısı en az (toplam − açık pazar).
+            var endF = (maxOf(0, totalUnits - openS.size)..minOf(maxF, totalUnits)).filter { best[it] < inf }.minByOrNull { best[it] } ?: 0
+            val wantF = HashMap<String, Int>()
+            for (i in takers.indices.reversed()) {
+                val f = choice[i][endF].coerceAtLeast(0)
+                wantF[takers[i].id] = f
+                endF -= f
+            }
+            val wantS = takers.associate { it.id to units.getValue(it.id) - wantF.getValue(it.id) }.toMutableMap()
+
+            // 3) Tarih: seçeneği az olan önce, sonra o günün kendi sırası.
+            fun place(days: List<LocalDate>, open: List<LocalDate>, want: MutableMap<String, Int>, group: RotationGroup): List<String> {
+                val lastWork = persons.associate { it.id to last.getValue(it.id)[group.ordinal] }.toMutableMap()
+                return days.map { day ->
+                    assigned[day]?.let { id -> give(id, group, wanted = true); return@map id }
+                    val rest = open.filter { it >= day && it !in assigned }
+                    val designated = people.filter { (want[it.id] ?: 0) > 0 && can(it, day) }
+                    val pool = designated.filter { !avoids(it, day) }.ifEmpty { designated }
+                    val pick = pool.minWithOrNull(
+                        compareBy<Person> { p -> rest.count { can(p, it) } }
+                            .thenByDescending { Math.round(debt.getValue(it.id)[group.ordinal] * 2) / 2.0 }
+                            .thenBy { lastWork[it.id] ?: LocalDate.MIN }
+                            .thenByDescending { it.seniority },
+                    ) ?: run {
+                        // Sırası gelen kimse o gün olamıyorsa tutabilenlerden en az zor gün tutan.
+                        val any = persons.filter { availableInPlan(it, day) && availability.eligibleForShare(it, day) }
+                        val pool2 = any.filter { !avoids(it, day) }.ifEmpty { any }.ifEmpty { persons }
+                        val p = pool2.filter { it.id in held }.minWithOrNull(order) ?: pool2.maxBy { it.seniority }
+                        if (p.id in held) held[p.id] = held.getValue(p.id) + 1
+                        p
+                    }
+                    if (pick.id in want) want[pick.id] = want.getValue(pick.id) - 1
+                    give(pick.id, group, wanted = false)
+                    lastWork[pick.id] = day
+                    pick.id
+                }
+            }
+            return place(fri, openF, wantF, RotationGroup.CUMA) to place(sun, openS, wantS, RotationGroup.PAZAR)
+        }
+
+        val queues = arrayOfNulls<List<String>>(k)
+        queues[RotationGroup.VIZIT.ordinal] = dayByDay(RotationGroup.VIZIT)
+        val (fridays, sundays) = weekend()
+        queues[RotationGroup.CUMA.ordinal] = fridays
+        queues[RotationGroup.PAZAR.ordinal] = sundays
+        queues[RotationGroup.PERSEMBE.ordinal] = dayByDay(RotationGroup.PERSEMBE)
+        queues[RotationGroup.PAZARTESI.ordinal] = dayByDay(RotationGroup.PAZARTESI)
         return RotationState(
-            debt, count, last, target, queue,
+            debt, count, last, target, queues.map { it.orEmpty() },
             hardDebt = everyone.associate { it.id to hardBalance.getValue(it.id)[0] },
             hardCount = everyone.associate { it.id to hardHeld.getValue(it.id)[0] },
         )

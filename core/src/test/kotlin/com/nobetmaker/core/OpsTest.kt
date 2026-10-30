@@ -162,6 +162,7 @@ class OpsTest {
         assertTrue("Artan cumartesi sırası (Aralık 2026): Fatma → Kenan → Betül." in dokum.notes, "notlar: ${dokum.notes}")
         assertTrue("Betül son yıla giriyor; cumartesi sırasına katılır." in dokum.notes)
         assertTrue(dokum.notes.none { it.startsWith("Bu ay cumartesi tutmayan") }, "çömezlerin hepsi cumartesi tuttu")
+        assertTrue("Bu ay 13 zor gün, 6 kişi: herkes 2, fazla 1 gün çömezlere." in dokum.notes, "notlar: ${dokum.notes}")
         val row = { id: String -> dokum.rows.single { it.person.id == id } }
         assertEquals(listOf(true, true, false, false), listOf("fatma", "kenan", "betul", "sule").map { row(it).senior })
         assertEquals(listOf(1, 2, 3, null), listOf("fatma", "kenan", "betul", "sule").map { row(it).turn })
@@ -337,6 +338,23 @@ class OpsTest {
             if (!asliKarar) assertTrue(bal.getValue("asli").diff > 0.5, "Aslı'nın fazlası kendisine yazılır: ${bal.getValue("asli").diff}")
             else assertEquals(0.0, bal.getValue("asli").diff, 1e-9)
         }
+    }
+
+    @Test
+    fun `telefondaki kasimdan sonra aralikta herkes iki zor gun tutar`() {
+        // 0.4.3'te Kenan'a yalnız pazar, Oğuz'a cuma + cumartesi + pazar düşüyordu: cumalar ileriye bakmadan dağıtılıyordu.
+        val aralik = YearMonth.of(2026, 12)
+        val data = DataOps.ensureMonth(telefondakiKasim(asliKarar = false), aralik)
+        val pr = ProblemBuilder.build(data, aralik, quotaOverride = DataOps.quotaMap(data.month(aralik)))
+        val groups = listOf(com.nobetmaker.core.calendar.RotationGroup.VIZIT, com.nobetmaker.core.calendar.RotationGroup.CUMA, com.nobetmaker.core.calendar.RotationGroup.PAZAR)
+        fun t(id: String) = groups.map { pr.rotationTarget[pr.personIndex(id)][it.ordinal] }
+        for (id in listOf("kenan", "fatma", "betul", "sule", "oguz", "asli")) assertEquals(2, t(id).sum(), "$id: ${t(id)}")
+        assertEquals(listOf(0, 1, 1), t("kenan"), "Kenan cuma + pazar")
+        // Liste de aynı: kimseye üç zor gün yazılmaz.
+        val best = Solver(pr).solve().solutions.first().assignment
+        val held = best.indices.filter { pr.rotationIndex[it] in groups.map { g -> g.ordinal } }.groupingBy { pr.persons[best[it]].id }.eachCount()
+        assertTrue(held.values.all { it <= 2 }, "zor günler: $held")
+        assertEquals(2, held["kenan"])
     }
 
     @Test

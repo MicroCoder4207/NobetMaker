@@ -214,7 +214,7 @@ object RosterExcel {
         sheet.showGridLines = false
         sheet.frozenRows = 1
         val heads = listOf(
-            "Kişi", "Asistanlık", "Nöbet katsayısı", "Zor gün katsayısı", "Nöbet", "Saat",
+            "Kişi", "Asistanlık", "Nöbet katsayısı", "Tatil katsayısı", "Nöbet", "Saat",
             "Cuma", "Cumartesi", "Pazar", "Cumartesi (son ${dokum.rotationMonths} ay)", "Cumartesi sırası", "Bayram", "Resmi tatil",
         )
         heads.forEachIndexed { c, h -> sheet.set(0, c, h, if (c <= 1) headerLeft else header) }

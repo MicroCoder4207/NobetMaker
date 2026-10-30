@@ -40,8 +40,8 @@ class SettingsButtonsTest : AppUiTest() {
         toggle("Listeye nöbet dökümü ekle")
         waitForData(what = "döküm açma") { it.settings.exportSummary }
         val curveSteppers = listOf(
-            "Asistanlık süresi (yıl)", "İlk yılların sonunda nöbet", "İlk yılların sonunda zor gün", "Son yıl başı nöbet",
-            "Son yıl sonu nöbet", "Son yıl başı zor gün", "Son yıl sonu zor gün", "Uzatma", "Küçük ekip sınırı (kişi)",
+            "Asistanlık süresi (yıl)", "İlk yılların sonunda nöbet", "İlk yılların sonunda tatil", "Son yıl başı nöbet",
+            "Son yıl sonu nöbet", "Son yıl başı tatil", "Son yıl sonu tatil", "Uzatma", "Küçük ekip sınırı (kişi)",
         )
         for (label in curveSteppers) {
             val before = data().settings.curve

@@ -52,7 +52,7 @@ Kıdem sırası kişi kartında elle tutulur, en kıdemliden en çömeze doğru.
 Her kişinin iki katsayısı vardır:
 
 - **Nöbet katsayısı:** Kişinin ay içinde kaç nöbet tutacağını belirler.
-- **Zor gün katsayısı:** Kişinin zor günlerden (Cumartesi, Cuma, Pazar, resmi tatil, bayram, yılbaşı) alacağı payı belirler. "Önce çömez" ilkesi bu katsayı üzerinden işler.
+- **Zor gün (tatil) katsayısı:** Kişinin bayram, resmi tatil ve yılbaşından alacağı payı belirler; uygulamada "tatil" diye gösterilir. 0.4.4'ten beri hafta sonlarını belirlemez: cuma, cumartesi ve pazar hafta sonu tutan herkese eşit dağılır (6.1).
 
 Katsayılar 0.4.0'dan itibaren **kıdem eğrisinden** gelir (2.3): asistanlık başlangıcı biliniyorsa her günün katsayısı o günkü asistanlık yılından hesaplanır. Kişi isterse katsayısını elle de girebilir; elle girilen katsayılar geçerlilik tarihiyle saklanır, böylece sonradan yapılan bir değişiklik geçmiş hesapları bozmaz.
 
@@ -355,8 +355,14 @@ Elle hazırlanan listelerde zor günler sırayla döner. Cumartesi Ağustos 2026
     - Cumartesi sırası en zor esneyen sıradır (ceza ağırlığı 150; Cuma/Pazar/Perşembe 60).
     - Neden: oransal paylaşımda (kıdemli 0,65) çömezler de 4 ayda bir boş kalıyor, kıdemliler 2 ayda bir tutuyordu; Kasım 2026'da Kenan ve Fatma'ya cumartesi + pazar, Şule ve Oğuz'a yalnızca pazar düşüyordu. Kıdem sırası hem bölümün alışkanlığıdır hem de herkes aynı aşamalardan geçtiği için adildir.
   - **İlk ay:** Nöbete yeni başlayana (ve uzun izinden dönene) ilk ayında vizit yazılmaz; o ayın vizitleri ona borç da yazmaz.
-  - **Cuma** ve **Pazar** (vizitsiz): önce **zor gün toplamına** bakılır (0.4.2): cuma, cumartesi ve pazar birlikte sayılır, kişinin toplamdaki payı kıdem eğrisinin zor gün katsayısıyla hesaplanır (son 6 ay). Cumartesi kıdem sırasıyla çömezlere gittiği için cumartesi tutmayan kıdemli cuma ve pazarı önce alır; eşitlikte o günün kendi sırası, sonra en uzun süredir tutmayan. Kimseye aynı ay cuma, cumartesi ve pazarın üçü birden yazılmaz (ay 13–14 zor gün çıkarırsa esner).
-    - Neden: Cuma ve pazar ayrı ayrı dönerken kıdemli iki kez indirim alıyordu (cumartesiyi tutmuyor, cuma/pazar payı da 0,66). Kasım 2026'da Kenan ve Fatma'ya 1'er zor gün, Oğuz ve Aslı'ya 3'er düşüyordu. Toplamda dengelenince 9 aylık denemede çömezler ayda ~2,4, kıdemliler ~1,6 zor gün tutuyor (oran ≈ 0,70; kıdem eğrisi 0,66).
+  - **Cuma** ve **Pazar** (vizitsiz), **zor gün kuralı (0.4.4):** cuma, cumartesi ve pazar birlikte "zor gün" sayılır ve hafta sonu tutan herkes ayda **eşit sayıda** tutar (çoğu ay 2). Fazla gün önce **çömezlere**, eksik gün önce **kıdemliden** düşer; aynı kademede kendi dengesi en geride olan önce. Kıdem kuralındaki (5.5) "artan önce çömeze" ile aynı mantık.
+    1. Önce cumartesiler dağıtılır (yukarıdaki kıdem sırası).
+    2. Kişi başına kaç zor gün düştüğü tek tek, en az tutana verilerek hesaplanır; eşitlikte çömez, sonra kademesinde geride olan, sonra en uzun süredir tutmayan. Ayın bir kısmında olmayanın payı tutabildiği zor gün oranında.
+    3. Gün türü: kimseye aynı haftanın gününden ikincisi, cumartesi tutan kıdemliye pazar ve cumartesi tutana üçüncü zor gün yazılmaz. Ay buna yetmiyorsa (ör. Ocak 2027: 14 zor gün, 5 cumartesi, 5 pazar) en az esneyen dağılım seçilir: önce cumartesi tutan kıdemliye pazar, en son aynı günden ikincisi.
+    4. Tarih: o gün olabilecek kişilerden seçeneği az olan önce, sonra o günün kendi sırası.
+    - **Denge kademe içinde:** çömezin tuttuğu zor gün çömezler, son yıldakinin tuttuğu son yıldakiler arasında eşit paylaşılır (son 6 ay). Cuma ve pazar sıraları da böyle. Hafta sonu tutmayan (uzatma) zor gün düzenine girmez.
+    - Şimdiki 6 kişiyle: 12 zor günlü aylarda (Aralık, Şubat, Mart, Nisan, Haziran) herkes 2; Mayıs 2027'de (11) bir kıdemli 1; Ocak ve Temmuz 2027'de (14) iki çömez 3. Kıdemlinin ayrıcalığı: vizitli cumartesi yok, ayda bir nöbet az, fazla zor gün önce çömezde. Bölümün kendi listelerinde de böyleydi: Haziran–Kasım 2026'da Kenan 13, Fatma 12, Betül 13, Şule 14, Oğuz 13 zor gün.
+    - Neden (0.4.4): 0.4.2–0.4.3'te kıdemlinin zor gün payı kıdem eğrisinden (0,66) geliyordu. 6 kişi ve 12 zor günle "üçü birden yok" kuralı herkese 2 demek; 0,66 ancak çömezlere üç gün yazılarak işliyordu. Aralık 2026'da Kenan'a yalnız pazar, Oğuz'a cuma + cumartesi + pazar düştü (cumalar ileriye bakmadan dağıtılıyordu).
     - Tatil günleri (bayram, resmi tatil, yılbaşı; ör. vizitli 29 Ekim) zor gün toplamına girmez, kendi uzun hafızasında sayılır (K37); iki kez sayılmaz.
   - **Perşembe:** herkese eşit döner.
   - **Pazartesi:** Salı günleri ders var ve Pazartesi nöbetçisi nöbet ertesi olduğu için dersi kaçırıyor. Herkese eşit döner. Salı tatilse o Pazartesi sıraya girmez. En kolay esneyen kuraldır (Y4a); ama aynı kişiye ayda ikinci pazartesi yüksek ceza alır (30).
@@ -730,12 +736,13 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 | K45 | Her şey elle düzeltilebilir: kapanmış ay dahil herhangi bir günün resmi kaydı (yeni sürüm), gerçekte tutan, "Uzman tuttu", gün türü ve vizit. Kurallar elle düzeltmede uyarır, engellemez. |
 | K46 | Bayram ve tatil kayıtları ekranı (6.2): her tatil günü, kim tuttu ve denge şeffaf; oradan gün gün düzeltilir. |
 | K47 | Fatma'nın asistanlık başlangıcı Ekim 2023'tür (Eylül değil). |
-| K48 | Zor günler (cuma, cumartesi, pazar) toplam olarak dengelenir; kıdemlinin payı kıdem eğrisinden. Cumartesi tutmayan kıdemli cuma ve pazarı önce alır; kimseye aynı ay üçü birden yazılmaz. Tatiller kendi hafızasında kalır (K37). |
+| K48 | Zor günler (cuma, cumartesi, pazar) toplam olarak dengelenir; kıdemlinin payı kıdem eğrisinden. Cumartesi tutmayan kıdemli cuma ve pazarı önce alır; kimseye aynı ay üçü birden yazılmaz. Tatiller kendi hafızasında kalır (K37). (K54 ile değişti.) |
 | K49 | Hoca kararı borç yazmaz; artan ve eksilen günler diğerlerine katsayıyla paylaşılır ve sonraki aylarda dengelenir. Nöbet sayısı dengesi Kasım 2026'dan beri resmi listeden hesaplanır (5.4). Önceki küsurat devrinin yerini alır. |
 | K50 | Liste "kesinleşir" (yayınlanmaz); yanlışlıkla kesinleştirilen liste taslağa geri alınabilir. Liste sayılarla uyuşmazsa takvimde uyarı ve yeniden oluşturma düğmesi çıkar. |
 | K51 | Aynı kişiye ayda ikinci pazartesi yüksek ceza alır (Salı dersi). Çözücü 64 × 40.000 adımla arar. |
 | K52 | Düğme yazıları: "Ay hazırlığı", "Liste oluştur", "Listeyi kesinleştir", "Taslağa geri al", "Listeyi kapat", "İki günü takasla", "Kalan günleri yeniden oluştur"; sayılar "2 nöbet (1 olmalı)", saat "saat". |
 | K53 | Aynı ay içinde kimse kendinden kıdemliden az tutmaz (5.5): haklar kıdem sırasına göre havuzlanır, artan nöbet önce en çömeze, payları yakın olanlar yuvarlama farkını birlikte taşır. Elle sayı ilk değiştirilince "Hoca kararı mı?" diye sorulur. |
+| K54 | Zor günler hafta sonu tutan herkese eşit: fazla gün önce çömezlere, eksik gün önce kıdemliden; kimseye üçü birden yazılmaz (zorunlu değilse). Denge kademe içinde (çömezler kendi arasında, son yıldakiler kendi arasında). Kıdem eğrisinin zor gün katsayısı yalnızca tatillerde kullanılır ve "tatil katsayısı" diye gösterilir (6.1). |
 
 ---
 

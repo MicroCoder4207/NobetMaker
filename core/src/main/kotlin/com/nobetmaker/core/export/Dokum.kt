@@ -70,6 +70,17 @@ class Dokum(
 
         fun coef(v: Double): String = String.format(Locale.ROOT, "%.2f", v).replace('.', ',')
 
+        /** Zor günlerin hafta sonu tutanlara bölünüşü (§6.1): "herkes 2, fazla 2 gün çömezlere". */
+        fun hardSplit(days: Int, people: Int): String {
+            val base = days / people
+            val rem = days % people
+            return when {
+                rem == 0 -> "herkes $base"
+                rem * 2 <= people -> "herkes $base, fazla $rem gün çömezlere"
+                else -> "herkes ${base + 1}, eksik ${people - rem} gün kıdemliden"
+            }
+        }
+
         /** Cumartesi sütunu: "ayda bir", "sırayla", "sıraya giriyor" ya da hafta sonu tutmuyorsa "—". */
         fun saturdayMain(r: DokumRow): String = when {
             r.noWeekend -> "—"
@@ -185,9 +196,13 @@ object DokumBuilder {
             val joining = seniorQueue.filter { !coef.isSenior(it, mid) }.sortedBy { it.seniority }
             if (joining.isNotEmpty()) notes += "${joinNames(joining.map { it.name })} son yıla giriyor; cumartesi sırasına katılır."
         }
-        notes += "Son yıldakine aynı ay hem cumartesi hem pazar yazılmaz."
-        notes += "Zor günler (cuma, cumartesi, pazar) birlikte sayılır; kıdemlinin payı kıdem eğrisinden."
-        notes += "Cumartesi tutmayan kıdemli cuma ve pazarı önce alır; kimseye üçü birden yazılmaz."
+        // Zor günler (§6.1): hafta sonu tutan herkes eşit; fazlası çömeze, eksiği kıdemliden.
+        val hardGroups = setOf(RotationGroup.VIZIT, RotationGroup.CUMA, RotationGroup.PAZAR)
+        val hardDays = days.count { cal.rotationGroup(it, history = false) in hardGroups }
+        val weekenders = rows.count { !it.noWeekend }
+        notes += "Zor günler (cuma, cumartesi, pazar): hafta sonu tutan herkes eşit sayıda tutar; fazla gün önce çömezlere, eksik gün önce kıdemliden, kademesinde sırayla."
+        if (hardDays > 0 && weekenders > 0) notes += "Bu ay $hardDays zor gün, $weekenders kişi: ${Dokum.hardSplit(hardDays, weekenders)}."
+        notes += "Cumartesi tutan kıdemliye pazar, kimseye aynı ay üçü birden yazılmaz; zor gün yetmezse en az esneyen dağılım seçilir."
         notes += "Pazartesi ve perşembe son $months aya göre herkese eşit sırayla döner."
         val satDays = days.filter { it.dayOfWeek == DayOfWeek.SATURDAY && cal.rotationGroup(it, history = false) == RotationGroup.VIZIT }
         if (satDays.isNotEmpty() && plan?.current != null) {

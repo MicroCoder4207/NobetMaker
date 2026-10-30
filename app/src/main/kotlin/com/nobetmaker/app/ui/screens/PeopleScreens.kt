@@ -124,7 +124,7 @@ private fun PersonCard(p: Person, coef: Coefficients, onClick: () -> Unit, onUp:
             Column(Modifier.weight(1f)) {
                 Text("${p.seniority}. ${p.name}", fontWeight = FontWeight.SemiBold)
                 Text(
-                    listOfNotNull(coef.stageText(p, today), "Nöbet ${fmt2(c.duty)}", "Zor gün ${fmt2(c.hardDay)}").joinToString(" · ") +
+                    listOfNotNull(coef.stageText(p, today), "Nöbet ${fmt2(c.duty)}", "Tatil ${fmt2(c.hardDay)}").joinToString(" · ") +
                         if (auto) " (kıdem eğrisi)" else " (elle)",
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -227,7 +227,7 @@ fun PersonEditScreen(vm: AppViewModel, nav: Nav, id: String?) {
                 )
             }
             SectionCard("Katsayılar") {
-                Text("Nöbet katsayısı kaç nöbet tutacağını, zor gün katsayısı Cumartesi/Cuma/Pazar/bayram payını belirler.", style = MaterialTheme.typography.bodySmall)
+                Text("Nöbet katsayısı kaç nöbet tutacağını, tatil katsayısı bayram, resmi tatil ve yılbaşı payını belirler. Hafta sonları hafta sonu tutan herkese eşit dağılır.", style = MaterialTheme.typography.bodySmall)
                 SwitchRow("Kıdem eğrisinden hesapla", auto) { auto = it }
                 val curveOn = data.settings.curve.enabled
                 val preview = Person(
@@ -240,7 +240,7 @@ fun PersonEditScreen(vm: AppViewModel, nav: Nav, id: String?) {
                 if (auto && usesCurve) {
                     val c = coef.on(preview, today)
                     Text(
-                        "Bugün ${coef.stageText(preview, today)}: nöbet ${fmt2(c.duty)}, zor gün ${fmt2(c.hardDay)}. Yıl ilerledikçe kendiliğinden değişir.",
+                        "Bugün ${coef.stageText(preview, today)}: nöbet ${fmt2(c.duty)}, tatil ${fmt2(c.hardDay)}. Yıl ilerledikçe kendiliğinden değişir.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 } else if (auto) {
@@ -258,7 +258,7 @@ fun PersonEditScreen(vm: AppViewModel, nav: Nav, id: String?) {
                                 if (coefficients.size > 1) IconButton(onClick = { coefficients = coefficients.filterNot { it === c } }) { Icon(Icons.Default.Delete, "Sil") }
                             }
                             Stepper("Nöbet", c.duty, 0.01, 0.0, 1.5, ::fmt) { v -> coefficients = coefficients.map { if (it === c) it.copy(duty = v) else it } }
-                            Stepper("Zor gün", c.hardDay, 0.01, 0.0, 1.5, ::fmt) { v -> coefficients = coefficients.map { if (it === c) it.copy(hardDay = v) else it } }
+                            Stepper("Tatil", c.hardDay, 0.01, 0.0, 1.5, ::fmt) { v -> coefficients = coefficients.map { if (it === c) it.copy(hardDay = v) else it } }
                         }
                     }
                 }

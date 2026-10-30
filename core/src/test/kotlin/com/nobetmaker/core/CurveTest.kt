@@ -204,21 +204,42 @@ class CurveTest {
     }
 
     @Test
-    fun `zor gunler toplam olarak dengelenir`() {
-        // Kasım 2026: cumartesiler çömezlere gider; cumartesi tutmayan Kenan ve Fatma cuma ve pazarı önce alır.
-        val ym = YearMonth.of(2026, 11)
-        val data = DataOps.ensureMonth(seed, ym)
-        val pr = ProblemBuilder.build(data, ym, quotaOverride = DataOps.quotaMap(data.month(ym)))
-        fun target(id: String, g: RotationGroup) = pr.rotationTarget[pr.personIndex(id)][g.ordinal]
+    fun `zor gunler herkese esit fazlasi comeze eksigi kidemliden`() {
+        val hard = listOf(RotationGroup.VIZIT, RotationGroup.CUMA, RotationGroup.PAZAR)
+        fun targets(ym: YearMonth): Map<String, IntArray> {
+            val data = DataOps.ensureMonth(seed, ym)
+            val pr = ProblemBuilder.build(data, ym, quotaOverride = DataOps.quotaMap(data.month(ym)))
+            return pr.persons.associate { p -> p.id to IntArray(3) { pr.rotationTarget[pr.personIndex(p.id)][hard[it].ordinal] } }
+        }
+        val juniors = setOf("sule", "oguz", "asli")
+        val seniors = setOf("kenan", "fatma", "betul")
+        // Uzatmadaki Yaren hafta sonu tutmaz, cuma da ona sırayla verilmez.
+        for (ym in listOf(YearMonth.of(2026, 12), YearMonth.of(2027, 1), YearMonth.of(2027, 5))) assertEquals(0, targets(ym).getValue("yaren").sum(), "$ym Yaren")
+
+        // Kasım 2026: 13 zor gün, 6 kişi. Cumartesiler çömezlere; Kenan ve Fatma cuma + pazar; fazla 1 gün bir çömeze.
+        val kasim = targets(YearMonth.of(2026, 11))
         for (id in listOf("kenan", "fatma")) {
-            assertEquals(0, target(id, RotationGroup.VIZIT), "$id cumartesi")
-            assertEquals(2, target(id, RotationGroup.CUMA) + target(id, RotationGroup.PAZAR), "$id cuma + pazar")
+            assertEquals(0, kasim.getValue(id)[0], "$id cumartesi")
+            assertEquals(listOf(1, 1), listOf(kasim.getValue(id)[1], kasim.getValue(id)[2]), "$id cuma + pazar")
         }
-        // 13 zor gün, cumartesi ve pazar tutabilen 6 kişi: en fazla bir kişiye üçü birden düşer.
-        val triple = pr.persons.count { p ->
-            listOf(RotationGroup.VIZIT, RotationGroup.CUMA, RotationGroup.PAZAR).all { g -> target(p.id, g) > 0 }
-        }
-        assertTrue(triple <= 1, "üç zor günlü kişi sayısı $triple")
+        assertEquals(1, kasim.values.count { it.sum() == 3 }, "üç zor günlü kişi")
+        assertTrue(kasim.filterValues { it.sum() == 3 }.keys.all { it in setOf("betul", "sule", "oguz", "asli") })
+
+        // Aralık 2026: 12 zor gün, 6 kişi: herkes tam 2, kimseye üçü birden yok.
+        val aralik = targets(YearMonth.of(2026, 12))
+        assertEquals((juniors + seniors).associateWith { 2 }, aralik.filterKeys { it != "yaren" }.mapValues { it.value.sum() })
+
+        // Ocak 2027: 14 zor gün (5 cumartesi, 5 pazar): kıdemliler 2, fazla 2 gün iki çömeze.
+        val ocak = targets(YearMonth.of(2027, 1))
+        for (id in seniors) assertEquals(2, ocak.getValue(id).sum(), "Ocak $id")
+        assertEquals(2, ocak.filterKeys { it in juniors }.values.count { it.sum() == 3 }, "Ocak üç zor günlü çömez")
+
+        // Mayıs 2027: 11 zor gün: eksik gün bir kıdemliden, diğer herkes 2.
+        val mayis = targets(YearMonth.of(2027, 5))
+        val ones = mayis.filterValues { it.sum() == 1 }.keys
+        assertEquals(1, ones.size, "Mayıs bir zor günlü")
+        assertTrue(ones.single() in seniors)
+        assertTrue((juniors + seniors - ones).all { mayis.getValue(it).sum() == 2 })
     }
 
     @Test

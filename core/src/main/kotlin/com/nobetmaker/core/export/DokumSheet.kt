@@ -53,7 +53,7 @@ object DokumSheet {
             }
 
             ops += DrawOp.Text(cols[2].x + 4f, y + 8f, cols[2].w, 30f, Dokum.coef(r.duty), 25f, Colors.INK, align = Align.LEFT, weight = 600)
-            val hardText = if (r.noWeekend) "hafta sonu yok" else "zor gün ${Dokum.coef(r.hard)}"
+            val hardText = if (r.noWeekend) "hafta sonu yok" else "tatil ${Dokum.coef(r.hard)}"
             ops += DrawOp.Text(cols[2].x + 4f, y + 36f, cols[2].w, 24f, hardText, 18f, Colors.MUTED, align = Align.LEFT, weight = 500)
 
             val count = if (r.fixedCount != null) "${r.count} *" else "${r.count}"

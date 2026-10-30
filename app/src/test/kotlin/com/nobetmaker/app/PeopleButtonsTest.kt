@@ -73,7 +73,7 @@ class PeopleButtonsTest : AppUiTest() {
         assert(exists("Yıl ilerledikçe kendiliğinden değişir", substring = true)) { "eğri önizlemesi yok" }
         toggle("Kıdem eğrisinden hesapla")
         stepper("Nöbet", plus = true)
-        stepper("Zor gün", plus = false)
+        stepper("Tatil", plus = false)
         click("Yeni dönem katsayısı ekle")
         toggle("Cumartesi yok")
         click("Bitiş")
