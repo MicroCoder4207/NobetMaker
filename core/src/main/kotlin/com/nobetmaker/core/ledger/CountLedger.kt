@@ -30,7 +30,9 @@ class CountBalance(
  * Kıdem kuralı (§5.5) yüzünden payları birbirine yakın (farkı [NEAR] altında) ve kıdemce ardışık kişiler o ay
  * eşit ya da çömez lehine birer fazla tutar; aralarındaki yuvarlama farkı kişiye değil gruba yazılır: grubun toplam
  * sapması üyelere payları oranında bölünür. Böylece sonraki ay yine aynı sıra korunur, grup olarak da denge kayar.
- * Elle verilen (hoca kararı olmayan) sayı ve ayın bir kısmında olmayan kişi kendi sapmasını taşır.
+ * Elle verilen (hoca kararı olmayan) sayı, ayın bir kısmında olmayan ve o ay izinli (yıllık izin, kongre, rapor)
+ * olan kişi kendi sapmasını taşır: izin yüzünden sığmayan nöbet sonraki aylarda o kişiye telafi ettirilir, grup
+ * arkadaşlarına "eksik tuttu" yazılmaz.
  */
 class CountLedger(
     private val data: AppData,
@@ -90,12 +92,12 @@ class CountLedger(
     }
 
     /**
-     * Sapmayı birlikte taşıyan gruplar: ayın tamamında olağan katılan, elle sayı verilmemiş kişiler kıdem sırasıyla
-     * dizilir; payı bir öncekine [NEAR]'dan yakın olan aynı gruba girer. Diğerleri tek başına.
+     * Sapmayı birlikte taşıyan gruplar: ayın tamamında olağan katılan (izinsiz), elle sayı verilmemiş kişiler kıdem
+     * sırasıyla dizilir; payı bir öncekine [NEAR]'dan yakın olan aynı gruba girer. Diğerleri tek başına.
      */
     private fun groups(sharing: List<Person>, share: Map<String, Double>, own: Set<String>, days: List<LocalDate>): List<List<String>> {
         val (ranked, alone) = sharing.sortedBy { it.seniority }
-            .partition { p -> p.id !in own && days.all { d -> availability.countsForQuota(p, d) } }
+            .partition { p -> p.id !in own && days.all { d -> availability.countsForQuota(p, d) && availability.blockingPeriod(p, d) == null } }
         val out = ArrayList<MutableList<String>>()
         for (p in ranked) {
             val last = out.lastOrNull()

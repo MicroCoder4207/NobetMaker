@@ -10,6 +10,7 @@ import com.nobetmaker.core.rules.Availability
 import com.nobetmaker.core.rules.RosterIndex
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.YearMonth
 
 /** Sıra durumu (§6); diziler [RotationGroup.entries] sırasındadır. */
 class RotationState(
@@ -87,9 +88,17 @@ class Ledger(
 
         val hardGroups = setOf(RotationGroup.VIZIT, RotationGroup.CUMA, RotationGroup.PAZAR)
         fun senior(p: Person, date: LocalDate) = availability.coefficients.isSenior(p, date)
+        // Hoca kararı olan ay (elle sayı ya da "ayda sabit sayı") kişi zor gün düzenine girmez: sırası gelmez, defterine
+        // de yazılmaz; gün başkasına sığmazsa yine yazılabilir. Sayı dengesi gibi Kasım 2026'dan beri.
+        val counts = CountLedger(data, availability, roster)
+        val balanceStart = YearMonth.from(data.settings.countBalanceStart)
+        val decidedCache = HashMap<YearMonth, Set<String>>()
+        fun decided(date: LocalDate): Set<String> = YearMonth.from(date).let { m ->
+            if (m < balanceStart) emptySet() else decidedCache.getOrPut(m) { counts.decisions(m).keys }
+        }
         // O haftanın cumartesi ya da pazarını tutabilen; uzatmadaki gibi ikisi de kapalıysa zor gün düzenine girmez.
         fun weekendPeer(p: Person, date: LocalDate): Boolean {
-            if (!availability.eligibleForShare(p, date)) return false
+            if (!availability.eligibleForShare(p, date) || p.id in decided(date)) return false
             val sat = when (date.dayOfWeek) {
                 DayOfWeek.FRIDAY -> date.plusDays(1)
                 DayOfWeek.SUNDAY -> date.minusDays(1)
@@ -152,7 +161,11 @@ class Ledger(
                 // mümkün değilse kural esner.
                 val wanting = candidates.filter { wants(it, day) && availableInPlan(it, day) }
                 val fresh = candidates.filter { day.dayOfWeek !in usedWeekdays[it.id].orEmpty() }
+                // Hoca kararı olan ay cumartesi sırası da gelmez (başkası yoksa yazılır).
+                val rested = if (group == RotationGroup.VIZIT) decided(day) else emptySet()
                 val pool = wanting
+                    .ifEmpty { fresh.filter { it.id !in rested && left.getValue(it.id) > 0 && availableInPlan(it, day) && !avoids(it, day) } }
+                    .ifEmpty { fresh.filter { it.id !in rested && availableInPlan(it, day) && !avoids(it, day) } }
                     .ifEmpty { fresh.filter { left.getValue(it.id) > 0 && availableInPlan(it, day) && !avoids(it, day) } }
                     .ifEmpty { fresh.filter { availableInPlan(it, day) && !avoids(it, day) } }
                     .ifEmpty { fresh.filter { availableInPlan(it, day) } }

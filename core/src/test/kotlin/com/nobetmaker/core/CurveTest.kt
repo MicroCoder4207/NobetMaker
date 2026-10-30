@@ -204,6 +204,52 @@ class CurveTest {
     }
 
     @Test
+    fun `hoca karari olan ay hafta sonu sirasina girmez`() {
+        // Şubat 2027: hoca bir kişinin sayısını 2'ye düşürünce iki nöbeti de hafta sonuna düşüyordu.
+        val ym = YearMonth.of(2027, 2)
+        val hard = listOf(RotationGroup.VIZIT, RotationGroup.CUMA, RotationGroup.PAZAR)
+        for (id in listOf("kenan", "sule")) {
+            val data = DataOps.setQuota(DataOps.ensureMonth(seed, ym), ym, id, 2, decision = true)
+            val pr = ProblemBuilder.build(data, ym, quotaOverride = DataOps.quotaMap(data.month(ym)))
+            val p = pr.personIndex(id)
+            assertEquals(0, hard.sumOf { pr.rotationTarget[p][it.ordinal] }, "$id sıra")
+            assertEquals(12, pr.persons.indices.sumOf { q -> hard.sumOf { pr.rotationTarget[q][it.ordinal] } }, "bütün zor günler dağıtılır")
+            val a = com.nobetmaker.core.solver.Solver(pr).solve().solutions.first().assignment
+            assertTrue(a.indices.none { a[it] == p && pr.rotationIndex[it] in hard.map { g -> g.ordinal } }, "$id listede hafta sonu tutmaz")
+        }
+    }
+
+    @Test
+    fun `uzatmada cuma da yazilmaz`() {
+        val avail = Availability(seed, CalendarService(seed.dayOverrides, seed.settings))
+        val yaren = seed.persons.single { it.id == "yaren" }
+        assertEquals(listOf("Uzatmada: cuma, cumartesi, pazar ve tatil yok"), avail.hardReasons(yaren, LocalDate.of(2026, 11, 6)))
+        assertTrue(avail.hardReasons(yaren, LocalDate.of(2026, 11, 5)).isEmpty(), "perşembe serbest")
+        // Kendisi kesin isterse yazılır; sıra da onu sayar ve dağılımın değiştiği yazılır.
+        val ym = YearMonth.of(2026, 11)
+        val data = DataOps.upsertRequest(DataOps.ensureMonth(seed, ym), com.nobetmaker.core.model.DutyRequest("y", "yaren", com.nobetmaker.core.model.RequestType.WANT_DATES, com.nobetmaker.core.model.Priority.KESIN, dates = listOf(LocalDate.of(2026, 11, 6))))
+        val pr = ProblemBuilder.build(data, ym, quotaOverride = DataOps.quotaMap(data.month(ym)))
+        assertEquals(1, pr.rotationTarget[pr.personIndex("yaren")][RotationGroup.CUMA.ordinal])
+        assertTrue(pr.requestNotes.single().contains("Yaren 0 → 1"), pr.requestNotes.toString())
+    }
+
+    @Test
+    fun `yilbasini tutan mumkunse bir daha tutmaz`() {
+        // 31 Aralık 2024'ü Betül, 31 Aralık 2025'i Fatma tuttu.
+        val ym = YearMonth.of(2026, 12)
+        val data = DataOps.ensureMonth(seed, ym)
+        val pr = ProblemBuilder.build(data, ym, quotaOverride = DataOps.quotaMap(data.month(ym)))
+        val day = pr.days.indexOf(LocalDate.of(2026, 12, 31))
+        for ((id, year) in listOf("betul" to 2024, "fatma" to 2025)) {
+            val p = pr.personIndex(id)
+            assertTrue(pr.softAvoid[p][day] > 0.0, id)
+            assertTrue(pr.softAvoidLabel[p][day]!!.endsWith("yılbaşını daha önce tuttu ($year)"), pr.softAvoidLabel[p][day])
+        }
+        val a = com.nobetmaker.core.solver.Solver(pr).solve().solutions.first().assignment
+        assertTrue(pr.persons[a[day]].id !in setOf("betul", "fatma"), "31 Aralık: ${pr.persons[a[day]].name}")
+    }
+
+    @Test
     fun `zor gunler herkese esit fazlasi comeze eksigi kidemliden`() {
         val hard = listOf(RotationGroup.VIZIT, RotationGroup.CUMA, RotationGroup.PAZAR)
         fun targets(ym: YearMonth): Map<String, IntArray> {

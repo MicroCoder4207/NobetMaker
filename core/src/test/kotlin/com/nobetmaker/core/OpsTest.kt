@@ -413,6 +413,25 @@ class OpsTest {
     }
 
     @Test
+    fun `izinde sigmayan nobet kisinin kendisine yazilir`() {
+        // Oğuz 3–23 Aralık izinde: 5 yerine 4 nöbete sığar. Fark grup arkadaşlarına (Şule, Aslı) bölünüyordu.
+        val kasim = YearMonth.of(2026, 11)
+        val aralik = YearMonth.of(2026, 12)
+        var data = DataOps.ensureMonth(SeedData.build(), kasim)
+        val pk = ProblemBuilder.build(data, kasim, quotaOverride = DataOps.quotaMap(data.month(kasim)))
+        data = DataOps.applySolution(data, pk, Solver(pk).solve().solutions.first().assignment)
+        data = DataOps.ensureMonth(data, aralik)
+        data = DataOps.refreshQuotas(DataOps.upsertPeriod(data, com.nobetmaker.core.model.Period("iz", "oguz", aralik.atDay(3), aralik.atDay(23), com.nobetmaker.core.model.PeriodType.YILLIK_IZIN)), aralik)
+        assertEquals(4, data.month(aralik)!!.quotas.single { it.personId == "oguz" }.final)
+        val pa = ProblemBuilder.build(data, aralik, quotaOverride = DataOps.quotaMap(data.month(aralik)))
+        data = DataOps.applySolution(data, pa, Solver(pa).solve().solutions.first().assignment)
+        val cal = com.nobetmaker.core.calendar.CalendarService(data.dayOverrides, data.settings)
+        val bal = com.nobetmaker.core.ledger.CountLedger(data, com.nobetmaker.core.rules.Availability(data, cal), RosterIndex(data)).balance(aralik, aralik.plusMonths(1))
+        assertTrue(bal.getValue("oguz").diff < -0.8, "Oğuz telafi eder: ${bal.getValue("oguz").diff}")
+        for (id in listOf("sule", "asli")) assertTrue(kotlin.math.abs(bal.getValue(id).diff) < 0.3, "$id: ${bal.getValue(id).diff}")
+    }
+
+    @Test
     fun `0_4_2 verisinde ondan fazla verilen sayi hoca karari olmaktan cikar`() {
         val kasim = YearMonth.of(2026, 11)
         val v6 = telefondakiKasim(asliKarar = true).let { it.copy(schemaVersion = 6) }

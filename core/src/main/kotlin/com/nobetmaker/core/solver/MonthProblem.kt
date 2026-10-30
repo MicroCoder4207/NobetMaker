@@ -143,6 +143,8 @@ object ProblemBuilder {
                 } else locked[i] = p
             }
         }
+        // Kilitli gün o kişinindir (ör. uzatmadakinin kendi istediği cuma); sıra hesabı da öyle görür.
+        for (i in 0 until D) if (locked[i] >= 0) available[locked[i]][i] = true
 
         // Komşu aylardaki resmi nöbetler.
         val external = IntArray(E) { -1 }
@@ -220,6 +222,18 @@ object ProblemBuilder {
             val t = avail.tentativePeriod(persons[p], days[i]) ?: continue
             softAvoid[p][i] += w.requestMumkunse
             softAvoidLabel[p][i] = "${persons[p].name}: belirsiz ${t.type.label.lowercase()}"
+        }
+
+        // 31 Aralık'ı daha önce tutan mümkünse bir daha tutmaz (resmi listeye göre; takaslar değiştirmez).
+        for (i in 0 until D) {
+            if (category[i] != Category.YILBASI) continue
+            for (p in 0 until P) {
+                val years = roster.official.filter { (date, who) -> who == persons[p].id && date.isBefore(days[i]) && cal.category(date) == Category.YILBASI }
+                    .keys.map { it.year }.sorted()
+                if (years.isEmpty()) continue
+                softAvoid[p][i] += w.yilbasiRepeat
+                softAvoidLabel[p][i] = "${persons[p].name}: yılbaşını daha önce tuttu (${years.joinToString(", ")})"
+            }
         }
 
         val longBlocks = Array(E) { x ->

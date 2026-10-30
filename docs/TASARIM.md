@@ -84,7 +84,7 @@ Herkes aynı eğriden geçer: çömezken çok, kıdemliyken az. Böylece 4 yıl�
 | İlk 6 ay | 1.00 (bu dönemde nöbet yok) | 1.00 |
 | 6. ay – 3. yıl sonu | 1.00'dan 0.97'ye yavaşça iner | 1.00'dan 0.94'e |
 | Son yıl (4. yıl) | 0.82'den 0.78'e | 0.67'den 0.63'e |
-| Uzatma (4 yıl dolduktan sonra) | 0.50 | cumartesi, pazar ve tatil yazılmaz |
+| Uzatma (4 yıl dolduktan sonra) | 0.50 | cuma, cumartesi, pazar ve tatil yazılmaz (kendisi kesin isterse yazılır) |
 
 - Eğri aylıktır: bir ay kıdem farkı çok küçük bir katsayı farkı yaratır.
 - Doğum izni (uzun izin) asistanlık süresinden düşülür.
@@ -249,7 +249,7 @@ Y4'teki sapma, ayın sırasında beklenen gün sayısından fark; Y5'teki sapma 
 5. **Yuvarlama:** Toplam N olacak şekilde en büyük kalan yöntemiyle yapılır. Eşitlik olursa fazla nöbet çömeze gider. Kıdem kuralı (5.5) burada uygulanır: kimse kendinden kıdemliden az tutmaz.
 6. Yuvarlamada kalan küsurat da sayı dengesine girer ve sonraki aya devreder. Örneğin Yaren'in hakkı 2.5 ise bir ay 2, bir ay 3 nöbet tutar.
 7. **Katsayı:** Kıdem eğrisinden (2.3) ya da kişinin elle girdiği değerden gelir; her gün o günün katsayısı kullanılır.
-8. **Sınırlar:** Üst sınır 6'dır (S6). Ekip küçülürse (ör. Eylül 2027'den sonra 4 kişi) kişi başı 7–8 nöbet düşer; bu durumda üst sınır Ayarlar'dan artırılır. Ayrıca fiziksel sığma kontrol edilir: kişinin uygun günlerine en az 3 gün arayla en fazla kaç nöbet sığabileceğine bakılır. Sınırı aşan kısım o ay diğerlerine dağıtılır. Bunun için **borç yazılmaz** ve küsurat devri yapılmaz.
+8. **Sınırlar:** Üst sınır 6'dır (S6). Ekip küçülürse (ör. Eylül 2027'den sonra 4 kişi) kişi başı 7–8 nöbet düşer; bu durumda üst sınır Ayarlar'dan artırılır. Ayrıca fiziksel sığma kontrol edilir: kişinin uygun günlerine en az 3 gün arayla en fazla kaç nöbet sığabileceğine bakılır. Sınırı aşan kısım o ay diğerlerine dağıtılır. Üst sınırdan taşan kısım için borç yazılmaz; izin yüzünden sığmayan nöbet ise sayı defterinde kişinin kendi farkı olarak kalır ve sonraki aylarda telafi edilir (5.4, 0.4.5).
 9. Uygulama sayıları **önerir** (uygulamada "Nöbet sayıları" sekmesi). Liste yapan, bir kişinin sayısını ±1 değiştirdiğinde o kişi **elle sabitlenir** ve kalan günler diğerlerine yukarıdaki adımlarla yeniden dağıtılır; toplam N korunur. Örnek: Kasım 2026'da Yaren 0'a indirilince 2 günü Fatma ve Aslı'ya geçer. Sabitleme kişi bazında kaldırılabilir ya da "Öneriye dön" ile hepsi sıfırlanır. Hoca kararıyla sabitlenen kişiye borç yazılmaz (5.4).
    - Hocalar bir kişi için sayı söylerse o ay elle sabitlenir. Kalıcıysa kişiye **"Ayda sabit nöbet sayısı"** kuralı girilir; her ay o sayıyla gelir, kural kalkınca öneriye döner.
    - Sayısı düşen kişinin Cuma/Cumartesi/Pazar sırası değişmez; düşen nöbet hafta içinden gelir. Böylece diğerleri onun yükünü iki kez (hem sayı hem hafta sonu) taşımaz.
@@ -270,6 +270,7 @@ Hocalar bir ay için birinin sayısını söyleyebilir ("Yaren bu ay 1, sınavı
 - **Bizim düzeltmemiz:** "Hoca kararı" kapatılırsa sabitleme bizim düzeltmemiz sayılır; kişinin payından fazla ya da eksik tuttuğu sonraki aylarda ona geri yansır.
 - **Kalan günler:** Hoca kararıyla artan ya da eksilen günler diğerlerine nöbet katsayısıyla paylaştırılır. Yuvarlamada fazladan gün alan sonraki aylarda daha az alır; böylece "artanı hep Aslı'ya verdik" durumu birikmez.
 - **Hesap (sayı defteri):** Kayıt tutulmaz; her seferinde resmi listeden hesaplanır. Her ay: asistanların tuttuğu günlerden hoca kararı olan kişilerin tuttukları düşülür, kalan günler diğerleri arasında o ayki nöbet katsayısıyla paylaştırılır. Denge = tutulan − pay. Elle yapılan her düzeltme (kapanmış ay dahil) kendiliğinden yansır.
+- **İzinli ay:** O ay izni (yıllık izin, kongre, rapor) olan kişi farkını kendisi taşır; yakın paylı grubuna bölünmez (5.5). Ör. 3–23 Aralık izindeki Oğuz 5 yerine 4'e sığar, sonraki ay 1 fazla tutar; Şule ve Aslı'ya "eksik tuttu" yazılmaz (0.4.5).
 - **Başlangıç:** Kasım 2026 (uygulamanın ilk listesi). Öncesi elle yapılmış eski düzen sayılır, dengeye girmez (Ayarlar'dan değiştirilebilir).
 - **Gösterim:** Nöbet sayıları sekmesinde "önceki aylardan eksik 0,6" ya da "fazla 0,4"; istatistikte "Nöbet sayısı 9 / payı 9,4"; dökümde "Hoca kararı: Yaren 1; kalan günler diğerlerine katsayıyla dağıtıldı."
 - **Liste ile sayılar uyuşmazsa** (ör. sayı liste oluşturulduktan sonra değişti) takvimde uyarı çıkar: "Liste nöbet sayılarıyla uyuşmuyor: Yaren 2 (1 olmalı)". Uyarıdaki düğme listeyi (kesinleşmişse kalan günleri) yeni sayılarla oluşturur.
@@ -360,7 +361,10 @@ Elle hazırlanan listelerde zor günler sırayla döner. Cumartesi Ağustos 2026
     2. Kişi başına kaç zor gün düştüğü tek tek, en az tutana verilerek hesaplanır; eşitlikte çömez, sonra kademesinde geride olan, sonra en uzun süredir tutmayan. Ayın bir kısmında olmayanın payı tutabildiği zor gün oranında.
     3. Gün türü: kimseye aynı haftanın gününden ikincisi, cumartesi tutan kıdemliye pazar ve cumartesi tutana üçüncü zor gün yazılmaz. Ay buna yetmiyorsa (ör. Ocak 2027: 14 zor gün, 5 cumartesi, 5 pazar) en az esneyen dağılım seçilir: önce cumartesi tutan kıdemliye pazar, en son aynı günden ikincisi.
     4. Tarih: o gün olabilecek kişilerden seçeneği az olan önce, sonra o günün kendi sırası.
-    - **Denge kademe içinde:** çömezin tuttuğu zor gün çömezler, son yıldakinin tuttuğu son yıldakiler arasında eşit paylaşılır (son 6 ay). Cuma ve pazar sıraları da böyle. Hafta sonu tutmayan (uzatma) zor gün düzenine girmez.
+    - **Denge kademe içinde:** çömezin tuttuğu zor gün çömezler, son yıldakinin tuttuğu son yıldakiler arasında eşit paylaşılır (son 6 ay). Cuma ve pazar sıraları da böyle. Hafta sonu tutmayan (uzatma) zor gün düzenine girmez; uzatmada cuma da yazılmaz.
+    - **İstekler ve izin sayıyı değiştirmez (K22, 0.4.5):** kişinin zor gün payı yalnızca ekipte olmasına bağlıdır; istek ve izin yalnızca hangi günleri tutabileceğini belirler. Sığmayan pay defterde kalır, sonraki aylarda telafi edilir. İstekler dağılımı yine de değiştirirse (ör. biri bütün cuma ve pazarlarını kapattı) uygulama istek olmadan kurulan sırayla karşılaştırıp seçeneklerde ve Kontrol sekmesinde yazar: "İstekler zor gün dağılımını değiştirdi: Aslı 3 → 1, Betül 2 → 3 (sebep: Aslı: … olmasın). Fark sonraki aylarda dengelenir."
+    - **Hoca kararı olan ay (0.4.5):** sayısı hoca kararıyla belirlenen kişi o ay cumartesi, cuma ve pazar sırasına girmez, zor gün defterine de yazılmaz (sayı dengesindeki gibi). Gün başkasına sığmazsa yine yazılabilir. Önceden hoca bir kişiyi 2'ye düşürünce iki nöbeti de hafta sonuna düşebiliyordu.
+    - **Yılbaşı (0.4.5):** 31 Aralık'ı daha önce tutan (resmi listeye göre) mümkünse bir daha tutmaz: 2024 Betül, 2025 Fatma. Çiğnenirse seçeneklerde "✗" satırı olarak görünür; ağırlığı Ayarlar'da.
     - Şimdiki 6 kişiyle: 12 zor günlü aylarda (Aralık, Şubat, Mart, Nisan, Haziran) herkes 2; Mayıs 2027'de (11) bir kıdemli 1; Ocak ve Temmuz 2027'de (14) iki çömez 3. Kıdemlinin ayrıcalığı: vizitli cumartesi yok, ayda bir nöbet az, fazla zor gün önce çömezde. Bölümün kendi listelerinde de böyleydi: Haziran–Kasım 2026'da Kenan 13, Fatma 12, Betül 13, Şule 14, Oğuz 13 zor gün.
     - Neden (0.4.4): 0.4.2–0.4.3'te kıdemlinin zor gün payı kıdem eğrisinden (0,66) geliyordu. 6 kişi ve 12 zor günle "üçü birden yok" kuralı herkese 2 demek; 0,66 ancak çömezlere üç gün yazılarak işliyordu. Aralık 2026'da Kenan'a yalnız pazar, Oğuz'a cuma + cumartesi + pazar düştü (cumalar ileriye bakmadan dağıtılıyordu).
     - Tatil günleri (bayram, resmi tatil, yılbaşı; ör. vizitli 29 Ekim) zor gün toplamına girmez, kendi uzun hafızasında sayılır (K37); iki kez sayılmaz.
@@ -743,6 +747,10 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 | K52 | Düğme yazıları: "Ay hazırlığı", "Liste oluştur", "Listeyi kesinleştir", "Taslağa geri al", "Listeyi kapat", "İki günü takasla", "Kalan günleri yeniden oluştur"; sayılar "2 nöbet (1 olmalı)", saat "saat". |
 | K53 | Aynı ay içinde kimse kendinden kıdemliden az tutmaz (5.5): haklar kıdem sırasına göre havuzlanır, artan nöbet önce en çömeze, payları yakın olanlar yuvarlama farkını birlikte taşır. Elle sayı ilk değiştirilince "Hoca kararı mı?" diye sorulur. |
 | K54 | Zor günler hafta sonu tutan herkese eşit: fazla gün önce çömezlere, eksik gün önce kıdemliden; kimseye üçü birden yazılmaz (zorunlu değilse). Denge kademe içinde (çömezler kendi arasında, son yıldakiler kendi arasında). Kıdem eğrisinin zor gün katsayısı yalnızca tatillerde kullanılır ve "tatil katsayısı" diye gösterilir (6.1). |
+| K55 | İstek ve izin zor gün sayısını değiştirmez, yalnızca günleri; değiştirirse sebebiyle uyarı (6.1). Kesin "istiyor" o günü kişiye açar (uzatmada cuma dahil). |
+| K56 | Hoca kararı olan ay kişi hafta sonu sırasına ve zor gün defterine girmez (6.1). |
+| K57 | İzinli ayda sayı farkı kişinin kendisine yazılır, sonraki aylarda telafi edilir (5.4). |
+| K58 | Uzatmada cuma da yazılmaz. 31 Aralık'ı tutan mümkünse bir daha tutmaz (6.1). |
 
 ---
 

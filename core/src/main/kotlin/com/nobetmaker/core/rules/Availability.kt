@@ -80,9 +80,10 @@ class Availability(data: AppData, private val cal: CalendarService) {
             }
             if (blocked) return "Kişiye özel kural: ${rule.type.label}"
         }
+        // Uzatmada hafta sonu (cuma dahil; zor gün düzeni, §6.1) ve tatil yazılmaz.
         if (coefficients.inExtension(person, date) &&
-            (cal.isWeekend(date) || cal.isOfficialHoliday(date) || isHolidayCategory(date))
-        ) return "Uzatmada: cumartesi, pazar ve tatil yok"
+            (cal.isWeekend(date) || date.dayOfWeek == DayOfWeek.FRIDAY || cal.isOfficialHoliday(date) || isHolidayCategory(date))
+        ) return "Uzatmada: cuma, cumartesi, pazar ve tatil yok"
         return null
     }
 
