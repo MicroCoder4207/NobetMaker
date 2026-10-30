@@ -1,6 +1,9 @@
 package com.nobetmaker.core
 
+import com.nobetmaker.core.model.DutyRequest
 import com.nobetmaker.core.model.MonthStatus
+import com.nobetmaker.core.model.Priority
+import com.nobetmaker.core.model.RequestType
 import com.nobetmaker.core.ops.AppJson
 import com.nobetmaker.core.ops.DataOps
 import com.nobetmaker.core.rules.RosterIndex
@@ -355,6 +358,58 @@ class OpsTest {
         val held = best.indices.filter { pr.rotationIndex[it] in groups.map { g -> g.ordinal } }.groupingBy { pr.persons[best[it]].id }.eachCount()
         assertTrue(held.values.all { it <= 2 }, "zor günler: $held")
         assertEquals(2, held["kenan"])
+    }
+
+    /** Tablette girilen Kasım istekleri. */
+    private fun tabletIstekleri(): List<DutyRequest> {
+        fun d(n: Int) = YearMonth.of(2026, 11).atDay(n)
+        return listOf(
+            DutyRequest("r1", "kenan", RequestType.AVOID_RANGE, Priority.KESIN, rangeStart = d(14), rangeEnd = d(21)),
+            DutyRequest("r2", "fatma", RequestType.WANT_DATES, Priority.KESIN, dates = listOf(d(22))),
+            DutyRequest("r3", "betul", RequestType.AVOID_DATES, Priority.MUMKUNSE, dates = listOf(d(19), d(20))),
+            DutyRequest("r4", "sule", RequestType.AVOID_RANGE, Priority.KESIN, rangeStart = d(6), rangeEnd = d(8)),
+            DutyRequest("r5", "oguz", RequestType.AVOID_RANGE, Priority.KESIN, rangeStart = d(4), rangeEnd = d(7)),
+            DutyRequest("r6", "asli", RequestType.AVOID_DATES, Priority.KESIN, dates = listOf(d(5), d(6))),
+            DutyRequest("r7", "asli", RequestType.AVOID_DATES, Priority.KESIN, dates = listOf(d(13))),
+        )
+    }
+
+    private fun kasimIstekli(requests: List<DutyRequest>): com.nobetmaker.core.solver.MonthProblem {
+        val ym = YearMonth.of(2026, 11)
+        var data = DataOps.ensureMonth(SeedData.build(), ym)
+        data = DataOps.setQuota(data, ym, "yaren", 1, decision = true)
+        data = DataOps.setQuota(data, ym, "asli", 6, decision = false)
+        data = requests.fold(data) { acc, r -> DataOps.upsertRequest(acc, r) }
+        return ProblemBuilder.build(data, ym, quotaOverride = DataOps.quotaMap(data.month(ym)))
+    }
+
+    private fun hardTotals(pr: com.nobetmaker.core.solver.MonthProblem, assignment: IntArray? = null): Map<String, Int> {
+        val groups = listOf(com.nobetmaker.core.calendar.RotationGroup.VIZIT, com.nobetmaker.core.calendar.RotationGroup.CUMA, com.nobetmaker.core.calendar.RotationGroup.PAZAR)
+        if (assignment == null) return pr.persons.associate { p -> p.id to groups.sumOf { pr.rotationTarget[pr.personIndex(p.id)][it.ordinal] } }
+        return assignment.indices.filter { pr.rotationIndex[it] in groups.map { g -> g.ordinal } }.groupingBy { pr.persons[assignment[it]].id }.eachCount()
+    }
+
+    @Test
+    fun `kesin istek zor gun payini azaltmaz`() {
+        // 0.4.4'te Aslı iki cumayı kapatınca payı küçülüyor, sıradaki üçüncü zor gün Betül'e kayıyordu.
+        val pr = kasimIstekli(tabletIstekleri())
+        assertEquals(mapOf("yaren" to 0, "kenan" to 2, "fatma" to 2, "betul" to 2, "sule" to 2, "oguz" to 2, "asli" to 3), hardTotals(pr))
+        assertTrue(pr.requestNotes.isEmpty(), "${pr.requestNotes}")
+        val held = hardTotals(pr, Solver(pr).solve().solutions.first().assignment)
+        assertEquals(3, held["asli"], "liste: $held")
+        assertTrue(held.filterKeys { it != "asli" }.values.all { it <= 2 }, "liste: $held")
+    }
+
+    @Test
+    fun `istek zor gun dagilimini degistirirse sebebiyle yazilir`() {
+        // Aslı bütün cuma ve pazarlarını kapatırsa yalnız cumartesi tutabilir; fazla günler başkasına geçer.
+        fun d(n: Int) = YearMonth.of(2026, 11).atDay(n)
+        val block = DutyRequest("x", "asli", RequestType.AVOID_DATES, Priority.KESIN, dates = listOf(1, 6, 8, 13, 15, 20, 22, 27, 29).map { d(it) })
+        val pr = kasimIstekli(listOf(block))
+        assertEquals(1, hardTotals(pr)["asli"])
+        val note = pr.requestNotes.single()
+        assertTrue(note.startsWith("İstekler zor gün dağılımını değiştirdi: ") && "Aslı 3 → 1" in note && "(sebep: Aslı: " in note, note)
+        assertTrue(note in ConflictDetector.detect(pr), "Kontrol sekmesinde de görünür")
     }
 
     @Test

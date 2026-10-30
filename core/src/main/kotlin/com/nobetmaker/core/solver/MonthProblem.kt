@@ -2,6 +2,7 @@ package com.nobetmaker.core.solver
 
 import com.nobetmaker.core.calendar.CalendarService
 import com.nobetmaker.core.calendar.Category
+import com.nobetmaker.core.calendar.RotationGroup
 import com.nobetmaker.core.calendar.TurkishHolidays
 import com.nobetmaker.core.calendar.monthNameTr
 import com.nobetmaker.core.ledger.CountLedger
@@ -70,6 +71,8 @@ class MonthProblem(
     val quotaResult: QuotaResult?,
     val softRequestIds: Set<String>,
     val warnings: List<String>,
+    /** İsteklerin zor gün dağılımını değiştirdiği durum ve sebebi (K22). */
+    val requestNotes: List<String> = emptyList(),
 ) {
     val dayCount: Int get() = days.size
     val personCount: Int get() = persons.size
@@ -127,6 +130,7 @@ object ProblemBuilder {
             val p = persons.indexOfFirst { it.id == a.personId }
             if (i >= 0 && p >= 0) locked[i] = p
         }
+        val assignLocked = locked.copyOf()
         for (r in data.requests) {
             if (r.type != RequestType.WANT_DATES || r.priority != Priority.KESIN) continue
             val p = persons.indexOfFirst { it.id == r.personId }
@@ -268,15 +272,47 @@ object ProblemBuilder {
         // Defter.
         val personPos = persons.withIndex().associate { (i, p) -> p.id to i }
         fun dayIdx(d: LocalDate) = (d.toEpochDay() - first.toEpochDay()).toInt()
-        val wantedDays = IntArray(P).also { arr -> wants.map { it.p to it.day }.distinct().forEach { (p, _) -> arr[p]++ } }
+        // Kilitli günler (mevcut kilitler, kesin "şu günü istiyor") sırada da o kişinindir.
+        fun wantsDay(p: Int, i: Int) = locked[i] == p || wants.any { it.p == p && it.day == i }
+        val wantedDays = IntArray(P) { p -> (0 until D).count { wantsDay(p, it) } }
+        val windowStart = first.minusMonths(settings.rotationMonths.toLong())
         val rotation = ledger.rotation(
-            persons, first.minusMonths(settings.rotationMonths.toLong()), first, days,
+            persons, windowStart, first, days,
             availableInPlan = { p, d -> available[personPos.getValue(p.id)][dayIdx(d)] },
-            wants = { p, d -> wants.any { it.p == personPos.getValue(p.id) && it.day == dayIdx(d) } },
+            wants = { p, d -> wantsDay(personPos.getValue(p.id), dayIdx(d)) },
             avoids = { p, d -> softAvoid[personPos.getValue(p.id)][dayIdx(d)] > 0.0 },
             // İstediği günler nöbet sayısını dolduran kişiye sıradan gün verilmez.
             room = { p -> personPos.getValue(p.id).let { i -> (quotas[i] - wantedDays[i]).coerceAtLeast(0) } },
         )
+        // İstekler zor gün sayısını değil yalnızca günleri değiştirmeli (K22). Değiştiriyorsa (ör. biri bütün cuma ve
+        // pazarlarını kapattıysa) istek olmadan kurulan sırayla karşılaştırıp sebebiyle yazılır.
+        val requestNotes = ArrayList<String>()
+        val monthRequests = data.requests.filter { r -> r.touches(month) && persons.any { it.id == r.personId } }
+        if (monthRequests.isNotEmpty()) {
+            val freeAvailable = Array(P) { p -> BooleanArray(D) { i -> avail.hardReasons(persons[p], days[i], requests = false).isEmpty() } }
+            val lockedDays = IntArray(P) { p -> (0 until D).count { assignLocked[it] == p } }
+            val free = ledger.rotation(
+                persons, windowStart, first, days,
+                availableInPlan = { p, d -> freeAvailable[personPos.getValue(p.id)][dayIdx(d)] },
+                wants = { p, d -> assignLocked[dayIdx(d)] == personPos.getValue(p.id) },
+                room = { p -> personPos.getValue(p.id).let { i -> (quotas[i] - lockedDays[i]).coerceAtLeast(0) } },
+            )
+            val hardGroups = listOf(RotationGroup.VIZIT, RotationGroup.CUMA, RotationGroup.PAZAR)
+            fun total(target: Map<String, IntArray>, id: String) = hardGroups.sumOf { target.getValue(id)[it.ordinal] }
+            val changed = persons.filter { total(rotation.target, it.id) != total(free.target, it.id) }
+            if (changed.isNotEmpty()) {
+                val hardDates = days.filter { cal.rotationGroup(it, history = false) in hardGroups }
+                val touchesHard = { r: com.nobetmaker.core.model.DutyRequest -> hardDates.any { d -> Availability.avoids(r, d) || d in r.dates } }
+                val less = changed.filter { total(rotation.target, it.id) < total(free.target, it.id) }.map { it.id }.toSet()
+                val causes = monthRequests.filter { it.personId in less && touchesHard(it) }.ifEmpty { monthRequests.filter(touchesHard) }
+                val names = persons.associate { it.id to it.name }
+                requestNotes += "İstekler zor gün dağılımını değiştirdi: " +
+                    changed.joinToString(", ") { "${it.name} ${total(free.target, it.id)} → ${total(rotation.target, it.id)}" } +
+                    (if (causes.isEmpty()) "" else " (sebep: " + causes.joinToString("; ") { "${names[it.personId]}: ${RequestText.describe(it)}" } + ")") +
+                    ". Fark sonraki aylarda dengelenir."
+                warnings += requestNotes
+            }
+        }
         val rotationIndex = IntArray(D) { cal.rotationGroup(days[it], history = false)?.ordinal ?: -1 }
         val rotationTarget = Array(P) { rotation.target.getValue(persons[it].id) }
         val rotationQueue = rotation.queue.map { q -> q.map { personPos.getValue(it) } }
@@ -297,7 +333,7 @@ object ProblemBuilder {
             rotationIndex = rotationIndex, rotationTarget = rotationTarget, rotationQueue = rotationQueue,
             longBase = longBase, longIndex = longIndex, longWeight = longWeight,
             weights = w, minGap = settings.minGap, maxPerMonth = settings.maxPerMonth,
-            quotaResult = quotaResult, softRequestIds = softRequestIds, warnings = warnings,
+            quotaResult = quotaResult, softRequestIds = softRequestIds, warnings = warnings, requestNotes = requestNotes,
         )
     }
 

@@ -191,12 +191,13 @@ class Ledger(
             val sun = daysOf(RotationGroup.PAZAR)
             val hard = daysOf(RotationGroup.VIZIT) + fri + sun
             fun can(p: Person, day: LocalDate) = availableInPlan(p, day) && weekendPeer(p, day)
-            val people = persons.filter { p -> hard.any { can(p, it) } }
+            val people = persons.filter { p -> hard.any { weekendPeer(p, it) } }
             if (fri.isEmpty() && sun.isEmpty()) return emptyList<String>() to emptyList()
             val mid = planDays[planDays.size / 2]
             val junior = people.associate { it.id to !senior(it, mid) }
-            // Ayın bir kısmında olmayanın payı tutabildiği zor gün oranında.
-            val share = people.associate { p -> p.id to hard.count { can(p, it) }.toDouble() / hard.size }
+            // Pay yalnızca ekipte olmaya bağlı (ayın ortasında başlayan ya da ayrılan az alır). İzin ve istek payı
+            // azaltmaz (K22): yalnızca hangi günleri tutabileceğini belirler, sığmayan pay defterde kalır.
+            val share = people.associate { p -> p.id to hard.count { weekendPeer(p, it) }.toDouble() / hard.size }
             val held = people.associate { it.id to target.getValue(it.id)[RotationGroup.VIZIT.ordinal] }.toMutableMap()
             val hasSat = people.associate { it.id to (target.getValue(it.id)[RotationGroup.VIZIT.ordinal] > 0) }
             val behind = { p: Person -> Math.round(hardBalance.getValue(p.id)[0] * 2) / 2.0 }

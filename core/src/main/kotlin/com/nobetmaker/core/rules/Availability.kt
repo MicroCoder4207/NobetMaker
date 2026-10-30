@@ -97,14 +97,17 @@ class Availability(data: AppData, private val cal: CalendarService) {
 
     fun requestsOf(person: Person): List<DutyRequest> = requestsByPerson[person.id].orEmpty()
 
-    /** Bu günü kesin olarak dışlayan sebepler. Boşsa kişi o gün nöbet tutabilir. */
-    fun hardReasons(person: Person, date: LocalDate): List<String> {
+    /**
+     * Bu günü kesin olarak dışlayan sebepler. Boşsa kişi o gün nöbet tutabilir.
+     * @param requests kesin "olmasın" istekleri de sayılsın mı (isteklerin etkisini ölçmek için kapatılır)
+     */
+    fun hardReasons(person: Person, date: LocalDate, requests: Boolean = true): List<String> {
         val reasons = ArrayList<String>(2)
         if (!person.isActiveOn(date)) reasons += "Ekipte değil"
         blockingPeriod(person, date)?.let { reasons += "${it.type.label} (${periodText(it)})" }
         ruleBlock(person, date)?.let { reasons += it }
         if (firstMonthVisit(person, date)) reasons += "İlk nöbet ayı: vizit yok"
-        for (r in requestsOf(person)) {
+        if (requests) for (r in requestsOf(person)) {
             if (r.priority == Priority.KESIN && avoids(r, date)) reasons += "Kesin istek: ${RequestText.describe(r)}"
         }
         return reasons

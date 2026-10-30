@@ -119,6 +119,7 @@ private fun AlternativeCard(vm: AppViewModel, pr: MonthProblem, solution: Soluti
         if (index > 0) Text("Seçenek 1'e göre ${"%.0f".format(extraPenalty)} ceza puanı fazla", style = MaterialTheme.typography.bodySmall)
         if (card.requestsTotal > 0) Text("İstekler: $met / ${card.requestsTotal} karşılandı") else Text("Bu ay istek yok", style = MaterialTheme.typography.bodySmall)
         card.requestsUnmet.forEach { Text("✗ $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+        pr.requestNotes.forEach { Text("⚠ $it", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall) }
         card.weekendRepeats.forEach { Text("⚠ $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
         card.longHolidayHits.forEach { Text("⚠ $it", style = MaterialTheme.typography.bodySmall) }
         Text("3 gün aralıklı nöbet: ${card.tightGaps.size}", style = MaterialTheme.typography.bodySmall)
@@ -136,8 +137,8 @@ private fun AlternativeCard(vm: AppViewModel, pr: MonthProblem, solution: Soluti
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     PersonDot(line.person, 10)
                     Spacer(Modifier.width(4.dp))
-                    val weekend = (line.byCategory[Category.CUMARTESI] ?: 0) + (line.byCategory[Category.PAZAR] ?: 0)
-                    Text("${line.person.name} ${line.count} (Cmt+Paz $weekend)", style = MaterialTheme.typography.bodySmall)
+                    val hard = listOf(Category.CUMA, Category.CUMARTESI, Category.PAZAR).sumOf { line.byCategory[it] ?: 0 }
+                    Text("${line.person.name} ${line.count} (zor gün $hard)", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
