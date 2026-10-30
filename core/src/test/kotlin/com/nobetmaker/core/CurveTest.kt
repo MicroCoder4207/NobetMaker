@@ -296,13 +296,15 @@ class CurveTest {
         val long = Ledger(seed, cal, avail, RosterIndex(seed)).longMemory(persons, LocalDate.of(2026, 11, 1), emptyList())
         val bi = long.categories.indexOf(Category.BAYRAM)
         val bal = persons.associate { it.id to long.base.getValue(it.id)[bi] }
-        // Analizdeki tablo: Kenan ve Şule geride, Oğuz ve Fatma önde.
-        assertTrue(bal.getValue("kenan") < -1.2, "Kenan ${bal["kenan"]}")
+        // El yazısı kağıda göre (0.4.5): Kenan ve Şule geride; Oğuz, Yaren ve Fatma önde. Fatma 13 Nisan 2024'ten
+        // beri ekipte sayılır (ilk nöbeti), Ramazan 2024'ün payına da ortaktır.
+        assertTrue(bal.getValue("kenan") < -1.8, "Kenan ${bal["kenan"]}")
         assertTrue(bal.getValue("sule") < -0.8, "Şule ${bal["sule"]}")
         assertTrue(bal.getValue("oguz") > 1.5, "Oğuz ${bal["oguz"]}")
-        assertTrue(bal.getValue("fatma") > 1.0, "Fatma ${bal["fatma"]}")
+        assertTrue(bal.getValue("yaren") > 0.5, "Yaren ${bal["yaren"]}")
+        assertTrue(bal.getValue("fatma") > 0.5, "Fatma ${bal["fatma"]}")
         // 2025 Kurban'ın arefesi (5 Haziran, Fatma) yarım gün.
-        assertEquals(7.5, long.days.getValue("fatma")[bi])
+        assertEquals(8.5, long.days.getValue("fatma")[bi])
     }
 
     @Test

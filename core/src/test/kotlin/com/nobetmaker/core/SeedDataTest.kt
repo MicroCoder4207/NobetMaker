@@ -42,6 +42,23 @@ class SeedDataTest {
     }
 
     @Test
+    fun `bayramlar el yazisi kagitla ayni`() {
+        // Bayramlarda el yazısı kağıt esas; Excel'le çelişen günler ona göre düzeltildi. Arefe tam gün sayıldı.
+        fun bayram(from: LocalDate, to: LocalDate): Map<String, Int> =
+            generateSequence(from) { it.plusDays(1) }.takeWhile { !it.isAfter(to) }
+                .filter { cal.category(it) == com.nobetmaker.core.calendar.Category.BAYRAM }
+                .mapNotNull { roster.official[it] }.groupingBy { it }.eachCount()
+        assertEquals(mapOf("yaren" to 2, "fatma" to 1), bayram(LocalDate.of(2024, 4, 1), LocalDate.of(2024, 4, 30)))
+        assertEquals(mapOf("fatma" to 2, "yaren" to 1), bayram(LocalDate.of(2024, 6, 1), LocalDate.of(2024, 6, 30)))
+        assertEquals(mapOf("sule" to 3, "fatma" to 3, "yaren" to 1, "betul" to 1, "kenan" to 1), bayram(LocalDate.of(2025, 3, 25), LocalDate.of(2025, 4, 10)))
+        assertEquals(mapOf("fatma" to 2, "kenan" to 1, "betul" to 1, "oguz" to 1), bayram(LocalDate.of(2025, 6, 1), LocalDate.of(2025, 6, 30)))
+        // Tek günler: 29 Ekim 2025 Oğuz, 31 Aralık 2024 Betül, 31 Aralık 2025 Fatma.
+        assertEquals("oguz", roster.official[LocalDate.of(2025, 10, 29)])
+        assertEquals("betul", roster.official[LocalDate.of(2024, 12, 31)])
+        assertEquals("fatma", roster.official[LocalDate.of(2025, 12, 31)])
+    }
+
+    @Test
     fun `saatler kagittaki hesapla ayni`() {
         // Aralık 2025: kağıtta Fatma 72; kural 31 Aralık'ı 16 saydığı için 80 (bilinçli fark, §19).
         assertEquals(

@@ -432,6 +432,29 @@ class OpsTest {
     }
 
     @Test
+    fun `0_4_4 verisinde bayram gunleri kagida gore duzeltilir`() {
+        // Eski veri: 13 Nisan 2024 Kenan, 19 Haziran 2024 Kenan, 29 Ekim 2025 Yaren. 19 Haziran'ı kullanıcı elle Betül yapmış.
+        val seed = SeedData.build()
+        fun set(d: com.nobetmaker.core.model.AppData, date: LocalDate, id: String) = d.copy(
+            months = d.months.map { m ->
+                if (m.yearMonth != YearMonth.from(date)) m
+                else m.copy(versions = m.versions.dropLast(1) + m.current!!.copy(assignments = m.current!!.assignments.map { if (it.date == date) it.copy(personId = id) else it }))
+            },
+        )
+        var old = set(seed, LocalDate.of(2024, 4, 13), "kenan")
+        old = set(old, LocalDate.of(2024, 6, 19), "betul")
+        old = set(old, LocalDate.of(2025, 10, 29), "yaren").copy(schemaVersion = 7)
+        val m = AppJson.decode(AppJson.encode(old))
+        val r = RosterIndex(m)
+        assertEquals("fatma", r.official[LocalDate.of(2024, 4, 13)])
+        assertEquals("oguz", r.official[LocalDate.of(2025, 10, 29)])
+        assertEquals("betul", r.official[LocalDate.of(2024, 6, 19)], "elle düzeltilen güne dokunulmaz")
+        val ekim = m.month(YearMonth.of(2025, 10))!!
+        assertEquals(old.month(YearMonth.of(2025, 10))!!.versions.size + 1, ekim.versions.size, "kapanmış ayda yeni sürüm")
+        assertEquals("Kağıt listeye göre düzeltildi: 29. gün", ekim.current!!.note)
+    }
+
+    @Test
     fun `0_4_2 verisinde ondan fazla verilen sayi hoca karari olmaktan cikar`() {
         val kasim = YearMonth.of(2026, 11)
         val v6 = telefondakiKasim(asliKarar = true).let { it.copy(schemaVersion = 6) }

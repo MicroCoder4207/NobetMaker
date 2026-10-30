@@ -21,6 +21,7 @@ import java.time.YearMonth
 /**
  * Uygulamanın ilk açılışta yüklediği başlangıç verisi: ekip ve Nisan 2024 – Ekim 2026 resmi listeleri (§16).
  * Nisan 2024 – Mart 2025 hastanenin Excel çalışma planlarından, sonrası kağıt listelerden aktarıldı.
+ * Bayramlarda el yazısı kağıt esastır; Excel'le çelişen günler ona göre düzeltildi ([paperCorrections]).
  * "-" asistanın tutmadığı gündür (o dönem uzmanlar tuttu; 21 Nisan 2025'i doğum iznindeki Canay tuttu).
  * Kağıttaki "A (B)" yazımı: resmide A, tutan B. [flagged] okunması belirsiz ya da doğrulanması gereken günlerdir.
  */
@@ -73,11 +74,21 @@ object SeedData {
         ),
     )
 
+    /**
+     * El yazısı bayram kağıdı ve kullanıcının bildirdiği düzeltmeler (tarih, Excel'deki, doğrusu). Listelere işlendi;
+     * eski sürümden gelen veride de 0.4.5 göçüyle düzeltilir (o gün hâlâ eski kişi yazılıysa).
+     */
+    val paperCorrections: List<Triple<LocalDate, String, String>> = listOf(
+        Triple(LocalDate.of(2024, 4, 13), "kenan", "fatma"), // Ramazan 2024: 2 Yaren + 1 Fatma
+        Triple(LocalDate.of(2024, 6, 19), "kenan", "yaren"), // Kurban 2024: 2 Fatma + 1 Yaren
+        Triple(LocalDate.of(2025, 10, 29), "yaren", "oguz"), // 29 Ekim 2025'i Oğuz tuttu
+    )
+
     /** Ayın resmi listesi, 1'inden başlayarak gün gün. */
     val rosters: Map<YearMonth, String> = linkedMapOf(
-        YearMonth.of(2024, 4) to "- - - - - - Yaren - - Yaren - - Kenan - - - - - - - - - - - - - - - Yaren Kenan",
+        YearMonth.of(2024, 4) to "- - - - - - Yaren - - Yaren - - Fatma - - - - - - - - - - - - - - - Yaren Kenan",
         YearMonth.of(2024, 5) to "- - - Kenan - - - - Kenan - Yaren - - - - - Kenan Fatma - - Fatma Yaren - - Fatma - - - Yaren - Fatma",
-        YearMonth.of(2024, 6) to "- Yaren - - - Yaren Kenan Fatma - - - - Fatma - - - Fatma - Kenan - Fatma - - Fatma - - - Yaren Kenan -",
+        YearMonth.of(2024, 6) to "- Yaren - - - Yaren Kenan Fatma - - - - Fatma - - - Fatma - Yaren - Fatma - - Fatma - - - Yaren Kenan -",
         YearMonth.of(2024, 7) to "Yaren - - - Yaren Kenan - - - - - - Kenan - - - - Kenan Betül Fatma Yaren - - - Fatma - Betül Fatma - - Fatma",
         YearMonth.of(2024, 8) to "- - Betül Kenan - - - - Fatma Yaren Betül - - Kenan - - Fatma - Yaren Fatma - - Kenan Fatma - - Fatma - Yaren Betül Fatma",
         YearMonth.of(2024, 9) to "- Yaren Fatma Kenan Betül - Yaren Betül - - - - Yaren Betül - - Fatma Betül - Kenan Fatma - - Fatma Kenan - Betül Fatma Kenan -",
@@ -93,7 +104,7 @@ object SeedData {
         YearMonth.of(2025, 7) to "Oğuz Şule Fatma Kenan Oğuz Betül Fatma Oğuz Yaren Betül Şule Kenan Fatma Oğuz Fatma Yaren Şule Kenan Fatma Oğuz Betül Fatma Şule Kenan Fatma Betül Yaren Şule Fatma Betül Yaren",
         YearMonth.of(2025, 8) to "Oğuz Fatma Şule Oğuz Betül Şule Fatma Betül Kenan Yaren Fatma Betül Oğuz Fatma Kenan Betül Fatma Yaren Kenan Fatma Yaren Oğuz Fatma Betül Kenan Şule Betül Oğuz Kenan Şule Oğuz",
         YearMonth.of(2025, 9) to "Fatma Betül Kenan Şule Fatma Betül Şule Fatma Yaren Kenan Betül Fatma Şule Yaren Oğuz Betül Şule Yaren Kenan Oğuz Fatma Şule Betül Fatma Oğuz Kenan Fatma Betül Oğuz Fatma",
-        YearMonth.of(2025, 10) to "Kenan Yaren Şule Oğuz Fatma Kenan Betül Şule Oğuz Kenan Betül Yaren Fatma Oğuz Yaren Şule Betül Fatma Şule Oğuz Betül Fatma Yaren Şule Kenan Oğuz Şule Fatma Yaren Betül Fatma",
+        YearMonth.of(2025, 10) to "Kenan Yaren Şule Oğuz Fatma Kenan Betül Şule Oğuz Kenan Betül Yaren Fatma Oğuz Yaren Şule Betül Fatma Şule Oğuz Betül Fatma Yaren Şule Kenan Oğuz Şule Fatma Oğuz Betül Fatma",
         YearMonth.of(2025, 11) to "Kenan Yaren Betül Fatma Şule Kenan Betül Oğuz Şule Yaren Betül Oğuz Fatma Şule Betül Fatma Şule Oğuz Fatma Yaren Oğuz Fatma Yaren Kenan Şule Oğuz Betül Fatma Şule Kenan",
         YearMonth.of(2025, 12) to "Oğuz Betül Şule Fatma Yaren Betül Şule Kenan Betül Oğuz Şule Betül Fatma Yaren Oğuz Şule Kenan Yaren Fatma Kenan Betül Oğuz Yaren Kenan Betül Şule Oğuz Fatma Betül Şule Fatma",
         YearMonth.of(2026, 1) to "Yaren Şule Betül Yaren Oğuz Betül Kenan Fatma Yaren Şule Betül Kenan Oğuz Fatma Betül Oğuz Fatma Şule Oğuz Fatma Yaren Şule Fatma Oğuz Kenan Betül Yaren Fatma Oğuz Şule Kenan",

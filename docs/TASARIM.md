@@ -660,7 +660,11 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 - **Ocak 2025 ve Nisan – Ekim 2025:** kağıt listelerin fotoğraflarından (Ocak 2025'te parantez içindeki saatler kontrolde kullanıldı: Kenan 64, Yaren 72, Fatma 104, Betül 88).
 - **Kasım 2025 – Ekim 2026:** kağıt listelerden (aşağıda).
 - 21 Nisan 2025'i doğum iznine çıkmadan önce Canay tuttu; Canay henüz uygulamada olmadığı için boş bırakıldı.
-- Bayram sayfasındaki 2024 kayıtları resmi listeyle iki günde ayrılıyor (13 Nisan ve 19 Haziran 2024; resmi listede Kenan, sayfada Fatma ve Yaren). Takas olduğu düşünülüyor; resmi liste esas alındı. Eski sürümlerin bayram sayfasından girdiği kayıtlar göçte kaldırıldı.
+- **Bayramlarda el yazısı kağıt esastır (0.4.5):** Excel'le çelişirse kağıt, kağıtta olmayan günler Excel'den. İki gün düzeltildi: 13 Nisan 2024 (Excel'de Kenan, kağıtta Fatma) ve 19 Haziran 2024 (Excel'de Kenan, kağıtta Yaren). 2025 Ramazan (Şule 3, Fatma 3, Yaren, Betül, Kenan) ve 2025 Kurban (Fatma – Kenan – Oğuz – Fatma – Betül) zaten aynıydı.
+  - 29 Ekim 2025'i Oğuz tuttu (listede Yaren yazıyordu); resmi kayıt düzeltildi. 31 Aralık 2024 Betül, 31 Aralık 2025 Fatma doğru.
+  - Eski sürümden gelen veride göç (v8) bu üç günü, o gün hâlâ eski kişi yazılıysa düzeltir; kapanmış ayda "Kağıt listeye göre düzeltildi" notuyla yeni sürüm açılır.
+  - Fatma'nın ilk nöbeti 13 Nisan 2024 olduğu için Ramazan 2024'ün payına da ortaktır. Bayram dengesi: Kenan 2,1 ve Şule 1,2 gün geride; Oğuz 1,8, Yaren 0,8 ve Fatma 0,7 önde.
+  - Eski sürümlerin bayram sayfasından girdiği kayıtlar göçte kaldırıldı.
 - 2024 Ramazan (6–14 Nisan), 2024 Kurban (15–23 Haziran), 2025 Ramazan (29 Mart – 6 Nisan) ve 2026 Kurban (23–31 Mayıs) idari izinle 9 gündü; idari izin günleri takvimde hazır gelir.
 - Dini bayram tarihleri 2027'ye kadar hazır. Sonraki yıllar Diyanet açıklayınca Takvim'den girilir; uygulama o yılın ayını hazırlarken uyarır.
 
@@ -751,6 +755,7 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 | K56 | Hoca kararı olan ay kişi hafta sonu sırasına ve zor gün defterine girmez (6.1). |
 | K57 | İzinli ayda sayı farkı kişinin kendisine yazılır, sonraki aylarda telafi edilir (5.4). |
 | K58 | Uzatmada cuma da yazılmaz. 31 Aralık'ı tutan mümkünse bir daha tutmaz (6.1). |
+| K59 | Bayram geçmişinde el yazısı kağıt esas; Excel yalnızca kağıtta olmayan günler için. 13 Nisan 2024 Fatma, 19 Haziran 2024 Yaren, 29 Ekim 2025 Oğuz (16). |
 
 ---
 

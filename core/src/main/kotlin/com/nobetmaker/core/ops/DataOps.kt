@@ -120,6 +120,23 @@ object AppJson {
                 },
             )
         }
+        if (d.schemaVersion < 8) {
+            // 0.4.5: bayramlarda el yazısı kağıt esas (Excel'le çelişen günler) ve 29 Ekim 2025'i Oğuz tuttu. Yalnızca
+            // o gün hâlâ eski kişi yazılıysa düzeltilir; elle düzeltilmişse dokunulmaz. Kapanmış ayda yeni sürüm açılır.
+            for ((date, old, new) in SeedData.paperCorrections) {
+                val plan = d.month(YearMonth.from(date)) ?: continue
+                val cur = plan.current ?: continue
+                if (cur.personOn(date) != old) continue
+                val list = cur.assignments.map { if (it.date == date) it.copy(personId = new) else it }
+                val note = "Kağıt listeye göre düzeltildi: ${date.dayOfMonth}. gün"
+                val versions = if (plan.status == MonthStatus.TASLAK) plan.versions.dropLast(1) + cur.copy(assignments = list)
+                else plan.versions + RosterVersion(cur.number + 1, cur.createdAt, note, list)
+                d = d.copy(
+                    months = d.months.map { if (it === plan) it.copy(versions = versions) else it },
+                    informalChanges = d.informalChanges.filterNot { it.date == date && it.actualPersonId == new },
+                )
+            }
+        }
         return if (d.schemaVersion == AppData.SCHEMA_VERSION) d else d.copy(schemaVersion = AppData.SCHEMA_VERSION)
     }
 }
