@@ -34,6 +34,7 @@ class CalendarButtonsTest : AppUiTest() {
 
     @Test
     fun ayDegistirmeVeResmiGerceklesen() {
+        goToMonth(YearMonth.of(2026, 10)) // uygulama bugünün ayıyla açılır
         waitForText("Ekim 2026")
         clickDesc("Önceki ay")
         waitForText("Eylül 2026")

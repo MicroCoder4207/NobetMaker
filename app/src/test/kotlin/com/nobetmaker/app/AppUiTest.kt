@@ -177,7 +177,8 @@ abstract class AppUiTest {
      */
     protected fun pickDay(day: Int, monthName: String) {
         waitForText("Tamam")
-        val cell = Regex("^$day $monthName ")
+        // Bugünün hücresi "Bugün, 9 Kasım …" diye okunur; günün önünde başka rakam olmamalı (19, 29).
+        val cell = Regex("(^|\\s)$day $monthName ")
         val matcher = SemanticsMatcher("gün $day") { n ->
             n.config.getOrNull(SemanticsProperties.Text)?.any { cell.containsMatchIn(it.text) } == true
         } and hasAnyAncestor(isDialog()) and hasClickAction()

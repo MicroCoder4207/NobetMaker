@@ -21,6 +21,7 @@ class ScreensTest : AppUiTest() {
 
     @Test
     fun anaAkis() {
+        goToMonth(YearMonth.of(2026, 10)) // uygulama bugünün ayıyla açılır
         waitForText("Ekim 2026")
         shot("01-ekim-resmi")
         click("Gerçekleşen")
@@ -92,6 +93,7 @@ class ScreensTest : AppUiTest() {
     @Test
     @Config(qualifiers = "w1280dp-h800dp-land-hdpi")
     fun tablet() {
+        goToMonth(YearMonth.of(2026, 10)) // uygulama bugünün ayıyla açılır
         waitForText("Ekim 2026")
         shot("t1-tablet-takvim")
         rule.onNodeWithContentDescription("Sonraki ay").performClick()
@@ -105,6 +107,7 @@ class ScreensTest : AppUiTest() {
 
     @Test
     fun disaAktarma() {
+        goToMonth(YearMonth.of(2026, 10)) // uygulama bugünün ayıyla açılır
         waitForText("Ekim 2026")
         rule.activityRule.scenario.onActivity { activity ->
             val data = (activity.application as NobetApp).repository.data.value
