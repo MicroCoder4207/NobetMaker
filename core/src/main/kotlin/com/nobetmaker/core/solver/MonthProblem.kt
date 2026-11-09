@@ -224,15 +224,19 @@ object ProblemBuilder {
             softAvoidLabel[p][i] = "${persons[p].name}: belirsiz ${t.type.label.lowercase()}"
         }
 
-        // 31 Aralık'ı daha önce tutan mümkünse bir daha tutmaz (resmi listeye göre; takaslar değiştirmez).
+        // 31 Aralık'ı ya da 1 Ocak'ı daha önce tutan mümkünse o günü bir daha tutmaz: herkes birer kez (gerçekte tutan).
         for (i in 0 until D) {
-            if (category[i] != Category.YILBASI) continue
+            val day = days[i]
+            val isNewYear = day.monthValue == 1 && day.dayOfMonth == 1
+            if (category[i] != Category.YILBASI && !isNewYear) continue
+            val label = if (isNewYear) "1 Ocak'ı" else "31 Aralık'ı"
             for (p in 0 until P) {
-                val years = roster.official.filter { (date, who) -> who == persons[p].id && date.isBefore(days[i]) && cal.category(date) == Category.YILBASI }
-                    .keys.map { it.year }.sorted()
+                val years = roster.actual.filter { (date, who) ->
+                    who == persons[p].id && date.isBefore(day) && date.monthValue == day.monthValue && date.dayOfMonth == day.dayOfMonth
+                }.keys.map { it.year }.sorted()
                 if (years.isEmpty()) continue
                 softAvoid[p][i] += w.yilbasiRepeat
-                softAvoidLabel[p][i] = "${persons[p].name}: yılbaşını daha önce tuttu (${years.joinToString(", ")})"
+                softAvoidLabel[p][i] = "${persons[p].name}: $label daha önce tuttu (${years.joinToString(", ")})"
             }
         }
 

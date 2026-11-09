@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.sp
 import com.nobetmaker.core.calendar.CalendarService
 import com.nobetmaker.core.calendar.trShort
 import com.nobetmaker.core.model.AppData
-import com.nobetmaker.core.model.DayKind
 import com.nobetmaker.core.model.Person
 import com.nobetmaker.core.model.Visit
 import com.nobetmaker.core.rules.RosterIndex
@@ -70,7 +69,6 @@ fun gridFromData(data: AppData, month: YearMonth, actual: Boolean): List<GridDay
     val locks = data.months.flatMap { m -> m.current?.assignments.orEmpty() }.filter { it.locked }.map { it.date }.toSet()
     val editable = data.month(month)?.status == com.nobetmaker.core.model.MonthStatus.TASLAK
     return weeksOf(month).map { d ->
-        val info = cal.day(d)
         val off = roster.official[d]?.let { persons[it] }
         val act = roster.actual[d]?.let { persons[it] }
         GridDay(
@@ -81,8 +79,8 @@ fun gridFromData(data: AppData, month: YearMonth, actual: Boolean): List<GridDay
             locked = editable && YearMonth.from(d) == month && d in locks,
             visit = cal.hasVisit(d),
             visitUncertain = cal.visit(d) == Visit.BELIRSIZ,
-            holiday = cal.isOfficialHoliday(d) || info.kind == DayKind.YILBASI,
-            holidayName = info.name,
+            holiday = cal.isHolidayShown(d),
+            holidayName = cal.holidayLabel(d),
             weekend = d.dayOfWeek == DayOfWeek.SATURDAY || d.dayOfWeek == DayOfWeek.SUNDAY,
             specialist = !editable && data.month(month) != null && YearMonth.from(d) == month && off == null,
         )
@@ -96,7 +94,6 @@ fun gridFromSolution(data: AppData, pr: MonthProblem, assignment: IntArray): Lis
     val persons = data.persons.associateBy { it.id }
     return weeksOf(pr.month).map { d ->
         val i = pr.days.indexOf(d)
-        val info = cal.day(d)
         GridDay(
             date = d,
             inMonth = i >= 0,
@@ -105,8 +102,8 @@ fun gridFromSolution(data: AppData, pr: MonthProblem, assignment: IntArray): Lis
             locked = i >= 0 && pr.locked[i] != -1,
             visit = cal.hasVisit(d),
             visitUncertain = cal.visit(d) == Visit.BELIRSIZ,
-            holiday = cal.isOfficialHoliday(d) || info.kind == DayKind.YILBASI,
-            holidayName = info.name,
+            holiday = cal.isHolidayShown(d),
+            holidayName = cal.holidayLabel(d),
             weekend = d.dayOfWeek == DayOfWeek.SATURDAY || d.dayOfWeek == DayOfWeek.SUNDAY,
         )
     }

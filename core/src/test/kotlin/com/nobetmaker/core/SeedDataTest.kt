@@ -59,6 +59,19 @@ class SeedDataTest {
     }
 
     @Test
+    fun `kasim 2026 kesinlesmis liste ve hoca kararlariyla gelir`() {
+        val ym = YearMonth.of(2026, 11)
+        val plan = data.month(ym)!!
+        assertEquals(com.nobetmaker.core.model.MonthStatus.YAYINLANDI, plan.status)
+        val list = "Oğuz Yaren Aslı Şule Fatma Kenan Betül Aslı Şule Oğuz Kenan Betül Fatma Aslı Şule Oğuz Betül Fatma Şule Aslı Oğuz Fatma Betül Kenan Oğuz Aslı Betül Şule Kenan Aslı"
+        assertEquals(list.split(" "), (1..30).map { d -> data.person(roster.official.getValue(ym.atDay(d)))!!.name })
+        val q = plan.quotas.associateBy { it.personId }
+        assertEquals(counts(ym), q.mapValues { it.value.final })
+        assertEquals(setOf("yaren", "asli"), q.values.filter { it.manual && it.decision }.map { it.personId }.toSet())
+        assertTrue(plan.current!!.assignments.none { it.locked }, "kalan günler yeniden oluşturulabilir")
+    }
+
+    @Test
     fun `saatler kagittaki hesapla ayni`() {
         // Aralık 2025: kağıtta Fatma 72; kural 31 Aralık'ı 16 saydığı için 80 (bilinçli fark, §19).
         assertEquals(

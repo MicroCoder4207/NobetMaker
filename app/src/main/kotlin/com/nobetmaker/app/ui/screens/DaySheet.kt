@@ -176,8 +176,8 @@ fun DaySheet(vm: AppViewModel, date: LocalDate, candidates: List<CandidateInfo>?
             text = {
                 Text(
                     (if (closed) "Ay kapandı. " else "Liste kesinleşti. ") +
-                        "Resmi kaydı mı değiştiriyorsunuz (bayram ve sıra hesabına girer, yeni sürüm açılır), yoksa yalnızca gerçekte kimin tuttuğunu mu " +
-                        "kaydediyorsunuz (takas, hesabı değiştirmez)?" +
+                        "Resmi kaydı mı değiştiriyorsunuz (nöbet sayısı ve sıralara girer, yeni sürüm açılır), yoksa yalnızca gerçekte kimin tuttuğunu mu " +
+                        "kaydediyorsunuz (takas; sayı ve sıraları değiştirmez, tatil günüyse tatil hesabına girer)?" +
                         if (c.status == CandidateStatus.HARD) "\n\nUyarı, kurala aykırı: ${c.hardReasons.joinToString("; ")}" else "",
                 )
             },

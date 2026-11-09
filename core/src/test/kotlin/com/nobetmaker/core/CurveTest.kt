@@ -20,7 +20,6 @@ import com.nobetmaker.core.ops.DataOps
 import com.nobetmaker.core.rules.Availability
 import com.nobetmaker.core.rules.Coefficients
 import com.nobetmaker.core.rules.RosterIndex
-import com.nobetmaker.core.seed.SeedData
 import com.nobetmaker.core.solver.ProblemBuilder
 import java.time.LocalDate
 import java.time.YearMonth
@@ -33,7 +32,7 @@ import kotlin.test.assertTrue
 /** Kıdem eğrisi, ekipte sayılma, tatil/vizit ayrımı ve uzun hafıza (0.4.0). */
 class CurveTest {
 
-    private val seed = SeedData.build()
+    private val seed = seedBeforeKasim()
     private val nov15 = LocalDate.of(2026, 11, 15)
 
     private fun near(expected: Double, actual: Double, tol: Double = 0.005) =
@@ -234,6 +233,52 @@ class CurveTest {
     }
 
     @Test
+    fun `takvim bayram tatilinin hafta sonlarini da bayram gosterir`() {
+        // 9 günlük bayram tatilinin hafta sonları hesapta bayramdı ama takvimde normal gün görünüyordu.
+        val cal = CalendarService(seed.dayOverrides, seed.settings)
+        for (d in listOf(LocalDate.of(2024, 4, 6), LocalDate.of(2024, 4, 7), LocalDate.of(2024, 4, 13), LocalDate.of(2024, 4, 14),
+            LocalDate.of(2025, 4, 5), LocalDate.of(2025, 4, 6), LocalDate.of(2026, 5, 23), LocalDate.of(2026, 5, 24), LocalDate.of(2026, 5, 31))) {
+            assertEquals(Category.BAYRAM, cal.category(d), "$d")
+            assertTrue(cal.isHolidayShown(d), "$d")
+            assertEquals("Bayram tatili", cal.holidayLabel(d), "$d")
+        }
+        // Arefe ve adı olan günler kendi adıyla; sıradan hafta sonu tatil değil.
+        assertTrue(cal.isHolidayShown(LocalDate.of(2026, 3, 19)))
+        assertTrue(cal.holidayLabel(LocalDate.of(2026, 3, 19))!!.startsWith("Ramazan"))
+        assertFalse(cal.isHolidayShown(LocalDate.of(2026, 11, 7)))
+        assertNull(cal.holidayLabel(LocalDate.of(2026, 11, 7)))
+    }
+
+    @Test
+    fun `tatil hesabinda gercekte tutan sayilir`() {
+        // 1 Ocak 2026: resmi Yaren, gerçekte Fatma. Takas kaydı silinirse Fatma'nın resmi tatil günü bir azalır.
+        val date = LocalDate.of(2026, 1, 1)
+        val without = seed.copy(informalChanges = seed.informalChanges.filterNot { it.date == date })
+        fun resmi(data: com.nobetmaker.core.model.AppData, id: String): Double {
+            val cal = CalendarService(data.dayOverrides, data.settings)
+            val long = Ledger(data, cal, Availability(data, cal), RosterIndex(data)).longMemory(data.persons, LocalDate.of(2026, 11, 1), emptyList())
+            return long.days.getValue(id)[long.categories.indexOf(Category.RESMI_TATIL)]
+        }
+        assertEquals(resmi(without, "fatma") + 1.0, resmi(seed, "fatma"))
+        assertEquals(resmi(without, "yaren") - 1.0, resmi(seed, "yaren"))
+    }
+
+    @Test
+    fun `bir ocagi tutan mumkunse bir daha tutmaz`() {
+        // 1 Ocak 2025 Kenan, 1 Ocak 2026 gerçekte Fatma (resmi Yaren): her biri birer kez.
+        val ym = YearMonth.of(2027, 1)
+        val data = DataOps.ensureMonth(seed, ym)
+        val pr = ProblemBuilder.build(data, ym, quotaOverride = DataOps.quotaMap(data.month(ym)))
+        val day = pr.days.indexOf(LocalDate.of(2027, 1, 1))
+        for ((id, year) in listOf("kenan" to 2025, "fatma" to 2026)) {
+            val p = pr.personIndex(id)
+            assertTrue(pr.softAvoid[p][day] > 0.0, id)
+            assertTrue(pr.softAvoidLabel[p][day]!!.endsWith("1 Ocak'ı daha önce tuttu ($year)"), pr.softAvoidLabel[p][day])
+        }
+        assertEquals(0.0, pr.softAvoid[pr.personIndex("yaren")][day], "Yaren resmi listede vardı ama tutmadı")
+    }
+
+    @Test
     fun `yilbasini tutan mumkunse bir daha tutmaz`() {
         // 31 Aralık 2024'ü Betül, 31 Aralık 2025'i Fatma tuttu.
         val ym = YearMonth.of(2026, 12)
@@ -243,7 +288,7 @@ class CurveTest {
         for ((id, year) in listOf("betul" to 2024, "fatma" to 2025)) {
             val p = pr.personIndex(id)
             assertTrue(pr.softAvoid[p][day] > 0.0, id)
-            assertTrue(pr.softAvoidLabel[p][day]!!.endsWith("yılbaşını daha önce tuttu ($year)"), pr.softAvoidLabel[p][day])
+            assertTrue(pr.softAvoidLabel[p][day]!!.endsWith("31 Aralık'ı daha önce tuttu ($year)"), pr.softAvoidLabel[p][day])
         }
         val a = com.nobetmaker.core.solver.Solver(pr).solve().solutions.first().assignment
         assertTrue(pr.persons[a[day]].id !in setOf("betul", "fatma"), "31 Aralık: ${pr.persons[a[day]].name}")
@@ -303,8 +348,8 @@ class CurveTest {
         assertTrue(bal.getValue("oguz") > 1.5, "Oğuz ${bal["oguz"]}")
         assertTrue(bal.getValue("yaren") > 0.5, "Yaren ${bal["yaren"]}")
         assertTrue(bal.getValue("fatma") > 0.5, "Fatma ${bal["fatma"]}")
-        // 2025 Kurban'ın arefesi (5 Haziran, Fatma) yarım gün.
-        assertEquals(8.5, long.days.getValue("fatma")[bi])
+        // 2025 Kurban'ın arefesi (5 Haziran, Fatma) yarım gün; 20 Mart 2026'yı takasla Fatma tuttu (resmi Betül), o sayılır.
+        assertEquals(9.5, long.days.getValue("fatma")[bi])
     }
 
     @Test

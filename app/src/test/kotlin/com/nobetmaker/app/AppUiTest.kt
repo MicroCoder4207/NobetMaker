@@ -64,6 +64,8 @@ abstract class AppUiTest {
         runCatching {
             (androidx.core.content.FileProvider::class.java.getDeclaredField("sCache").apply { isAccessible = true }.get(null) as MutableMap<*, *>).clear()
         }
+        // Testler Kasım 2026'yı boş ay olarak planlar; 0.4.7'den beri başlangıç verisinde kesinleşmiş gelir.
+        update { d -> d.copy(months = d.months.filter { it.yearMonth != YearMonth.of(2026, 11) }) }
     }
 
     @After

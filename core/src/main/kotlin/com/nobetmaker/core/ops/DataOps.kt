@@ -137,6 +137,27 @@ object AppJson {
                 )
             }
         }
+        if (d.schemaVersion < 9) {
+            // 0.4.7: Kasım 2026'nın kesinleşen listesi ve sayıları (hoca kararı Yaren 1, Aslı 6) uygulamaya işlendi. Ay
+            // kapanmadıysa bu liste resmi olur ve ay kesinleşir; farklı bir taslak ya da liste varsa sürümlerde kalır.
+            val ym = YearMonth.of(2026, 11)
+            val seedPlan = SeedData.build().month(ym)!!
+            val seedList = seedPlan.current!!.assignments.map { it.date to it.personId }.toSet()
+            val plan = d.month(ym)
+            val updated = when {
+                plan == null -> seedPlan
+                plan.status == MonthStatus.KAPANDI -> null
+                else -> {
+                    val same = plan.current?.assignments?.map { it.date to it.personId }?.toSet() == seedList
+                    val number = (plan.versions.maxOfOrNull { it.number } ?: 0) + 1
+                    val versions = if (same) plan.versions else plan.versions + seedPlan.current!!.copy(number = number)
+                    plan.copy(status = MonthStatus.YAYINLANDI, versions = versions, quotas = seedPlan.quotas)
+                }
+            }
+            if (updated != null) {
+                d = d.copy(months = (d.months.filterNot { it.yearMonth == ym } + updated).sortedWith(compareBy({ it.year }, { it.month })))
+            }
+        }
         return if (d.schemaVersion == AppData.SCHEMA_VERSION) d else d.copy(schemaVersion = AppData.SCHEMA_VERSION)
     }
 }

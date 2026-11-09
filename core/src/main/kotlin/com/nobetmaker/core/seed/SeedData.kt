@@ -12,6 +12,7 @@ import com.nobetmaker.core.model.MonthStatus
 import com.nobetmaker.core.model.Person
 import com.nobetmaker.core.model.PersonPalette
 import com.nobetmaker.core.model.PersonRule
+import com.nobetmaker.core.model.QuotaEntry
 import com.nobetmaker.core.model.RosterVersion
 import com.nobetmaker.core.model.RuleType
 import com.nobetmaker.core.model.Visit
@@ -19,8 +20,9 @@ import java.time.LocalDate
 import java.time.YearMonth
 
 /**
- * Uygulamanın ilk açılışta yüklediği başlangıç verisi: ekip ve Nisan 2024 – Ekim 2026 resmi listeleri (§16).
- * Nisan 2024 – Mart 2025 hastanenin Excel çalışma planlarından, sonrası kağıt listelerden aktarıldı.
+ * Uygulamanın ilk açılışta yüklediği başlangıç verisi: ekip ve Nisan 2024 – Kasım 2026 resmi listeleri (§16).
+ * Nisan 2024 – Mart 2025 hastanenin Excel çalışma planlarından, Ekim 2026'ya kadar kağıt listelerden aktarıldı;
+ * Kasım 2026 uygulamada oluşturulup kesinleşti ([plannedQuotas]).
  * Bayramlarda el yazısı kağıt esastır; Excel'le çelişen günler ona göre düzeltildi ([paperCorrections]).
  * "-" asistanın tutmadığı gündür (o dönem uzmanlar tuttu; 21 Nisan 2025'i doğum iznindeki Canay tuttu).
  * Kağıttaki "A (B)" yazımı: resmide A, tutan B. [flagged] okunması belirsiz ya da doğrulanması gereken günlerdir.
@@ -84,6 +86,22 @@ object SeedData {
         Triple(LocalDate.of(2025, 10, 29), "yaren", "oguz"), // 29 Ekim 2025'i Oğuz tuttu
     )
 
+    /**
+     * Uygulamada hazırlanıp kesinleşen ayların nöbet sayıları. Kasım 2026: Yaren 1 ve Aslı 6 hoca kararı (Yaren'den
+     * artanı Aslı'ya verdik); hoca kararı dengeye girmez (§5.4).
+     */
+    val plannedQuotas: Map<YearMonth, List<QuotaEntry>> = mapOf(
+        YearMonth.of(2026, 11) to listOf(
+            QuotaEntry("yaren", suggested = 2, final = 1, manual = true, decision = true),
+            QuotaEntry("kenan", suggested = 4, final = 4),
+            QuotaEntry("fatma", suggested = 4, final = 4),
+            QuotaEntry("betul", suggested = 5, final = 5),
+            QuotaEntry("sule", suggested = 5, final = 5),
+            QuotaEntry("oguz", suggested = 5, final = 5),
+            QuotaEntry("asli", suggested = 5, final = 6, manual = true, decision = true),
+        ),
+    )
+
     /** Ayın resmi listesi, 1'inden başlayarak gün gün. */
     val rosters: Map<YearMonth, String> = linkedMapOf(
         YearMonth.of(2024, 4) to "- - - - - - Yaren - - Yaren - - Fatma - - - - - - - - - - - - - - - Yaren Kenan",
@@ -117,6 +135,7 @@ object SeedData {
         YearMonth.of(2026, 8) to "Oğuz Aslı Betül Fatma Kenan Oğuz Yaren Betül Kenan Şule Yaren Fatma Aslı Kenan Şule Betül Yaren Oğuz Betül Kenan Oğuz Fatma Şule Oğuz Betül Şule Fatma Aslı Kenan Fatma Şule",
         YearMonth.of(2026, 9) to "Aslı Kenan Fatma Aslı Şule Betül Yaren Aslı Şule Betül Fatma Aslı Kenan Oğuz Yaren Betül Aslı Kenan Betül Oğuz Şule Betül Oğuz Yaren Şule Oğuz Fatma Şule Oğuz Fatma",
         YearMonth.of(2026, 10) to "Şule Kenan Oğuz Aslı Yaren Oğuz Fatma Aslı Oğuz Şule Fatma Aslı Kenan Betül Oğuz Fatma Kenan Betül Oğuz Şule Yaren Kenan Betül Aslı Şule Fatma Betül Aslı Fatma Şule Betül",
+        YearMonth.of(2026, 11) to "Oğuz Yaren Aslı Şule Fatma Kenan Betül Aslı Şule Oğuz Kenan Betül Fatma Aslı Şule Oğuz Betül Fatma Şule Aslı Oğuz Fatma Betül Kenan Oğuz Aslı Betül Şule Kenan Aslı",
     )
 
     /** Gerçekte tutan (tarih → kişi). */
@@ -173,14 +192,21 @@ object SeedData {
         val months = rosters.map { (ym, line) ->
             val names = line.split(' ').filter { it.isNotBlank() }
             require(names.size == ym.lengthOfMonth()) { "$ym: ${names.size} isim, ${ym.lengthOfMonth()} gün" }
+            // Uygulamada hazırlanan ayın günleri kilitli değil: "Kalan günleri yeniden oluştur" bugüne kadarını kilitler.
+            val planned = ym in plannedQuotas
             val assignments = names.mapIndexedNotNull { i, name ->
-                if (name == "-") null else Assignment(ym.atDay(i + 1), ids[name] ?: error("Bilinmeyen isim: $name"), locked = true)
+                if (name == "-") null else Assignment(ym.atDay(i + 1), ids[name] ?: error("Bilinmeyen isim: $name"), locked = !planned)
             }
             val status = if (ym < YearMonth.of(2026, 10)) MonthStatus.KAPANDI else MonthStatus.YAYINLANDI
-            val source = if (ym < YearMonth.of(2025, 4) && ym != YearMonth.of(2025, 1)) "Excel çalışma planından aktarıldı" else "Kağıt listeden aktarıldı"
+            val source = when {
+                planned -> "Uygulamada oluşturuldu (istekler ve hoca kararıyla)"
+                ym < YearMonth.of(2025, 4) && ym != YearMonth.of(2025, 1) -> "Excel çalışma planından aktarıldı"
+                else -> "Kağıt listeden aktarıldı"
+            }
             MonthPlan(
                 ym.year, ym.monthValue, status,
-                versions = listOf(RosterVersion(1, "${ym.atDay(1)}T00:00", source, assignments)),
+                quotas = plannedQuotas[ym].orEmpty(),
+                versions = listOf(RosterVersion(1, if (planned) "2026-10-30T12:00" else "${ym.atDay(1)}T00:00", source, assignments)),
             )
         }
         val official = months.flatMap { it.current!!.assignments }.associate { it.date to it.personId }

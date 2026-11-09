@@ -57,14 +57,13 @@ object MonthViewBuilder {
         while (!d.isAfter(end)) {
             val week = (0 until 7).map { k ->
                 val date = d.plusDays(k.toLong())
-                val info = cal.day(date)
                 DayCell(
                     date = date,
                     inMonth = YearMonth.from(date) == month,
                     official = roster.official[date]?.let { persons[it] },
                     actual = roster.actual[date]?.let { persons[it] },
-                    holidayName = info.name,
-                    holiday = cal.isOfficialHoliday(date) || info.kind == com.nobetmaker.core.model.DayKind.YILBASI,
+                    holidayName = cal.holidayLabel(date),
+                    holiday = cal.isHolidayShown(date),
                     weekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY,
                     visit = cal.hasVisit(date),
                     visitUncertain = cal.visit(date) == com.nobetmaker.core.model.Visit.BELIRSIZ,

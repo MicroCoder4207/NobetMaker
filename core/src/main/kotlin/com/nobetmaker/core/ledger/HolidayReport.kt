@@ -48,8 +48,8 @@ class HolidayReport(
 
 /**
  * Bayram ve tatil kayıtları (§6.2): ilk listeden bu yana her bayram, resmi tatil ve yılbaşı günü, o günü kimin
- * tuttuğu ve bugünkü ekibin dengesi. Hesap, bayram dengesiyle aynı yerden (resmi liste) yapılır; ekranda bir gün
- * düzeltildiğinde denge de değişir.
+ * tuttuğu ve bugünkü ekibin dengesi. Hesap bayram dengesiyle aynı yerden yapılır: günü gerçekte tutan sayılır
+ * (takas yapıldıysa takası alan); ekranda bir gün düzeltildiğinde denge de değişir.
  */
 object HolidayReportBuilder {
 

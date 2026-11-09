@@ -105,7 +105,7 @@ class OpsTest {
     @Test
     fun `gercek gecmisle kasim 2026 uretilir ve yayinlanir`() {
         val ym = YearMonth.of(2026, 11)
-        var data = DataOps.ensureMonth(SeedData.build(), ym)
+        var data = DataOps.ensureMonth(seedBeforeKasim(), ym)
         val pr = ProblemBuilder.build(data, ym, quotaOverride = DataOps.quotaMap(data.month(ym)))
         println("kotalar: " + pr.persons.indices.joinToString { "${pr.persons[it].name}=${pr.quotas[it]}" })
         println("uyarılar: " + ConflictDetector.detect(pr))
@@ -260,7 +260,7 @@ class OpsTest {
     fun `hoca karari borc yazmaz kalan gunler dengelenir`() {
         val kasim = YearMonth.of(2026, 11)
         val aralik = YearMonth.of(2026, 12)
-        var data = DataOps.ensureMonth(SeedData.build(), kasim)
+        var data = DataOps.ensureMonth(seedBeforeKasim(), kasim)
         // Hoca: Yaren bu ay 1. Varsayılan olarak hoca kararıdır; kalan 29 gün diğerlerine dağılır.
         data = DataOps.setQuota(data, kasim, "yaren", 1)
         val q = data.month(kasim)!!.quotas
@@ -294,7 +294,8 @@ class OpsTest {
 
     @Test
     fun `0_4_1 verisinde elle sabit sayilar hoca karari olur`() {
-        val ym = YearMonth.of(2026, 11)
+        // Aralık 2026 (Kasım 0.4.7'den beri kesinleşmiş gelir ve göçte yerine konur).
+        val ym = YearMonth.of(2026, 12)
         val base = DataOps.setQuota(DataOps.ensureMonth(SeedData.build(), ym), ym, "yaren", 1)
         val v5 = base.copy(schemaVersion = 5, months = base.months.map { m -> m.copy(quotas = m.quotas.map { it.copy(decision = false) }) })
         val m = AppJson.decode(AppJson.encode(v5))
@@ -307,7 +308,7 @@ class OpsTest {
         val kasim = YearMonth.of(2026, 11)
         val gunler = ("kenan asli oguz sule betul fatma asli oguz kenan betul asli sule kenan oguz fatma " +
             "betul sule oguz yaren asli betul sule oguz asli kenan fatma betul sule asli fatma").split(" ")
-        var data = DataOps.ensureMonth(SeedData.build(), kasim)
+        var data = DataOps.ensureMonth(seedBeforeKasim(), kasim)
         data = DataOps.setQuota(data, kasim, "yaren", 1, decision = true)
         data = DataOps.setQuota(data, kasim, "asli", 6, decision = asliKarar)
         val list = gunler.mapIndexed { i, id -> com.nobetmaker.core.model.Assignment(kasim.atDay(i + 1), id) }
@@ -376,7 +377,7 @@ class OpsTest {
 
     private fun kasimIstekli(requests: List<DutyRequest>): com.nobetmaker.core.solver.MonthProblem {
         val ym = YearMonth.of(2026, 11)
-        var data = DataOps.ensureMonth(SeedData.build(), ym)
+        var data = DataOps.ensureMonth(seedBeforeKasim(), ym)
         data = DataOps.setQuota(data, ym, "yaren", 1, decision = true)
         data = DataOps.setQuota(data, ym, "asli", 6, decision = false)
         data = requests.fold(data) { acc, r -> DataOps.upsertRequest(acc, r) }
@@ -408,7 +409,7 @@ class OpsTest {
         val requests = tabletIstekleri().map { if (it.id == "r7") it.copy(priority = Priority.MUMKUNSE) else it } +
             DutyRequest("r0", "yaren", RequestType.WANT_DATES, Priority.KESIN, dates = listOf(d(2)))
         val ym = YearMonth.of(2026, 11)
-        var data = DataOps.ensureMonth(SeedData.build(), ym)
+        var data = DataOps.ensureMonth(seedBeforeKasim(), ym)
         data = DataOps.setQuota(data, ym, "yaren", 1, decision = true)
         data = DataOps.setQuota(data, ym, "asli", 6, decision = true)
         data = requests.fold(data) { acc, r -> DataOps.upsertRequest(acc, r) }
@@ -436,7 +437,7 @@ class OpsTest {
         // Oğuz 3–23 Aralık izinde: 5 yerine 4 nöbete sığar. Fark grup arkadaşlarına (Şule, Aslı) bölünüyordu.
         val kasim = YearMonth.of(2026, 11)
         val aralik = YearMonth.of(2026, 12)
-        var data = DataOps.ensureMonth(SeedData.build(), kasim)
+        var data = DataOps.ensureMonth(seedBeforeKasim(), kasim)
         val pk = ProblemBuilder.build(data, kasim, quotaOverride = DataOps.quotaMap(data.month(kasim)))
         data = DataOps.applySolution(data, pk, Solver(pk).solve().solutions.first().assignment)
         data = DataOps.ensureMonth(data, aralik)
@@ -474,11 +475,39 @@ class OpsTest {
     }
 
     @Test
+    fun `0_4_6 verisine kasim listesi islenir`() {
+        val ym = YearMonth.of(2026, 11)
+        val seedPlan = SeedData.build().month(ym)!!
+        fun list(d: com.nobetmaker.core.model.AppData) = d.month(ym)?.current?.assignments?.map { it.date to it.personId }
+        // Kasım hiç yoksa eklenir.
+        val none = AppJson.decode(AppJson.encode(seedBeforeKasim().copy(schemaVersion = 8)))
+        assertEquals(list(SeedData.build()), list(none))
+        assertEquals(MonthStatus.YAYINLANDI, none.month(ym)!!.status)
+        // Başka bir taslak varsa liste yeni sürüm olur, taslak sürümlerde kalır; sayılar ve hoca kararları gelir.
+        var draft = DataOps.ensureMonth(seedBeforeKasim(), ym)
+        val pr = ProblemBuilder.build(draft, ym, quotaOverride = DataOps.quotaMap(draft.month(ym)))
+        draft = DataOps.applySolution(draft, pr, Solver(pr).solve().solutions.first().assignment)
+        val m = AppJson.decode(AppJson.encode(draft.copy(schemaVersion = 8)))
+        assertEquals(list(SeedData.build()), list(m))
+        assertEquals(MonthStatus.YAYINLANDI, m.month(ym)!!.status)
+        assertEquals(draft.month(ym)!!.versions.size + 1, m.month(ym)!!.versions.size)
+        assertEquals(seedPlan.quotas, m.month(ym)!!.quotas)
+        // Kapanmış aya dokunulmaz.
+        val closed = DataOps.setStatus(draft, ym, MonthStatus.KAPANDI).copy(schemaVersion = 8)
+        assertEquals(list(draft), list(AppJson.decode(AppJson.encode(closed))))
+    }
+
+    @Test
     fun `0_4_2 verisinde ondan fazla verilen sayi hoca karari olmaktan cikar`() {
-        val kasim = YearMonth.of(2026, 11)
-        val v6 = telefondakiKasim(asliKarar = true).let { it.copy(schemaVersion = 6) }
-        val m = AppJson.decode(AppJson.encode(v6))
-        val q = m.month(kasim)!!.quotas.associateBy { it.personId }
+        // Hoca Yaren'i 1'e düşürdü, artanı Aslı'ya biz verdik; 0.4.2 ikisini de hoca kararı saymıştı. (Aralık 2026:
+        // Kasım 0.4.7'den beri kesinleşmiş gelir.)
+        val ym = YearMonth.of(2026, 12)
+        var data = DataOps.ensureMonth(SeedData.build(), ym)
+        val asli = data.month(ym)!!.quotas.single { it.personId == "asli" }.final
+        data = DataOps.setQuota(data, ym, "yaren", 1, decision = true)
+        data = DataOps.setQuota(data, ym, "asli", asli + 1, decision = true)
+        val m = AppJson.decode(AppJson.encode(data.copy(schemaVersion = 6)))
+        val q = m.month(ym)!!.quotas.associateBy { it.personId }
         assertTrue(q.getValue("yaren").decision, "hocanın düşürdüğü sayı karar olarak kalır")
         assertTrue(q.getValue("asli").manual && !q.getValue("asli").decision, "artanı Aslı'ya biz verdik")
         // Sayı dengesi başlangıcından önceki aylara dokunulmaz.
@@ -490,7 +519,7 @@ class OpsTest {
     @Test
     fun `elle degisen nobet sayisi digerlerine dagilir`() {
         val ym = YearMonth.of(2026, 11)
-        var data = DataOps.ensureMonth(SeedData.build(), ym)
+        var data = DataOps.ensureMonth(seedBeforeKasim(), ym)
         val before = data.month(ym)!!.quotas.associate { it.personId to it.final }
         assertEquals(30, before.values.sum())
         // Yaren bu ay tutmayacak: 0'a indirilince 2 günü diğerlerine dağılmalı.

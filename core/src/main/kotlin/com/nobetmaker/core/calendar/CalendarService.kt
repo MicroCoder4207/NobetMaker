@@ -100,6 +100,16 @@ class CalendarService(overrides: List<DayInfo>, private val settings: Settings) 
 
     fun isWorkday(date: LocalDate): Boolean = holidayFraction(date) == 0.0
 
+    /**
+     * Takvimde tatil olarak gösterilen gün: bayram, resmi tatil ve yılbaşı hesabına giren her gün (9 günlük bayram
+     * tatilinin hafta sonları ve arefe dahil).
+     */
+    fun isHolidayShown(date: LocalDate): Boolean =
+        isOfficialHoliday(date) || day(date).kind == DayKind.YILBASI || category(date) in Category.LONG_MEMORY
+
+    /** Gösterilecek tatil adı; bayram tatilinin adı olmayan hafta sonu günleri "Bayram tatili". */
+    fun holidayLabel(date: LocalDate): String? = day(date).name ?: if (category(date) == Category.BAYRAM) "Bayram tatili" else null
+
     fun isOfficialHoliday(date: LocalDate): Boolean = when (day(date).kind) {
         DayKind.RESMI_TATIL, DayKind.BAYRAM, DayKind.AREFE, DayKind.IDARI_IZIN -> true
         else -> false

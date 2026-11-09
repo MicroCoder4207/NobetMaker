@@ -141,7 +141,7 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
             Stepper("3 gün aralık", w.gap3, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(gap3 = v)) } }
             Stepper("4 gün aralık", w.gap4, 1.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(gap4 = v)) } }
             Stepper("Ayda ikinci pazartesi", w.mondayRepeat, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(mondayRepeat = v)) } }
-            Stepper("Yılbaşını ikinci kez tutma", w.yilbasiRepeat, 10.0, 0.0, 500.0, int) { v -> set { it.copy(penalties = w.copy(yilbasiRepeat = v)) } }
+            Stepper("31 Aralık / 1 Ocak'ı ikinci kez tutma", w.yilbasiRepeat, 10.0, 0.0, 500.0, int) { v -> set { it.copy(penalties = w.copy(yilbasiRepeat = v)) } }
             Stepper("Sal–Per aynı güne 2. kez", w.weekdayRepeat, 1.0, 0.0, 100.0, int) { v -> set { it.copy(penalties = w.copy(weekdayRepeat = v)) } }
             Stepper("Aynı ikili sıranın tekrarı", w.sequenceRepeat, 1.0, 0.0, 100.0, int) { v -> set { it.copy(penalties = w.copy(sequenceRepeat = v)) } }
             Stepper("Aynı bayramda 2. gün", w.sameBayram, 5.0, 0.0, 300.0, int) { v -> set { it.copy(penalties = w.copy(sameBayram = v)) } }
@@ -161,7 +161,7 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav) {
                 }
             }, Modifier.fillMaxWidth()) { Text("Başlangıç verisine dön") }
         }
-        Text("NöbetMaker 0.4.6", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("NöbetMaker 0.4.7", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.padding(16.dp))
     }
 

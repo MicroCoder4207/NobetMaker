@@ -36,7 +36,7 @@ data class AppData(
     fun month(ym: YearMonth): MonthPlan? = months.firstOrNull { it.year == ym.year && it.month == ym.monthValue }
 
     companion object {
-        const val SCHEMA_VERSION = 8
+        const val SCHEMA_VERSION = 9
     }
 }
 
@@ -347,7 +347,7 @@ data class PenaltyWeights(
     /** Ard arda iki günün aynı ikiliyle (ör. Aslı → Oğuz) ayda bir kez daha dizilmesi. */
     val sequenceRepeat: Double = 8.0,
     val sameBayram: Double = 40.0,
-    /** Daha önce 31 Aralık tutana yeniden yılbaşı ("mümkünse" bir daha tutmasın). */
+    /** Daha önce 31 Aralık ya da 1 Ocak tutana yeniden aynı gün ("mümkünse" bir daha tutmasın). */
     val yilbasiRepeat: Double = 120.0,
 )
 

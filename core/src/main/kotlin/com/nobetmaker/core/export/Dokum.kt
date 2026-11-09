@@ -200,11 +200,14 @@ object DokumBuilder {
         val hardGroups = setOf(RotationGroup.VIZIT, RotationGroup.CUMA, RotationGroup.PAZAR)
         val hardDays = days.count { cal.rotationGroup(it, history = false) in hardGroups }
         val weekenders = rows.count { !it.noWeekend }
-        notes += "Zor günler (cuma, cumartesi, pazar): hafta sonu tutan herkes eşit sayıda tutar; fazla gün önce çömezlere, eksik gün önce kıdemliden, kademesinde sırayla."
+        notes += "Zor günler (cuma, cumartesi, pazar) herkese eşit; fazlası önce çömeze, eksiği önce kıdemliden."
         if (hardDays > 0 && weekenders > 0) notes += "Bu ay $hardDays zor gün, $weekenders kişi: ${Dokum.hardSplit(hardDays, weekenders)}."
-        notes += "Cumartesi tutan kıdemliye pazar, kimseye aynı ay üçü birden yazılmaz; zor gün yetmezse en az esneyen dağılım seçilir."
-        notes += "Hoca kararıyla sayısı düşen kişinin zor gün payı da aynı oranda düşer; artan sayı payı değiştirmez. Uzatmada cuma, cumartesi, pazar ve tatil yok."
-        if (days.any { cal.category(it) == Category.YILBASI }) notes += "31 Aralık'ı daha önce tutan mümkünse bir daha tutmaz."
+        notes += "Cumartesi tutan kıdemliye pazar, kimseye üç zor gün yazılmaz (zorunlu değilse)."
+        notes += "Hoca kararıyla sayı düşerse zor gün payı da aynı oranda düşer."
+        notes += "Uzatmada cuma, cumartesi, pazar ve tatil yok."
+        if (days.any { cal.category(it) == Category.YILBASI || (it.monthValue == 1 && it.dayOfMonth == 1) }) {
+            notes += "31 Aralık'ı ve 1 Ocak'ı tutan mümkünse aynı günü bir daha tutmaz."
+        }
         notes += "Pazartesi ve perşembe son $months aya göre herkese eşit sırayla döner."
         val satDays = days.filter { it.dayOfWeek == DayOfWeek.SATURDAY && cal.rotationGroup(it, history = false) == RotationGroup.VIZIT }
         if (satDays.isNotEmpty() && plan?.current != null) {
@@ -217,7 +220,8 @@ object DokumBuilder {
         }
         val since = maxOf(roster.official.keys.minOrNull() ?: data.settings.longMemoryStart, data.settings.longMemoryStart)
         notes += "Bayram, resmi tatil ve yılbaşı ilk listeden (${monthNameTr(since.monthValue)} ${since.year}) beri sayılır; geride olan önce yazılır."
-        notes += "Yeni başlayana ilk ay vizit yazılmaz. Takaslar hesabı değiştirmez."
+        notes += "Yeni başlayana ilk ay vizit yazılmaz."
+        notes += "Tatillerde gerçekte tutan sayılır; nöbet sayısı ve sıralar resmi listeden."
         // Hoca kararı borç yazmaz; bizim elle verdiğimiz sayının farkı sonraki aylarda dengelenir (§5.4).
         val decided = rows.filter { r -> r.person.id in ruled || plan?.quotas.orEmpty().any { it.personId == r.person.id && it.manual && it.decision } }
             .sortedBy { it.person.seniority }

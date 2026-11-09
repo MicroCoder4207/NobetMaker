@@ -357,7 +357,8 @@ class Ledger(
     /**
      * Bayram, resmi tatil ve yılbaşı dengesi (§6). Her olayın günleri, o gün ekipte olan asistanlar arasında
      * o günkü zor gün katsayısıyla paylaştırılır; yalnızca asistanların tuttuğu günler paylaşılır (uzman günleri
-     * hesaba girmez). Arefe gibi yarım günler yarım sayılır. Planlanan ayın tatilleri de beklentiye eklenir.
+     * hesaba girmez). Arefe gibi yarım günler yarım sayılır. Günü gerçekte tutan sayılır (takas yapıldıysa takası
+     * alan, 0.4.7). Planlanan ayın tatilleri de beklentiye eklenir.
      */
     fun longMemory(
         persons: List<Person>,
@@ -381,7 +382,7 @@ class Ledger(
         }
         for ((key, dates) in grouped) {
             val days = HashMap<String, Double>()
-            for (d in dates) days.merge(roster.official.getValue(d), cal.longWeight(d), Double::plus)
+            for (d in dates) days.merge(roster.actual[d] ?: roster.official.getValue(d), cal.longWeight(d), Double::plus)
             val present = everyone.filter { p -> days.containsKey(p.id) || dates.any { availability.eligibleForShare(p, it) } }
             events += Event(key.first.eventKind!!, dates, days, present.map { it.id }.toSet())
         }

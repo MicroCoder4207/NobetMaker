@@ -327,7 +327,8 @@ Defter, her kişinin her kategoride ne kadar yük taşıdığını izler. Sonrak
   - Uzun hafıza (Bayram, Resmi tatil, Yılbaşı): **ilk resmi listeden (Nisan 2024) beri** tüm geçmiş.
 - **Uzun hafızalı kategorilerde ölçü:** Her olayın (bir bayram tatili, bir resmi tatil, bir yılbaşı gecesi) günleri, o gün ekipte olan asistanlar arasında **o günkü zor gün katsayısıyla** paylaştırılır. Sapma = tuttuğu gün − payı.
   - Yalnızca asistanların tuttuğu günler paylaştırılır; 2024'te bayramların üçte ikisini uzmanlar tuttu, o günler kimseye borç ya da alacak yazmaz.
-  - Bayram tatili bütün olarak sayılır: idari izinle 9 güne çıkan tatilde idari izin günleri ve bitişik hafta sonları da bayramdır. Arefe yarım gün sayılır (idari izne bağlanan arefe tam gün).
+  - Bayram tatili bütün olarak sayılır: idari izinle 9 güne çıkan tatilde idari izin günleri ve bitişik hafta sonları da bayramdır (ör. 6–14 Nisan 2024, 29 Mart – 6 Nisan 2025, 23–31 Mayıs 2026). Takvim ve paylaşılan görsel bu hafta sonlarını da "Bayram tatili" diye renklendirir (0.4.7). Arefe yarım gün sayılır (idari izne bağlanan arefe tam gün).
+  - **Günü gerçekte tutan sayılır (0.4.7):** takasla tatil tutan tatil hesabına yazılır, resmi listedeki değil. Ör. 1 Ocak 2026 ve 20 Mart 2026'yı Fatma tuttu (resmi Yaren ve Betül), 15 Temmuz 2025'i Yaren tuttu (resmi Fatma). Nöbet sayısı ve sıralar resmi listeden devam eder; orada takas bire bir değiş tokuştur.
   - Tatil günleri yalnızca kendi kategorisinde sayılır, sıra gruplarına (6.1) girmez. Böylece tatilde vizit olup olmadığının bilinmemesi hesabı etkilemez.
   - Puan yerine gün sayısı kullanılır.
 - Salı ve Çarşamba dengelenmez. Toplam nöbet sayısı zaten kota ile dengelenir.
@@ -341,7 +342,7 @@ Eski kağıt ve Excel listeleri bazı bayramlarda birbirini tutmuyor; vizit de �
 
 - **Denge tablosu:** Bugünkü ekip için Yılbaşı, Bayram ve Resmi tatil: durum ("dengede", "1 gün geride") ve altında tutulan / payı (gün). Tatil tutmayanlar (Yaren) "—".
 - **Olaylar:** Yeniden eskiye her olay (ör. "Kurban Bayramı 2026 · 9 gün") ve günleri: gün türü, yarım gün, vizit, resmi kişi (ya da Uzman), takasla gerçekte tutan, türü elle değiştiyse işareti.
-- **Bir güne dokununca:** resmi kayıt (hesaba girer; kapanmış ayda yeni sürüm), gerçekte tutan (takas; hesaba girmez), gün türü (normal, bayram, arefe, idari izin, resmi tatil, yılbaşı) ve vizit düzeltilir. Denge hemen yeniden hesaplanır.
+- **Bir güne dokununca:** resmi kayıt (nöbet sayısı ve sıralara girer; kapanmış ayda yeni sürüm), gerçekte tutan (takas; tatil hesabına bu girer, 0.4.7), gün türü (normal, bayram, arefe, idari izin, resmi tatil, yılbaşı) ve vizit düzeltilir. Denge hemen yeniden hesaplanır.
 - Gün türü değişince bayram günleri yakındaki bayramın olayına bağlanır; takvimdeki türe dönülünce elle kayıt kalkar (vizit işareti korunur).
 
 ### 6.1 Sıra (vizit, Cuma, Pazar, Perşembe, Pazartesi)
@@ -364,7 +365,7 @@ Elle hazırlanan listelerde zor günler sırayla döner. Cumartesi Ağustos 2026
     - **Denge kademe içinde:** çömezin tuttuğu zor gün çömezler, son yıldakinin tuttuğu son yıldakiler arasında eşit paylaşılır (son 6 ay). Cuma ve pazar sıraları da böyle. Hafta sonu tutmayan (uzatma) zor gün düzenine girmez; uzatmada cuma da yazılmaz.
     - **İstekler ve izin sayıyı değiştirmez (K22, 0.4.5):** kişinin zor gün payı yalnızca ekipte olmasına bağlıdır; istek ve izin yalnızca hangi günleri tutabileceğini belirler. Sığmayan pay defterde kalır, sonraki aylarda telafi edilir. İstekler dağılımı yine de değiştirirse (ör. biri bütün cuma ve pazarlarını kapattı) uygulama istek olmadan kurulan sırayla karşılaştırıp seçeneklerde ve Kontrol sekmesinde yazar: "İstekler zor gün dağılımını değiştirdi: Aslı 3 → 1, Betül 2 → 3 (sebep: Aslı: … olmasın). Fark sonraki aylarda dengelenir."
     - **Hoca kararı olan ay (0.4.6):** kişinin zor gün payı sayısıyla orantılıdır. Hoca düşürdüyse (ör. sınav, 4 yerine 2) payı da aynı oranda düşer ve payından fazla zor gün almaz (2 yerine 1); artırdıysa (ör. Aslı 6) payı değişmez; 0 dediyse zor gün düzenine girmez. Zor gün defterinde de pay bu oranla hesaplanır, borç yazılmaz. 0.4.5 hoca kararı olan herkesi hafta sonundan çıkarıyordu: Aslı'nın 6'sı hoca kararı işaretliyken Aslı hiç zor gün tutmadı, Betül, Şule ve Oğuz üçer gün, Fatma cumartesi tuttu.
-    - **Yılbaşı (0.4.5):** 31 Aralık'ı daha önce tutan (resmi listeye göre) mümkünse bir daha tutmaz: 2024 Betül, 2025 Fatma. Çiğnenirse seçeneklerde "✗" satırı olarak görünür; ağırlığı Ayarlar'da.
+    - **31 Aralık ve 1 Ocak (0.4.5, 0.4.7):** mümkünse herkes birer kez 31 Aralık, birer kez 1 Ocak tutar: günü daha önce tutan (gerçekte tutan) o günü bir daha tutmaz. 31 Aralık: 2024 Betül, 2025 Fatma; 1 Ocak: 2025 Kenan, 2026 Fatma. Çiğnenirse seçeneklerde "✗" satırı olarak görünür; ağırlığı Ayarlar'da.
     - Şimdiki 6 kişiyle: 12 zor günlü aylarda (Aralık, Şubat, Mart, Nisan, Haziran) herkes 2; Mayıs 2027'de (11) bir kıdemli 1; Ocak ve Temmuz 2027'de (14) iki çömez 3. Kıdemlinin ayrıcalığı: vizitli cumartesi yok, ayda bir nöbet az, fazla zor gün önce çömezde. Bölümün kendi listelerinde de böyleydi: Haziran–Kasım 2026'da Kenan 13, Fatma 12, Betül 13, Şule 14, Oğuz 13 zor gün.
     - Neden (0.4.4): 0.4.2–0.4.3'te kıdemlinin zor gün payı kıdem eğrisinden (0,66) geliyordu. 6 kişi ve 12 zor günle "üçü birden yok" kuralı herkese 2 demek; 0,66 ancak çömezlere üç gün yazılarak işliyordu. Aralık 2026'da Kenan'a yalnız pazar, Oğuz'a cuma + cumartesi + pazar düştü (cumalar ileriye bakmadan dağıtılıyordu).
     - Tatil günleri (bayram, resmi tatil, yılbaşı; ör. vizitli 29 Ekim) zor gün toplamına girmez, kendi uzun hafızasında sayılır (K37); iki kez sayılmaz.
@@ -620,7 +621,7 @@ Resmi listenin görseline (takvimin altına), PDF'ine (ikinci sayfa) ve Excel'in
 - Kişi başına bir satır: asistanlık yılı, nöbet ve zor gün katsayısı, nöbet sayısı ve saat, bu ay tuttuğu Cuma/Cumartesi/Pazar, cumartesi durumu ("ayda bir" ve son 6 aydaki sayısı; son yıldakilerde "sırayla · sırada 1. · son 22 Ağu"; son yıla giren için "sıraya giriyor"), bayram ve resmi tatil dengesi (tam gün olarak: "dengede", "1 gün geride", "2 gün önde"; yarım günler gösterilmez).
 - Elle ya da kuralla sabitlenen sayılar yıldızla işaretlenir ve notlarda yazar.
 - Kıdem eğrisi grafiği: herkes aynı çizgi üzerinde, adıyla bir nokta (isimler birbirine ve noktalara çarpmayacak yere yazılır).
-- "Nasıl hesaplandı" notları: kıdem eğrisi değerleri; cumartesi kuralı ve gelecek ayın artan cumartesi sırası (ör. "Artan cumartesi sırası (Aralık 2026): Fatma → Kenan → Betül."), son yıla girenler; son yıldakine aynı ay cumartesi ve pazar yazılmadığı; Cuma/Pazar/Pazartesi/Perşembe sırası; bu ay cumartesi tutmayan çömezin gelecek ay önce yazılacağı; bayram/tatil dengesinin ilk listeden beri sayıldığı; ilk ay kuralı; takasların hesaba girmediği.
+- "Nasıl hesaplandı" notları: kıdem eğrisi değerleri; cumartesi kuralı ve gelecek ayın artan cumartesi sırası (ör. "Artan cumartesi sırası (Aralık 2026): Fatma → Kenan → Betül."), son yıla girenler; son yıldakine aynı ay cumartesi ve pazar yazılmadığı; Cuma/Pazar/Pazartesi/Perşembe sırası; bu ay cumartesi tutmayan çömezin gelecek ay önce yazılacağı; bayram/tatil dengesinin ilk listeden beri sayıldığı; ilk ay kuralı; tatillerde gerçekte tutanın sayıldığı. Notlar görselde tek satıra sığacak kadar kısadır (0.4.7).
 - İstek karşılanma oranları görsele konmaz ("onunki karşılandı benimki karşılanmadı" tartışması çıkmasın).
 - Liste elle değiştirilse de döküm yayınlanan listeden çizilir; denge her seferinde resmi listeden yeniden hesaplandığı için elle değişiklik sonraki aylarda kendiliğinden telafi edilir.
 
@@ -654,7 +655,7 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 
 ## 16. Geçmiş verilerin aktarımı
 
-0.4.0'dan itibaren **Nisan 2024 – Ekim 2026 resmi listelerinin tamamı** uygulamada:
+0.4.0'dan itibaren **Nisan 2024 – Ekim 2026 resmi listelerinin tamamı** uygulamada; 0.4.7'den beri **Kasım 2026** da (uygulamada istekler ve hoca kararıyla oluşturulup kesinleşen liste; hoca kararı: Yaren 1, Aslı 6 — Yaren'den artanı Aslı'ya verdik). Eski sürümden gelen veride göç (v9) Kasım'ı, ay kapanmadıysa bu listeyle kesinleştirir; farklı bir taslak varsa sürümlerde kalır.
 
 - **Nisan 2024 – Mart 2025:** hastanenin Excel çalışma planlarının "Nöbet" sütunundan. Boş günleri uzmanlar tuttu (uygulamada "Uzman" yazar). Şubat 2025 dosyasının başlığı yanlışlıkla "Ocak" yazıyor; tarih sütunu esas alındı.
 - **Ocak 2025 ve Nisan – Ekim 2025:** kağıt listelerin fotoğraflarından (Ocak 2025'te parantez içindeki saatler kontrolde kullanıldı: Kenan 64, Yaren 72, Fatma 104, Betül 88).
@@ -756,6 +757,9 @@ Defter ve istatistikler ayrı bir Excel dosyası olarak dışa aktarılabilir. B
 | K57 | İzinli ayda sayı farkı kişinin kendisine yazılır, sonraki aylarda telafi edilir (5.4). |
 | K58 | Uzatmada cuma da yazılmaz. 31 Aralık'ı tutan mümkünse bir daha tutmaz (6.1). |
 | K59 | Bayram geçmişinde el yazısı kağıt esas; Excel yalnızca kağıtta olmayan günler için. 13 Nisan 2024 Fatma, 19 Haziran 2024 Yaren, 29 Ekim 2025 Oğuz (16). |
+| K60 | Tatil hesabında (bayram, arefe, resmi tatil, yılbaşı) günü gerçekte tutan sayılır; nöbet sayısı ve sıralar resmi listeden (6). Arefe yarım gün kalır. |
+| K61 | Mümkünse herkes birer kez 31 Aralık ve birer kez 1 Ocak tutar (6.1). |
+| K62 | Takvim ve görsel 9 günlük bayram tatilinin hafta sonlarını da bayram gösterir. Kasım 2026 listesi uygulamaya işlendi (16). |
 
 ---
 

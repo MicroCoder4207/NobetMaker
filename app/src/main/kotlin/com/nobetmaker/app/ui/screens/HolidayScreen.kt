@@ -91,7 +91,7 @@ fun HolidayScreen(vm: AppViewModel, nav: Nav) {
                 style = MaterialTheme.typography.bodySmall,
             )
             Text(
-                "Resmi kayıt hesaba girer; \"gerçekte tutan\" (takas) girmez. Arefe yarım gün sayılır; uzmanın tuttuğu gün asistan hesabına girmez. " +
+                "Tatil hesabına günü gerçekte tutan girer (takas yapıldıysa takası alan). Arefe yarım gün sayılır; uzmanın tuttuğu gün asistan hesabına girmez. " +
                     "Her günün payı o gün ekipte olanlar arasında o günkü katsayıyla bölünür.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -206,11 +206,11 @@ fun HolidayDayDialog(vm: AppViewModel, date: LocalDate, onDismiss: () -> Unit) {
         title = { Text("${date.trFormat()} ${date.dayOfWeek.trName()}") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Resmi kayıt (hesaba girer)", style = MaterialTheme.typography.labelLarge)
+                Text("Resmi kayıt (nöbet sayısı ve sıralar)", style = MaterialTheme.typography.labelLarge)
                 ChoiceField("Tutan", ids, official ?: "", { data.person(it)?.name ?: "Uzman (asistan yok)" }, { id ->
                     if (id != (official ?: "")) vm.update("Resmi kayıt düzeltildi") { DataOps.correctDay(it, date, id.ifEmpty { null }) }
                 }, Modifier.fillMaxWidth())
-                Text("Gerçekte tutan (takas, hesaba girmez)", style = MaterialTheme.typography.labelLarge)
+                Text("Gerçekte tutan (takas; tatil hesabına bu girer)", style = MaterialTheme.typography.labelLarge)
                 if (official == null) {
                     Text("Resmi kayıt uzman; önce resmi kaydı seçin.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
